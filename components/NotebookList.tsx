@@ -91,11 +91,37 @@ export default function NotebookList({ items }: { items: NotebookItem[] }) {
                 >
                   Löschen
                 </button>
+
+                <button
+                  onClick={async () => {
+                    const id = (n.id ?? n._id) as string;
+                    const from = Number(prompt("Seiten von:", "1") || "1");
+                    const to = Number(prompt("…bis:", "10") || "10");
+                    if (!from || !to) return;
+                    const res = await fetch(`/api/notebooks/${id}/pages/batch`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ from, to }),
+                    });
+                    if (res.ok) alert("Seiten erzeugt. QR-Token sind bereit (Route /s/<token>).");
+                  }}
+                  className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+                >
+                  Seiten erzeugen
+                </button>
+
               </div>
+
+
+
+
             </li>
           );
         })}
       </ul>
     </div>
+
+
+
   );
 }
