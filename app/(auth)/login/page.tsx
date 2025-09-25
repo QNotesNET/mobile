@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function RegisterPage() {
+export default function LoginPage() {
   const r = useRouter();
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -15,13 +15,11 @@ export default function RegisterPage() {
 
     const form = new FormData(e.currentTarget);
     const payload = {
-      firstName: String(form.get("firstName") || ""),
-      lastName: String(form.get("lastName") || ""),
       email: String(form.get("email") || ""),
       password: String(form.get("password") || ""),
     };
 
-    const res = await fetch("/api/auth/register", {
+    const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -30,28 +28,24 @@ export default function RegisterPage() {
     const data = await res.json().catch(() => ({}));
     setLoading(false);
 
-    if (!res.ok) return setErr(data?.error || "Fehler bei der Registrierung");
+    if (!res.ok) return setErr(data?.error || "Login fehlgeschlagen");
 
     r.replace("/"); // ggf. /dashboard
   }
 
   return (
     <main className="max-w-md mx-auto p-6">
-      <h1 className="text-2xl font-semibold mb-4">Konto erstellen</h1>
+      <h1 className="text-2xl font-semibold mb-4">Login</h1>
       <form onSubmit={onSubmit} className="grid gap-3">
-        <div className="grid grid-cols-2 gap-3">
-          <input name="firstName" placeholder="Vorname" className="border rounded p-2" required />
-          <input name="lastName" placeholder="Nachname" className="border rounded p-2" required />
-        </div>
         <input name="email" type="email" placeholder="E-Mail" className="border rounded p-2" required />
-        <input name="password" type="password" placeholder="Passwort (min. 8 Zeichen)" className="border rounded p-2" required />
+        <input name="password" type="password" placeholder="Passwort" className="border rounded p-2" required />
         {err && <p className="text-red-600 text-sm">{err}</p>}
         <button disabled={loading} className="bg-black text-white rounded p-2 disabled:opacity-50">
-          {loading ? "Lädt..." : "Registrieren"}
+          {loading ? "Lädt..." : "Einloggen"}
         </button>
       </form>
       <p className="text-sm mt-3">
-        Schon ein Konto? <a href="/login" className="underline">Einloggen</a>
+        Neu hier? <a href="/register" className="underline">Konto erstellen</a>
       </p>
     </main>
   );
