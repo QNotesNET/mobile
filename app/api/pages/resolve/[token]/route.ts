@@ -1,25 +1,17 @@
 // app/api/pages/resolve/[token]/route.ts
-export const runtime = "nodejs";
-
 import { NextResponse } from "next/server";
 import { connectToDB } from "@/lib/mongoose";
-import PageModel, { PageDoc } from "@/models/PageModel";
+import Page from "@/models/PageModel";
 
-export async function GET(req: Request) {
-  // token direkt aus der URL ziehen, kein context-Param nötig
-  const url = new URL(req.url);
-  const segments = url.pathname.split("/"); // ["", "api", "pages", "resolve", "{token}"]
-  const token = segments[segments.length - 1];
-
-  if (!token) {
-    return NextResponse.json({ error: "Missing token" }, { status: 400 });
-  }
-
+export async function GET(
+  _req: Request,
+  { params }: { params: { token: string } }
+) {
   await connectToDB();
 
-  const page = await PageModel.findOne({ pageToken: token })
-    .lean<PageDoc>()
-    .exec();
+  const page = await Page.findOne({ pageToken: params.token })
+    .select({ _id: 1, notebookId: 1, pageIndex: 1 })
+    .lean<{ _id: unknown; notebookId: unknown; pageIndex: number } | null>();
 
   if (!page) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
