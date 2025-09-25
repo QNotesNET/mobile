@@ -1,12 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function RegisterPage() {
   const r = useRouter();
+  const sp = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // nur interne Pfade erlauben
+  const rawNext = sp.get("next") || "/";
+  const nextUrl = rawNext.startsWith("/") ? rawNext : "/";
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,7 +37,7 @@ export default function RegisterPage() {
 
     if (!res.ok) return setErr(data?.error || "Fehler bei der Registrierung");
 
-    r.replace("/"); // ggf. /dashboard
+    r.replace(nextUrl);
   }
 
   return (
@@ -51,7 +56,7 @@ export default function RegisterPage() {
         </button>
       </form>
       <p className="text-sm mt-3">
-        Schon ein Konto? <a href="/login" className="underline">Einloggen</a>
+        Schon ein Konto? <a href={`/login?next=${encodeURIComponent(nextUrl)}`} className="underline">Einloggen</a>
       </p>
     </main>
   );

@@ -1,12 +1,17 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
   const r = useRouter();
+  const sp = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  // nur interne Pfade erlauben
+  const rawNext = sp.get("next") || "/";
+  const nextUrl = rawNext.startsWith("/") ? rawNext : "/";
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -30,7 +35,7 @@ export default function LoginPage() {
 
     if (!res.ok) return setErr(data?.error || "Login fehlgeschlagen");
 
-    r.replace("/"); // ggf. /dashboard
+    r.replace(nextUrl);
   }
 
   return (
@@ -45,7 +50,7 @@ export default function LoginPage() {
         </button>
       </form>
       <p className="text-sm mt-3">
-        Neu hier? <a href="/register" className="underline">Konto erstellen</a>
+        Neu hier? <a href={`/register?next=${encodeURIComponent(nextUrl)}`} className="underline">Konto erstellen</a>
       </p>
     </main>
   );
