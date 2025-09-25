@@ -2,7 +2,7 @@
 import mongoose from "mongoose";
 
 declare global {
-  // eslint will be fine without disabling rules here
+  // keine eslint-disable-Kommentare nötig
   // eslint-disable-next-line no-var
   var _mongooseConn: Promise<typeof mongoose> | undefined;
 }
