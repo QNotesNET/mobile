@@ -1,17 +1,14 @@
-import LogoutButton from "@/components/LogoutButton";
+import AppShell from "@/components/AppShell";
 import { getCurrentUser } from "@/lib/session";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
 
   return (
-    <main className="p-8 max-w-3xl">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-semibold">Dashboard</h1>
-        <LogoutButton />
-      </div>
+    <AppShell>
+      <h1 className="text-3xl font-semibold">Dashboard</h1>
 
-      <div className="mt-6 rounded-2xl border bg-white p-6 shadow">
+      <div className="mt-6 rounded-2xl border bg-white p-6 shadow-sm">
         <p className="text-gray-700">
           {user ? (
             <>Eingeloggt als <span className="font-medium">{user.email}</span>.</>
@@ -23,6 +20,6 @@ export default async function DashboardPage() {
           Das ist deine Startseite. Hier kommt später das Notizbuch-Overview etc.
         </p>
       </div>
-    </main>
+    </AppShell>
   );
 }
