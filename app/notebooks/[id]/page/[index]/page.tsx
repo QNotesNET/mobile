@@ -1,6 +1,7 @@
 // app/notebooks/[id]/page/[index]/page.tsx
 export const runtime = "nodejs";
 
+import Link from "next/link";
 import Image from "next/image";
 import { connectToDB } from "@/lib/mongoose";
 import PageModel from "@/models/PageModel";
@@ -9,7 +10,7 @@ type Params = { id: string; index: string };
 type PageImage = { url: string; width?: number; height?: number };
 
 export default async function PageView(props: unknown) {
-  // props sicher extrahieren, ohne any
+  // props sicher extrahieren
   const p = (props as { params?: Partial<Params> } | undefined)?.params ?? {};
   const id = typeof p.id === "string" ? p.id : "";
   const indexNum = typeof p.index === "string" ? Number(p.index) : NaN;
@@ -23,7 +24,18 @@ export default async function PageView(props: unknown) {
     .lean()
     .exec();
 
-  if (!page) return <div className="p-6">Seite nicht gefunden</div>;
+  if (!page) {
+    return (
+      <main className="p-6">
+        <div className="mb-4 text-sm text-gray-600">
+          <Link className="underline" href={`/notebooks/${id}`}>
+            ← Zur Übersicht
+          </Link>
+        </div>
+        Seite nicht gefunden
+      </main>
+    );
+  }
 
   const images: PageImage[] = Array.isArray(page.images)
     ? (page.images as unknown as PageImage[])
@@ -31,7 +43,14 @@ export default async function PageView(props: unknown) {
 
   return (
     <main className="p-6">
+      <div className="mb-4 text-sm text-gray-600">
+        <Link className="underline" href={`/notebooks/${id}`}>
+          ← Zur Übersicht
+        </Link>
+      </div>
+
       <h1 className="text-2xl font-semibold">Seite {page.pageIndex}</h1>
+
       <div className="grid gap-4 mt-4">
         {images.map((img) => (
           <div key={img.url} className="relative w-full max-w-md aspect-[3/4]">

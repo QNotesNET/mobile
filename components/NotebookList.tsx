@@ -1,6 +1,7 @@
 // components/NotebookList.tsx
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -66,26 +67,38 @@ export default function NotebookList({ items }: { items: NotebookItem[] }) {
 
       <ul className="divide-y rounded-2xl border bg-white">
         {items.length === 0 && <li className="p-6 text-gray-500">Noch keine Notebooks. Leg das erste an!</li>}
+
         {items.map((n) => {
-          const id = (n.id ?? n._id) as string;
+          const notebookId = (n.id ?? n._id) as string;
+
           return (
-            <li key={id} className="flex items-center justify-between p-4">
+            <li key={notebookId} className="flex items-center justify-between p-4">
               <span className="font-medium">{n.title}</span>
+
               <div className="flex gap-2">
+                {/* ➜ Link zur Übersicht /notebooks/[id] */}
+                <Link
+                  href={`/notebooks/${notebookId}`}
+                  className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+                >
+                  Details
+                </Link>
+
                 <button
                   onClick={async () => {
                     const title = prompt("Neuer Titel:", n.title);
                     if (!title) return;
-                    await renameNotebook(id, title);
+                    await renameNotebook(notebookId, title);
                   }}
                   className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
                 >
                   Umbenennen
                 </button>
+
                 <button
                   onClick={async () => {
                     if (!confirm("Notebook löschen?")) return;
-                    await deleteNotebook(id);
+                    await deleteNotebook(notebookId);
                   }}
                   className="rounded bg-black px-3 py-1 text-sm text-white hover:bg-black/90"
                 >
@@ -94,11 +107,10 @@ export default function NotebookList({ items }: { items: NotebookItem[] }) {
 
                 <button
                   onClick={async () => {
-                    const id = (n.id ?? n._id) as string;
                     const from = Number(prompt("Seiten von:", "1") || "1");
                     const to = Number(prompt("…bis:", "10") || "10");
                     if (!from || !to) return;
-                    const res = await fetch(`/api/notebooks/${id}/pages/batch`, {
+                    const res = await fetch(`/api/notebooks/${notebookId}/pages/batch`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ from, to }),
@@ -109,19 +121,11 @@ export default function NotebookList({ items }: { items: NotebookItem[] }) {
                 >
                   Seiten erzeugen
                 </button>
-
               </div>
-
-
-
-
             </li>
           );
         })}
       </ul>
     </div>
-
-
-
   );
 }
