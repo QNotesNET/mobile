@@ -48,7 +48,7 @@ export default function LoginForm() {
             width={120}
             height={36}
             priority
-            className="h-10 w-auto"
+            className="h-15 w-auto"
           />
           <h1 className="mt-8 text-2xl font-bold tracking-tight text-gray-900">
             Bei QNotes anmelden
