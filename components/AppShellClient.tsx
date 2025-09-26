@@ -61,12 +61,12 @@ export default function AppShellClient({
       <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 lg:hidden">
         <DialogBackdrop
           transition
-          className="fixed inset-0 bg-black/90 transition-opacity data-[closed]:opacity-0"
+          className="fixed inset-0 bg-black transition-opacity data-[closed]:opacity-0"
         />
         <div className="fixed inset-0 flex">
           <DialogPanel
             transition
-            className="relative mr-16 flex w-full max-w-xs flex-1 transform bg-black/90 ring-1 ring-white/10 transition data-[closed]:-translate-x-full"
+            className="relative mr-16 flex w-full max-w-xs flex-1 transform bg-black ring-1 ring-white/10 transition data-[closed]:-translate-x-full"
           >
             <TransitionChild as={Fragment}>
               <div className="absolute left-full top-0 flex w-16 justify-center pt-5 data-[closed]:opacity-0">
@@ -148,7 +148,7 @@ export default function AppShellClient({
       </Dialog>
 
       {/* Static sidebar (desktop) */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:w-72 lg:flex-col lg:bg-black/90 lg:ring-1 lg:ring-white/10">
+      <div className="hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:w-72 lg:flex-col lg:bg-black lg:ring-1 lg:ring-white/10">
         <div className="flex grow flex-col gap-y-6 overflow-y-auto px-6 py-6">
           {/* Logo */}
           <div className="flex h-12 shrink-0 items-center">
@@ -210,7 +210,7 @@ export default function AppShellClient({
       </div>
 
       {/* Mobile Topbar */}
-      <div className="sticky top-0 z-30 flex items-center gap-x-4 bg-black/90 px-4 py-3 text-white shadow-sm lg:hidden">
+      <div className="sticky top-0 z-30 flex items-center gap-x-4 bg-black px-4 py-3 text-white shadow-sm lg:hidden">
         <button
           type="button"
           onClick={() => setSidebarOpen(true)}
