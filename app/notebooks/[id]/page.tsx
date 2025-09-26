@@ -14,10 +14,10 @@ type LitePage = {
   images?: { url: string }[];
 };
 
-export default async function NotebookOverviewPage({
-  params,
-}: { params: { id: string } }) {
-  const notebookId = params.id;
+export default async function NotebookOverviewPage(
+  props: { params: Promise<{ id: string }> } // ⬅ params ist ein Promise (Next 15)
+) {
+  const { id: notebookId } = await props.params; // ⬅ awaiten
   if (!Types.ObjectId.isValid(notebookId)) notFound();
 
   await connectToDB();
@@ -39,7 +39,6 @@ export default async function NotebookOverviewPage({
         <h1 className="text-2xl font-semibold">
           {nb?.title ?? "Notebook"} – Seiten
         </h1>
-        {/* Client-Buttons: Seiten erzeugen */}
         <NotebookPagesActions notebookId={notebookId} />
       </div>
 

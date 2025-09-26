@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Image from "next/image";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -41,10 +42,13 @@ export default function LoginForm() {
       {/* Linke Hälfte: Formular, vertikal zentriert */}
       <div className="flex items-center justify-center px-6 py-12 lg:px-20">
         <div className="w-full max-w-sm">
-          <img
+          <Image
             alt="QNotes"
             src="/images/logos/logo-black.svg"
-            className="h-15 w-auto"
+            width={120}
+            height={36}
+            priority
+            className="h-10 w-auto"
           />
           <h1 className="mt-8 text-2xl font-bold tracking-tight text-gray-900">
             Bei QNotes anmelden
@@ -118,10 +122,13 @@ export default function LoginForm() {
 
       {/* Rechte Hälfte: Bild (50%) */}
       <div className="relative hidden lg:block">
-        <img
+        <Image
           alt=""
           src="/images/login-image.png"
-          className="absolute inset-0 h-full w-full object-cover"
+          fill
+          sizes="(min-width:1024px) 50vw, 0vw"
+          className="object-cover"
+          priority
         />
       </div>
     </div>

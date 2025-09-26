@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, Fragment } from "react";
+import { useState, Fragment, type ComponentType, type SVGProps } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import { ArrowRightOnRectangleIcon } from "@heroicons/react/24/outline";
 
 import { Dialog, DialogBackdrop, DialogPanel, TransitionChild } from "@headlessui/react";
@@ -20,15 +21,16 @@ function classNames(...classes: Array<string | false | null | undefined>) {
 
 function prettyFromEmail(email?: string | null) {
   if (!email) return "";
-  const local = email.split("@")[0];              // "daniel.rockenschaub"
+  const local = email.split("@")[0];
   return local
-    .split(/[._-]+/)                              // trennt ., _, -
+    .split(/[._-]+/)
     .filter(Boolean)
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");                                   // -> "Daniel Rockenschaub"
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
-type NavItem = { name: string; href: string; icon: any; current?: boolean };
+type IconCmp = ComponentType<SVGProps<SVGSVGElement>>;
+type NavItem = { name: string; href: string; icon: IconCmp; current?: boolean };
 
 const NAV: NavItem[] = [
   { name: "Dashboard", href: "/", icon: HomeIcon },
@@ -85,10 +87,13 @@ export default function AppShellClient({
             <div className="flex grow flex-col gap-y-5 overflow-y-auto px-6 pb-4">
               <div className="flex h-16 shrink-0 items-center">
                 <Link href="/" onClick={() => setSidebarOpen(false)} className="flex items-center">
-                  <img
+                  <Image
                     src="/images/logos/logo-white.svg"
                     alt="QNotes"
-                    className="h-15 w-auto pt-3"
+                    width={120}
+                    height={36}
+                    priority
+                    className="h-10 w-auto pt-3"
                   />
                 </Link>
               </div>
@@ -153,7 +158,14 @@ export default function AppShellClient({
           {/* Logo */}
           <div className="flex h-12 shrink-0 items-center">
             <Link href="/" className="flex items-center">
-              <img src="/images/logos/logo-white.svg" alt="QNotes" className="h-15 w-auto" />
+              <Image
+                src="/images/logos/logo-white.svg"
+                alt="QNotes"
+                width={120}
+                height={36}
+                priority
+                className="h-10 w-auto"
+              />
             </Link>
           </div>
 

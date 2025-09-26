@@ -1,4 +1,3 @@
-// components/AppShell.tsx
 import { ReactNode } from "react";
 import { connectToDB } from "@/lib/mongoose";
 import { getCurrentUser } from "@/lib/session";
@@ -9,7 +8,7 @@ export default async function AppShell({ children }: { children: ReactNode }) {
   await connectToDB();
 
   const session = await getCurrentUser(); // { id, email, ... }
-  let email: string | null = session?.email ?? null;
+  const email: string | null = session?.email ?? null;
   let displayName: string | null = null;
 
   if (session?.id) {

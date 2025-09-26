@@ -1,41 +1,80 @@
+// app/api/auth/register/route.ts
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { connectToDB } from "@/lib/mongoose";
 import User from "@/models/User";
-import bcrypt from "bcryptjs";
+import { hash } from "bcryptjs";
 import { createSessionJWT, cookieOptions, publicUser } from "@/lib/auth";
+import { Types } from "mongoose";
+
+type CreatedLean = {
+  _id: Types.ObjectId;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  role?: string;
+};
 
 export async function POST(req: Request) {
   await connectToDB();
-  const { email, password, firstName, lastName } = await req.json().catch(() => ({}));
 
-  if (!email || !password) {
-    return NextResponse.json({ error: "E-Mail und Passwort sind erforderlich." }, { status: 400 });
+  const body = await req.json().catch(() => ({} as Partial<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+  }>));
+
+  const firstName = (body.firstName || "").trim();
+  const lastName  = (body.lastName || "").trim();
+  const email     = (body.email || "").trim().toLowerCase();
+  const password  = String(body.password || "");
+
+  if (!firstName || !lastName || !email || !password) {
+    return NextResponse.json({ error: "Vorname, Nachname, E-Mail und Passwort sind erforderlich" }, { status: 400 });
   }
-  const normEmail = String(email).trim().toLowerCase();
   if (password.length < 8) {
-    return NextResponse.json({ error: "Passwort muss mind. 8 Zeichen haben." }, { status: 400 });
+    return NextResponse.json({ error: "Passwort muss mindestens 8 Zeichen haben" }, { status: 400 });
   }
 
-  const existing = await User.findOne({ email: normEmail }).lean();
+  const existing = await User.findOne({ email }).select({ _id: 1 }).lean();
   if (existing) {
-    return NextResponse.json({ error: "E-Mail bereits registriert." }, { status: 409 });
+    return NextResponse.json({ error: "E-Mail ist bereits registriert" }, { status: 409 });
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
-  const fullName = [firstName, lastName].filter(Boolean).join(" ") || undefined;
+  const passwordHash = await hash(password, 10);
 
-  const user = await User.create({
-    email: normEmail,
+  // anlegen (Mongoose Document zurück)
+  const createdDoc = await User.create({
+    email,
+    firstName,
+    lastName,
     passwordHash,
-    firstName: firstName ? String(firstName).trim() : undefined,
-    lastName: lastName ? String(lastName).trim() : undefined,
-    name: fullName,
+    // role: "user", // nur setzen, falls dein Schema keinen Default hat
   });
 
-  const token = await createSessionJWT({ sub: String(user._id), email: user.email, role: user.role });
-  const res = NextResponse.json({ user: publicUser(user) }, { status: 201 });
+  // in ein schlankes Plain Object konvertieren und streng typisieren
+  const lean = createdDoc.toObject() as CreatedLean;
+
+  const token = await createSessionJWT({
+    sub: String(lean._id),
+    email: lean.email,
+    role: lean.role,
+  });
+
+  const name = [lean.firstName, lean.lastName].filter(Boolean).join(" ");
+
+  const safeUser = publicUser({
+    _id: lean._id,
+    email: lean.email,
+    firstName: lean.firstName,
+    lastName: lean.lastName,
+    name,
+    role: lean.role,
+  });
+
+  const res = NextResponse.json({ user: safeUser }, { status: 201 });
   res.cookies.set("qnotes_session", token, cookieOptions());
   return res;
 }

@@ -1,9 +1,6 @@
-// lib/mongoose.ts
 import mongoose from "mongoose";
 
 declare global {
-  // keine eslint-disable-Kommentare nötig
-  // eslint-disable-next-line no-var
   var _mongooseConn: Promise<typeof mongoose> | undefined;
 }
 

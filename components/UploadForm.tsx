@@ -19,10 +19,9 @@ export default function UploadForm({ pageId }: { pageId: string }) {
           fd.append("pageId", pageId);
           const res = await fetch("/api/upload-local", { method: "POST", body: fd });
           if (!res.ok) throw new Error("Upload failed");
-          router.refresh(); // Seite neu laden, damit Bild erscheint
-        } catch (err) {
+          router.refresh();
+        } catch {
           alert("Upload fehlgeschlagen");
-          // optional: console.error(err);
         } finally {
           setBusy(false);
         }

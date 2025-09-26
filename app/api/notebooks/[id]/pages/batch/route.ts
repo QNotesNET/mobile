@@ -7,28 +7,39 @@ import Notebook from "@/models/Notebook";
 import Page from "@/models/PageModel";
 import { genPageToken } from "@/lib/tokens";
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(
+  req: Request,
+  ctx: { params: Promise<{ id: string }> } // <- params ist ein Promise
+) {
   await connectToDB();
+
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!Types.ObjectId.isValid(params.id)) return NextResponse.json({ error: "Bad id" }, { status: 400 });
 
-  const nb = await Notebook.findOne({ _id: params.id, ownerId: user.id }).lean();
+  const { id: nbId } = await ctx.params; // <- awaiten
+  if (!Types.ObjectId.isValid(nbId)) {
+    return NextResponse.json({ error: "Bad id" }, { status: 400 });
+  }
+
+  const nb = await Notebook.findOne({ _id: nbId, ownerId: user.id }).lean();
   if (!nb) return NextResponse.json({ error: "Notebook not found" }, { status: 404 });
 
-  const { from = 1, to = 10 } = await req.json().catch(() => ({}));
-  const start = Math.max(1, Number(from));
-  const end = Math.max(start, Number(to));
+  const body = await req.json().catch(() => ({} as Partial<{ from: number; to: number }>));
+  const start = Math.max(1, Number(body.from ?? 1));
+  const end = Math.max(start, Number(body.to ?? 10));
 
   const docs = [];
   for (let i = start; i <= end; i++) {
-    docs.push({ notebookId: params.id, pageIndex: i, pageToken: genPageToken(), images: [] });
+    docs.push({ notebookId: nbId, pageIndex: i, pageToken: genPageToken(), images: [] });
   }
+
+  // ordered: false -> versucht restliche Inserts auch bei Duplikaten
   await Page.insertMany(docs, { ordered: false }).catch(() => {});
-  const created = await Page.find({ notebookId: params.id, pageIndex: { $gte: start, $lte: end } })
+
+  const created = await Page.find({ notebookId: nbId, pageIndex: { $gte: start, $lte: end } })
     .select({ pageIndex: 1, pageToken: 1, _id: 0 })
     .sort({ pageIndex: 1 })
-    .lean();
+    .lean<{ pageIndex: number; pageToken: string }[]>();
 
   return NextResponse.json({ pages: created });
 }

@@ -1,3 +1,4 @@
+// lib/auth.ts
 import { SignJWT, jwtVerify } from "jose";
 import type { UserDoc } from "@/models/User";
 
@@ -27,20 +28,24 @@ export function cookieOptions() {
   };
 }
 
+/**
+ * Gibt ein sicheres, kompaktes User-Objekt zurück.
+ * - `name` ist OPTIONAL und nicht Teil des UserDoc-Schemas — kann von außen übergeben werden.
+ * - Falls `name` nicht übergeben wird, wird er aus firstName/lastName gebaut.
+ */
 export function publicUser(
-  u: Pick<UserDoc, "_id" | "email" | "name" | "firstName" | "lastName" | "role">
+  u: Pick<UserDoc, "_id" | "email" | "firstName" | "lastName" | "role"> & { name?: string }
 ) {
   const first = u.firstName ?? "";
   const last = u.lastName ?? "";
-  const fallbackFullName = [first, last].filter(Boolean).join(" ").trim();
+  const computedName = [first, last].filter(Boolean).join(" ").trim();
 
   return {
     id: String(u._id),
     email: u.email,
     firstName: u.firstName ?? null,
     lastName: u.lastName ?? null,
-    // wichtig: Klammern bei ?? und ||, damit TS zufrieden ist
-    name: u.name ?? (fallbackFullName || null),
+    name: (u.name ?? computedName) || null,
     role: u.role ?? "user",
   };
 }

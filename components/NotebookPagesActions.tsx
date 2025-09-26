@@ -1,4 +1,3 @@
-// components/NotebookPagesActions.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -10,7 +9,7 @@ export default function NotebookPagesActions({ notebookId }: { notebookId: strin
 
   async function createBatch() {
     const from = Number(prompt("Seiten von:", "1") || "1");
-    const to   = Number(prompt("…bis:", "10") || "10");
+    const to = Number(prompt("…bis:", "10") || "10");
     if (!from || !to) return;
 
     setBusy(true);
@@ -23,7 +22,7 @@ export default function NotebookPagesActions({ notebookId }: { notebookId: strin
       if (!res.ok) throw new Error("Batch failed");
       r.refresh();
       alert("Seiten erzeugt. Scannen über /s/<token> möglich.");
-    } catch (e) {
+    } catch {
       alert("Erzeugen fehlgeschlagen");
     } finally {
       setBusy(false);
