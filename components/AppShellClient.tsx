@@ -3,9 +3,10 @@
 import { useState, Fragment } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ArrowRightOnRectangleIcon } from "@heroicons/react/24/outline";
+
 import { Dialog, DialogBackdrop, DialogPanel, TransitionChild } from "@headlessui/react";
 import {
-  ArrowRightOnRectangleIcon,
   Bars3Icon,
   HomeIcon,
   Cog6ToothIcon,
@@ -15,6 +16,16 @@ import {
 
 function classNames(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
+}
+
+function prettyFromEmail(email?: string | null) {
+  if (!email) return "";
+  const local = email.split("@")[0];              // "daniel.rockenschaub"
+  return local
+    .split(/[._-]+/)                              // trennt ., _, -
+    .filter(Boolean)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");                                   // -> "Daniel Rockenschaub"
 }
 
 type NavItem = { name: string; href: string; icon: any; current?: boolean };
@@ -36,7 +47,8 @@ export default function AppShellClient({
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const name = displayName || (email ? email.split("@")[0] : "");
+
+  const name = displayName || prettyFromEmail(email);
 
   const navWithActive = NAV.map((n) => ({
     ...n,
@@ -49,12 +61,12 @@ export default function AppShellClient({
       <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 lg:hidden">
         <DialogBackdrop
           transition
-          className="fixed inset-0 bg-gray-900/80 transition-opacity data-[closed]:opacity-0"
+          className="fixed inset-0 bg-black/90 transition-opacity data-[closed]:opacity-0"
         />
         <div className="fixed inset-0 flex">
           <DialogPanel
             transition
-            className="relative mr-16 flex w-full max-w-xs flex-1 transform bg-black/98 ring-1 ring-white/10 transition data-[closed]:-translate-x-full"
+            className="relative mr-16 flex w-full max-w-xs flex-1 transform bg-black/90 ring-1 ring-white/10 transition data-[closed]:-translate-x-full"
           >
             <TransitionChild as={Fragment}>
               <div className="absolute left-full top-0 flex w-16 justify-center pt-5 data-[closed]:opacity-0">
@@ -101,13 +113,17 @@ export default function AppShellClient({
                   ))}
                 </ul>
 
-                {/* Footer (Name, Mail, Logout) */}
+                {/* User / Logout */}
                 <div className="mt-auto border-t border-white/10 pt-4">
                   {email ? (
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-white">{name}</div>
-                        <div className="truncate text-xs text-gray-400">{email}</div>
+                        <div className="truncate text-sm font-semibold text-white">
+                          {name}
+                        </div>
+                        <div className="truncate text-xs text-gray-400">
+                          {email}
+                        </div>
                       </div>
 
                       <form action="/api/auth/logout" method="POST">
@@ -132,7 +148,7 @@ export default function AppShellClient({
       </Dialog>
 
       {/* Static sidebar (desktop) */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:w-72 lg:flex-col bg-black/98 lg:ring-1 lg:ring-white/10">
+      <div className="hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:w-72 lg:flex-col lg:bg-black/90 lg:ring-1 lg:ring-white/10">
         <div className="flex grow flex-col gap-y-6 overflow-y-auto px-6 py-6">
           {/* Logo */}
           <div className="flex h-12 shrink-0 items-center">
@@ -161,13 +177,17 @@ export default function AppShellClient({
               ))}
             </ul>
 
-            {/* Footer (Name, Mail, Logout) */}
+            {/* User / Logout */}
             <div className="mt-auto border-t border-white/10 pt-4">
               {email ? (
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-white">{name}</div>
-                    <div className="truncate text-xs text-gray-400">{email}</div>
+                    <div className="truncate text-sm font-semibold text-white">
+                      {name}
+                    </div>
+                    <div className="truncate text-xs text-gray-400">
+                      {email}
+                    </div>
                   </div>
 
                   <form action="/api/auth/logout" method="POST">
@@ -190,7 +210,7 @@ export default function AppShellClient({
       </div>
 
       {/* Mobile Topbar */}
-      <div className="sticky top-0 z-30 flex items-center gap-x-4 bg-black/98 px-4 py-3 text-white shadow-sm lg:hidden">
+      <div className="sticky top-0 z-30 flex items-center gap-x-4 bg-black/90 px-4 py-3 text-white shadow-sm lg:hidden">
         <button
           type="button"
           onClick={() => setSidebarOpen(true)}

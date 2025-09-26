@@ -1,3 +1,4 @@
+// models/User.ts
 import { Schema, model, models, Model, Types } from "mongoose";
 
 export interface UserDoc {
@@ -6,9 +7,7 @@ export interface UserDoc {
   passwordHash: string;
   firstName?: string;
   lastName?: string;
-  name?: string;            // optional: full name (first + last)
-  orgIds?: Types.ObjectId[];
-  role?: "user" | "admin";
+  role?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -17,11 +16,9 @@ const UserSchema = new Schema<UserDoc>(
   {
     email: { type: String, required: true, unique: true, index: true },
     passwordHash: { type: String, required: true },
-    firstName: { type: String },
-    lastName: { type: String },
-    name: { type: String },
-    orgIds: [{ type: Schema.Types.ObjectId, ref: "Org" }],
-    role: { type: String, enum: ["user", "admin"], default: "user" }
+    firstName: String,
+    lastName: String,
+    role: String,
   },
   { timestamps: true }
 );

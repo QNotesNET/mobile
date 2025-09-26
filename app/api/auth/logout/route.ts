@@ -1,14 +1,20 @@
-export const runtime = "nodejs";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 
-export async function POST() {
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set("qnotes_session", "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
+export async function POST(req: Request) {
+  // Session-Cookie löschen
+  (await cookies()).set("qnotes_session", "", {
     path: "/",
-    maxAge: 0
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    maxAge: 0, // sofort ablaufen
   });
-  return res;
+
+  // optional: ?next=/irgendwo unterstützen
+  const url = new URL(req.url);
+  const next = url.searchParams.get("next") || "/login";
+
+  // 303 = see other (sicher nach POST)
+  return NextResponse.redirect(new URL(next, req.url), { status: 303 });
 }
