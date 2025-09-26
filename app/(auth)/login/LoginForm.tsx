@@ -2,16 +2,15 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 
 export default function LoginForm() {
-  const r = useRouter();
+  const router = useRouter();
   const sp = useSearchParams();
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
   const rawNext = sp.get("next") || "/";
   const nextUrl = rawNext.startsWith("/") ? rawNext : "/";
+
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -32,30 +31,99 @@ export default function LoginForm() {
 
     const data = await res.json().catch(() => ({}));
     setLoading(false);
-    if (!res.ok) return setErr(data?.error || "Login fehlgeschlagen");
 
-    r.replace(nextUrl);
+    if (!res.ok) return setErr(data?.error || "Login fehlgeschlagen");
+    router.replace(nextUrl);
   }
 
   return (
-    <main className="min-h-dvh grid place-items-center p-6">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow p-6">
-        <div className="flex items-center justify-center gap-3 mb-5">
-          <Image src="/images/logos/logo-black.svg" alt="QNotes" width={130} height={35} />
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
+      {/* Linke Hälfte: Formular, vertikal zentriert */}
+      <div className="flex items-center justify-center px-6 py-12 lg:px-20">
+        <div className="w-full max-w-sm">
+          <img
+            alt="QNotes"
+            src="/images/logos/logo-black.svg"
+            className="h-15 w-auto"
+          />
+          <h1 className="mt-8 text-2xl font-bold tracking-tight text-gray-900">
+            Bei QNotes anmelden
+          </h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Neu hier?{" "}
+            <a
+              href={`/register?next=${encodeURIComponent(nextUrl)}`}
+              className="font-semibold text-black hover:text-black"
+            >
+              Konto erstellen
+            </a>
+          </p>
+
+          <form onSubmit={onSubmit} className="mt-8 space-y-6">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-900">
+                E-Mail
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                autoComplete="email"
+                placeholder="max@mustermann.com"
+                className="mt-2 block w-full rounded-md border-0 bg-white px-3 py-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:text-black"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-900">
+                Passwort
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                autoComplete="current-password"
+                placeholder="••••••••"
+                className="mt-2 block w-full rounded-md border-0 bg-white px-3 py-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:text-black"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-sm text-gray-900">
+                <input
+                  type="checkbox"
+                  className="size-4 rounded border-gray-300 text-black focus:text-black"
+                />
+                Angemeldet bleiben
+              </label>
+              <a href="#" className="text-sm font-semibold text-black hover:text-black">
+                Passwort vergessen?
+              </a>
+            </div>
+
+            {err && <p className="text-sm text-red-600">{err}</p>}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex w-full justify-center rounded-md bg-black px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-black/90 disabled:opacity-50"
+            >
+              {loading ? "Lädt…" : "Einloggen"}
+            </button>
+          </form>
         </div>
-        <h1 className="text-2xl font-semibold mb-4 text-center">Login</h1>
-        <form onSubmit={onSubmit} className="grid gap-3">
-          <input name="email" type="email" placeholder="E-Mail" className="border rounded p-2" required />
-          <input name="password" type="password" placeholder="Passwort" className="border rounded p-2" required />
-          {err && <p className="text-red-600 text-sm">{err}</p>}
-          <button disabled={loading} className="bg-black text-white rounded p-2 disabled:opacity-50">
-            {loading ? "Lädt..." : "Einloggen"}
-          </button>
-        </form>
-        <p className="text-sm mt-3 text-center">
-          Neu hier? <a href={`/register?next=${encodeURIComponent(nextUrl)}`} className="underline">Konto erstellen</a>
-        </p>
       </div>
-    </main>
+
+      {/* Rechte Hälfte: Bild (50%) */}
+      <div className="relative hidden lg:block">
+        <img
+          alt=""
+          src="https://images.unsplash.com/photo-1496917756835-20cb06e75b4e?ixlib=rb-1.2.1&auto=format&fit=crop&w=1908&q=80"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      </div>
+    </div>
   );
 }

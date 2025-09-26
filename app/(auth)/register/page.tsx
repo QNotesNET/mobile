@@ -1,3 +1,4 @@
+// app/(auth)/register/page.tsx
 import { Suspense } from "react";
 import RegisterForm from "./RegisterForm";
 

@@ -2,16 +2,15 @@
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 
 export default function RegisterForm() {
-  const r = useRouter();
+  const router = useRouter();
   const sp = useSearchParams();
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
   const rawNext = sp.get("next") || "/";
   const nextUrl = rawNext.startsWith("/") ? rawNext : "/";
+
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -34,34 +33,129 @@ export default function RegisterForm() {
 
     const data = await res.json().catch(() => ({}));
     setLoading(false);
-    if (!res.ok) return setErr(data?.error || "Fehler bei der Registrierung");
 
-    r.replace(nextUrl);
+    if (!res.ok) return setErr(data?.error || "Fehler bei der Registrierung");
+    router.replace(nextUrl);
   }
 
   return (
-    <main className="min-h-dvh grid place-items-center p-6">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow p-6">
-        <div className="flex items-center justify-center gap-3 mb-5">
-          <Image src="/images/logos/logo-black.svg" alt="QNotes" width={130} height={35} />
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
+      {/* Linke Hälfte: Formular, vertikal zentriert */}
+      <div className="flex items-center justify-center px-6 py-12 lg:px-20">
+        <div className="w-full max-w-sm">
+          <img
+            alt="QNotes"
+            src="/images/logos/logo-black.svg"
+            className="h-15 w-auto"
+          />
+          <h1 className="mt-8 text-2xl font-bold tracking-tight text-gray-900">
+            Konto erstellen
+          </h1>
+          <p className="mt-2 text-sm text-gray-600">
+            Schon ein Konto?{" "}
+            <a
+              href={`/login?next=${encodeURIComponent(nextUrl)}`}
+              className="font-semibold text-black hover:text-black"
+            >
+              Einloggen
+            </a>
+          </p>
+
+          <form onSubmit={onSubmit} className="mt-8 space-y-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label
+                  htmlFor="firstName"
+                  className="block text-sm font-medium text-gray-900"
+                >
+                  Vorname
+                </label>
+                <input
+                  id="firstName"
+                  name="firstName"
+                  type="text"
+                  required
+                  autoFocus
+                  placeholder="Max"
+                  className="mt-2 block w-full rounded-md border-0 bg-white px-3 py-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-600"
+                />
+              </div>
+              <div>
+                <label
+                  htmlFor="lastName"
+                  className="block text-sm font-medium text-gray-900"
+                >
+                  Nachname
+                </label>
+                <input
+                  id="lastName"
+                  name="lastName"
+                  type="text"
+                  required
+                  placeholder="Mustermann"
+                  className="mt-2 block w-full rounded-md border-0 bg-white px-3 py-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-600"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-gray-900"
+              >
+                E-Mail
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                autoComplete="email"
+                placeholder="max@mustermann.com"
+                className="mt-2 block w-full rounded-md border-0 bg-white px-3 py-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-600"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-gray-900"
+              >
+                Passwort
+              </label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                minLength={8}
+                autoComplete="new-password"
+                placeholder="Mind. 8 Zeichen"
+                className="mt-2 block w-full rounded-md border-0 bg-white px-3 py-2 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-600"
+              />
+            </div>
+
+            {err && <p className="text-sm text-red-600">{err}</p>}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex w-full justify-center rounded-md bg-black px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-black/90 disabled:opacity-50"
+            >
+              {loading ? "Lädt…" : "Registrieren"}
+            </button>
+          </form>
         </div>
-        <h1 className="text-2xl font-semibold mb-4 text-center">Konto erstellen</h1>
-        <form onSubmit={onSubmit} className="grid gap-3">
-          <div className="grid grid-cols-2 gap-3">
-            <input name="firstName" placeholder="Vorname" className="border rounded p-2" required />
-            <input name="lastName" placeholder="Nachname" className="border rounded p-2" required />
-          </div>
-          <input name="email" type="email" placeholder="E-Mail" className="border rounded p-2" required />
-          <input name="password" type="password" placeholder="Passwort (min. 8 Zeichen)" className="border rounded p-2" required />
-          {err && <p className="text-red-600 text-sm">{err}</p>}
-          <button disabled={loading} className="bg-black text-white rounded p-2 disabled:opacity-50">
-            {loading ? "Lädt..." : "Registrieren"}
-          </button>
-        </form>
-        <p className="text-sm mt-3 text-center">
-          Schon ein Konto? <a href={`/login?next=${encodeURIComponent(nextUrl)}`} className="underline">Einloggen</a>
-        </p>
       </div>
-    </main>
+
+      {/* Rechte Hälfte: Bild (50%) */}
+      <div className="relative hidden lg:block">
+        <img
+          alt=""
+          src="https://images.unsplash.com/photo-1496917756835-20cb06e75b4e?ixlib=rb-1.2.1&auto=format&fit=crop&w=1908&q=80"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      </div>
+    </div>
   );
 }
