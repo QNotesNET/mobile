@@ -9,7 +9,7 @@ export interface UserDoc {
   lastName?: string;
   role?: string;
 
-  // << neu (für Passwort-Reset)
+  // Passwort-Reset
   resetToken?: string | null;
   resetTokenExpiresAt?: Date | null;
 
@@ -25,7 +25,7 @@ const UserSchema = new Schema<UserDoc>(
     lastName: String,
     role: String,
 
-    // Felder für Passwort-Reset
+    // Passwort-Reset Felder
     resetToken: { type: String, index: true, default: null },
     resetTokenExpiresAt: { type: Date, default: null },
   },
