@@ -1,52 +1,57 @@
-// middleware.ts (ROOT!)
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-import { jwtVerify } from "jose";
+// middleware.ts
+import { NextResponse, NextRequest } from "next/server";
 
-const secret = new TextEncoder().encode(process.env.JWT_SECRET || "dev-secret");
+const PUBLIC_PREFIXES = [
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
 
-// öffentliche Pfade
-const PUBLIC_PATHS = ["/login", "/register"];
-const PUBLIC_FILE = /\.(.*)$/; // Assets mit Dateiendung
+  // auth apis
+  "/api/auth/login",
+  "/api/auth/register",
+  "/api/auth/forgot",
+  "/api/auth/reset",
 
-export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+  // qr/resolve & public apis
+  "/s",
+  "/api/pages/resolve",
 
-  // Public & technische Routen freigeben
-  if (
-    PUBLIC_PATHS.includes(pathname) ||
-    pathname.startsWith("/api/") ||
-    pathname.startsWith("/_next/") ||
-    PUBLIC_FILE.test(pathname)
-    // ggf. weitere Ausnahmen:
-    // || pathname.startsWith("/s/")
-  ) {
-    return NextResponse.next();
-  }
+  // static
+  "/_next",           // _next/static & _next/image
+  "/favicon.ico",
+  "/apple-icon.png",
+  "/icon.png",
+  "/images",          // deine public/images
+];
 
+function isPublic(pathname: string) {
+  return PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(p + "/"));
+}
+
+export function middleware(req: NextRequest) {
+  const { pathname, search } = req.nextUrl;
   const token = req.cookies.get("qnotes_session")?.value;
 
+  // öffentliche Routen & Assets immer erlauben
+  if (isPublic(pathname)) return NextResponse.next();
+
+  // nicht eingeloggt -> zu /login?next=...
   if (!token) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", pathname);
+    const url = new URL("/login", req.url);
+    url.searchParams.set("next", pathname + search);
     return NextResponse.redirect(url);
   }
 
-  try {
-    await jwtVerify(token, secret);
-    return NextResponse.next();
-  } catch {
-    const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", pathname);
-    const res = NextResponse.redirect(url);
-    res.cookies.set("qnotes_session", "", { path: "/", maxAge: 0 });
-    return res;
+  // eingeloggt & versucht auf auth-pages -> nach Hause
+  if (["/login", "/register", "/forgot-password", "/reset-password"].includes(pathname)) {
+    return NextResponse.redirect(new URL("/", req.url));
   }
+
+  return NextResponse.next();
 }
 
-// Matcher: alles außer _next, api und Dateien mit Endung
+// Auf alles außer den offensichtlichen statics anwenden
 export const config = {
-  matcher: ["/((?!_next|api|.*\\..*).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|apple-icon.png|icon.png|images/).*)"],
 };
