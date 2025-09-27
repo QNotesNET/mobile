@@ -1,4 +1,3 @@
-// app/(auth)/reset-password/page.tsx
 import { Suspense } from "react";
 import ResetForm from "./ResetForm";
 

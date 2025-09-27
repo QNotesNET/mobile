@@ -1,4 +1,3 @@
-// app/(auth)/forgot-password/page.tsx
 import { Suspense } from "react";
 import ForgotForm from "./ForgotForm";
 

@@ -6,44 +6,9 @@ import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { connectToDB } from "@/lib/mongoose";
 import User from "@/models/User";
-import nodemailer from "nodemailer";
+import { sendMail } from "@/lib/email";
 
 type Body = { email?: string };
-
-async function sendResetMail(to: string, resetUrl: string) {
-  const smtpHost = process.env.SMTP_HOST;
-  const smtpPort = Number(process.env.SMTP_PORT || 0);
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
-  const from = process.env.MAIL_FROM || "noreply@qnotes.local";
-
-  if (smtpHost && smtpPort && smtpUser && smtpPass) {
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: smtpPort,
-      secure: smtpPort === 465,
-      auth: { user: smtpUser, pass: smtpPass },
-    });
-
-    const html = `
-      <p>Hi,</p>
-      <p>Du hast das Zurücksetzen deines QNotes-Passwortes angefordert. Klicke auf den Link:</p>
-      <p><a href="${resetUrl}">${resetUrl}</a></p>
-      <p>Wenn du das nicht angefordert hast, ignoriere diese Nachricht.</p>
-    `;
-
-    await transporter.sendMail({
-      from,
-      to,
-      subject: "QNotes: Passwort zurücksetzen",
-      html,
-    });
-    return;
-  }
-
-  // Kein SMTP konfiguriert: logge den Link (zum Testen)
-  console.log("Password reset link (no SMTP configured):", resetUrl);
-}
 
 export async function POST(req: Request) {
   try {
@@ -55,7 +20,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing email" }, { status: 400 });
     }
 
-    // Egal ob gefunden oder nicht, wir antworten identisch
     const user = await User.findOne({ email }).exec();
 
     // Token + Ablauf (1h)
@@ -71,7 +35,19 @@ export async function POST(req: Request) {
     const appUrl = process.env.APP_URL || "http://localhost:3000";
     const resetUrl = `${appUrl.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(token)}`;
 
-    await sendResetMail(email, resetUrl);
+    // Nur generisches Feedback – nicht verraten, ob E-Mail existiert
+    const html = `
+      <p>Hi,</p>
+      <p>Du hast das Zurücksetzen deines QNotes-Passwortes angefordert.</p>
+      <p><a href="${resetUrl}">Passwort jetzt zurücksetzen</a></p>
+      <p>Der Link ist 1 Stunde gültig. Wenn du das nicht warst, ignoriere diese E-Mail.</p>
+    `;
+
+    await sendMail({
+      to: email,
+      subject: "QNotes: Passwort zurücksetzen",
+      html,
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {

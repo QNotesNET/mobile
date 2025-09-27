@@ -25,7 +25,7 @@ const UserSchema = new Schema<UserDoc>(
     lastName: String,
     role: String,
 
-    // Passwort-Reset Felder
+    // Felder für Passwort-Reset
     resetToken: { type: String, index: true, default: null },
     resetTokenExpiresAt: { type: Date, default: null },
   },
