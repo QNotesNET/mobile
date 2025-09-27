@@ -102,7 +102,7 @@ export default function LoginForm() {
                 />
                 Angemeldet bleiben
               </label>
-              <a href="#" className="text-sm font-semibold text-black hover:text-black">
+              <a href="/forgot-password" className="text-sm font-semibold text-black hover:text-black">
                 Passwort vergessen?
               </a>
             </div>
