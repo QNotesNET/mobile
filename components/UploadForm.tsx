@@ -10,7 +10,11 @@ export default function UploadForm({ pageId }: { pageId: string }) {
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const input = (e.currentTarget.elements.namedItem("file") as HTMLInputElement) || null;
+
+    // 👇 stabile Referenz auf das Formular holen (Fix für .reset() nach async)
+    const form = e.currentTarget;
+    const input = (form.elements.namedItem("file") as HTMLInputElement) || null;
+
     const file = input?.files?.[0];
     if (!file) return alert("Bitte eine Datei auswählen.");
 
@@ -67,7 +71,7 @@ export default function UploadForm({ pageId }: { pageId: string }) {
       alert("Upload fehlgeschlagen");
     } finally {
       setBusy(false);
-      (e.currentTarget as HTMLFormElement).reset();
+      form?.reset(); // 👈 statt e.currentTarget.reset()
     }
   }
 
