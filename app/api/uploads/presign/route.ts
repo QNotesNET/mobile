@@ -5,38 +5,46 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { randomUUID } from "node:crypto";
-import { s3Client, s3PublicUrl } from "@/lib/s3";
-import { getCurrentUser } from "@/lib/session";
+import { s3Client, s3Env, s3KeyForPageImage, s3PublicUrl } from "@/lib/s3";
 
-type Body = { filename?: string; contentType?: string; prefix?: string };
+type Body = {
+  pageId?: string;
+  fileName?: string;
+  contentType?: string;
+};
 
 export async function POST(req: Request) {
   try {
-    const user = await getCurrentUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { bucket, region } = s3Env();
 
-    const { filename = "file", contentType = "application/octet-stream", prefix } =
-      ((await req.json().catch(() => ({}))) as Body) || {};
+    const body: Body = (await req.json().catch(() => ({}))) ?? {};
+    const pageId = String(body.pageId || "").trim();
+    const fileName = String(body.fileName || "").trim();
+    const contentType =
+      String(body.contentType || "").trim() || "application/octet-stream";
 
-    const safeName = filename.replace(/[^a-z0-9.\-_]/gi, "_");
-    const bucket = process.env.S3_BUCKET!;
-    const region = process.env.AWS_REGION!;
-    const key = `${prefix ?? "uploads"}/${user.id}/${Date.now()}-${randomUUID()}-${safeName}`;
+    if (!pageId || !fileName) {
+      return NextResponse.json(
+        { error: "Missing pageId or fileName" },
+        { status: 400 }
+      );
+    }
+
+    const key = s3KeyForPageImage(pageId, fileName);
 
     const cmd = new PutObjectCommand({
       Bucket: bucket,
       Key: key,
       ContentType: contentType,
-      ACL: "public-read", // because we use public-read bucket policy
+      ACL: "private",
     });
 
-    const url = await getSignedUrl(s3Client(), cmd, { expiresIn: 60 }); // 60s
+    const uploadUrl = await getSignedUrl(s3Client(), cmd, { expiresIn: 60 });
     const publicUrl = s3PublicUrl(key);
 
-    return NextResponse.json({ uploadUrl: url, key, publicUrl, region, bucket });
-  } catch (e) {
-    console.error("presign error", e);
-    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+    return NextResponse.json({ uploadUrl, key, publicUrl, region, bucket });
+  } catch (err) {
+    console.error("presign error", err);
+    return NextResponse.json({ error: "Presign failed" }, { status: 500 });
   }
 }
