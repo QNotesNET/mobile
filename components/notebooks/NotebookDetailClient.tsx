@@ -1,8 +1,10 @@
+// components/notebooks/NotebookDetailClient.tsx
 "use client";
 
 import Link from "next/link";
 import { Suspense, useState } from "react";
 import dynamic from "next/dynamic";
+import Loader from "@/components/Loader";
 
 const DigitalNotebook = dynamic(() => import("./DigitalNotebook"), { ssr: false });
 
@@ -26,8 +28,18 @@ export default function NotebookDetailClient({
   return (
     <div className="mt-6">
       <div className="mb-4 flex items-center gap-2">
-        <button onClick={() => setView("list")} className={`px-3 py-1.5 rounded-xl border ${view==="list" ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"}`}>Liste</button>
-        <button onClick={() => setView("digital")} className={`px-3 py-1.5 rounded-xl border ${view==="digital" ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"}`}>Digital</button>
+        <button
+          onClick={() => setView("list")}
+          className={`px-3 py-1.5 rounded-xl border ${view === "list" ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"}`}
+        >
+          Liste
+        </button>
+        <button
+          onClick={() => setView("digital")}
+          className={`px-3 py-1.5 rounded-xl border ${view === "digital" ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"}`}
+        >
+          Digital
+        </button>
       </div>
 
       {view === "list" ? (
@@ -56,16 +68,27 @@ export default function NotebookDetailClient({
                       <td className="px-4 py-3 font-medium">#{String(p.pageIndex)}</td>
                       <td className="px-4 py-3 font-mono">{p.pageToken}</td>
                       <td className="px-4 py-3">
-                        <span className={"inline-flex items-center rounded-full px-2 py-0.5 text-xs " + (scanned ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600")}>
+                        <span
+                          className={
+                            "inline-flex items-center rounded-full px-2 py-0.5 text-xs " +
+                            (scanned ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600")
+                          }
+                        >
                           {scanned ? "gescannt" : "leer"}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-2">
-                          <Link href={`/notebooks/${notebookId}/page/${p.pageIndex}`} className="rounded border px-3 py-1 hover:bg-gray-50">
+                          <Link
+                            href={`/notebooks/${notebookId}/page/${p.pageIndex}`}
+                            className="rounded border px-3 py-1 hover:bg-gray-50"
+                          >
                             Öffnen
                           </Link>
-                          <Link href={`/s/${p.pageToken}`} className="rounded bg-black px-3 py-1 text-white hover:bg-black/90">
+                          <Link
+                            href={`/s/${p.pageToken}`}
+                            className="rounded bg-black px-3 py-1 text-white hover:bg-black/90"
+                          >
                             Scannen
                           </Link>
                         </div>
@@ -78,7 +101,7 @@ export default function NotebookDetailClient({
           </table>
         </div>
       ) : (
-        <Suspense fallback={<div className="p-6 rounded-2xl border bg-white">Lade Digital-Ansicht…</div>}>
+        <Suspense fallback={<Loader small label="Digital-Ansicht lädt…" />}>
           <DigitalNotebook
             totalPages={totalPages}
             getPageSrc={(n) => {
