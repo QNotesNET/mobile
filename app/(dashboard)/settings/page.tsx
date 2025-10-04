@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { isValidElement, cloneElement } from "react";
 
 export default function SettingsPage() {
   return (
@@ -225,8 +226,11 @@ function makeId(label: string) {
   return label.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 }
 
-function cloneWithId(node: React.ReactNode, id: string) {
-  if (!node || typeof node !== "object") return node;
-  if (!("type" in (node as any))) return node;
-  return { ...(node as any), props: { ...(node as any).props, id, name: id } };
+// Props-Shape, das id/name erlaubt
+type WithIdName = { id?: string; name?: string };
+
+// sauber getypte Variante ohne `any`
+function cloneWithId(node: React.ReactNode, id: string): React.ReactNode {
+  if (!isValidElement<WithIdName>(node)) return node;
+  return cloneElement(node, { id, name: id });
 }
