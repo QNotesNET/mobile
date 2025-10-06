@@ -1,25 +1,23 @@
 import AppShell from "@/components/AppShell";
 import { getCurrentUser } from "@/lib/session";
+import DashboardClient from "./DashboardClient";
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
 
+  const email = user?.email ?? "—";
+
+  // Vorname aus E-Mail ableiten (local-part, erster Abschnitt vor ., _ oder -)
+  const firstName = (() => {
+    if (!user?.email) return "Gast";
+    const local = user.email.split("@")[0];
+    const part = local.split(/[._-]/)[0] || local;
+    return part.charAt(0).toUpperCase() + part.slice(1);
+  })();
+
   return (
     <AppShell>
-      <h1 className="text-3xl font-semibold">Dashboard</h1>
-
-      <div className="mt-6 rounded-2xl border bg-white p-6 shadow-sm">
-        <p className="text-gray-700">
-          {user ? (
-            <>Eingeloggt als <span className="font-medium">{user.email}</span>.</>
-          ) : (
-            <>Kein User geladen (nicht eingeloggt?)</>
-          )}
-        </p>
-        <p className="mt-2 text-sm text-gray-500">
-          Das ist deine Startseite. Hier kommt später das Notizbuch-Overview etc.
-        </p>
-      </div>
+      <DashboardClient userName={firstName} userEmail={email} />
     </AppShell>
   );
 }
