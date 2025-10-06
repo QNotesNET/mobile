@@ -13,6 +13,7 @@ import {
   Cog6ToothIcon,
   XMarkIcon,
   BookOpenIcon,
+  EnvelopeIcon,
 } from "@heroicons/react/24/outline";
 
 function classNames(...classes: Array<string | false | null | undefined>) {
@@ -34,8 +35,8 @@ type NavItem = { name: string; href: string; icon: IconCmp; current?: boolean };
 
 const NAV: NavItem[] = [
   { name: "Dashboard", href: "/", icon: HomeIcon },
-  { name: "Notebooks", href: "/notebooks", icon: BookOpenIcon },
-  { name: "Settings", href: "/settings", icon: Cog6ToothIcon },
+  { name: "Notizbücher", href: "/notebooks", icon: BookOpenIcon },
+  { name: "Einstellungen", href: "/settings", icon: Cog6ToothIcon },
 ];
 
 export default function AppShellClient({
@@ -61,10 +62,7 @@ export default function AppShellClient({
     <div className="min-h-dvh bg-white">
       {/* Mobile Drawer */}
       <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 lg:hidden">
-        <DialogBackdrop
-          transition
-          className="fixed inset-0 bg-black transition-opacity data-[closed]:opacity-0"
-        />
+        <DialogBackdrop transition className="fixed inset-0 bg-black transition-opacity data-[closed]:opacity-0" />
         <div className="fixed inset-0 flex">
           <DialogPanel
             transition
@@ -72,11 +70,7 @@ export default function AppShellClient({
           >
             <TransitionChild as={Fragment}>
               <div className="absolute left-full top-0 flex w-16 justify-center pt-5 data-[closed]:opacity-0">
-                <button
-                  type="button"
-                  onClick={() => setSidebarOpen(false)}
-                  className="-m-2.5 p-2.5 text-white"
-                >
+                <button type="button" onClick={() => setSidebarOpen(false)} className="-m-2.5 p-2.5 text-white">
                   <span className="sr-only">Close sidebar</span>
                   <XMarkIcon className="size-6" />
                 </button>
@@ -118,17 +112,32 @@ export default function AppShellClient({
                   ))}
                 </ul>
 
+                {/* Hilfe-Box (ohne Icon, Subtext einzeilig) */}
+                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-white">Brauchst du Hilfe?</div>
+                    <p className="text-xs text-gray-300 whitespace-nowrap truncate">
+                      Schreib uns – wir melden uns rasch.
+                    </p>
+                  </div>
+                  <div className="mt-3">
+                    <a
+                      href="mailto:info@qnotes.net"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-medium text-black hover:bg-white/90"
+                    >
+                      <EnvelopeIcon className="h-4 w-4" />
+                      Kontaktiere uns
+                    </a>
+                  </div>
+                </div>
+
                 {/* User / Logout */}
                 <div className="mt-auto border-t border-white/10 pt-4">
                   {email ? (
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-white">
-                          {name}
-                        </div>
-                        <div className="truncate text-xs text-gray-400">
-                          {email}
-                        </div>
+                        <div className="truncate text-sm font-semibold text-white">{name}</div>
+                        <div className="truncate text-xs text-gray-400">{email}</div>
                       </div>
 
                       <form action="/api/auth/logout" method="POST">
@@ -158,14 +167,7 @@ export default function AppShellClient({
           {/* Logo */}
           <div className="flex h-12 shrink-0 items-center">
             <Link href="/" className="flex items-center">
-              <Image
-                src="/images/logos/logo-white.svg"
-                alt="QNotes"
-                width={120}
-                height={36}
-                priority
-                className="h-10 w-auto"
-              />
+              <Image src="/images/logos/logo-white.svg" alt="QNotes" width={120} height={36} priority className="h-10 w-auto" />
             </Link>
           </div>
 
@@ -189,17 +191,32 @@ export default function AppShellClient({
               ))}
             </ul>
 
+            {/* Hilfe-Box (ohne Icon, Subtext einzeilig) */}
+            <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-white">Brauchst du Hilfe?</div>
+                <p className="text-xs text-gray-300 whitespace-nowrap truncate">
+                  Schreib uns – wir melden uns rasch.
+                </p>
+              </div>
+              <div className="mt-3">
+                <a
+                  href="mailto:info@qnotes.net"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-medium text-black hover:bg-white/90"
+                >
+                  <EnvelopeIcon className="h-4 w-4" />
+                  Kontaktiere uns
+                </a>
+              </div>
+            </div>
+
             {/* User / Logout */}
             <div className="mt-auto border-t border-white/10 pt-4">
               {email ? (
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-white">
-                      {name}
-                    </div>
-                    <div className="truncate text-xs text-gray-400">
-                      {email}
-                    </div>
+                    <div className="truncate text-sm font-semibold text-white">{name}</div>
+                    <div className="truncate text-xs text-gray-400">{email}</div>
                   </div>
 
                   <form action="/api/auth/logout" method="POST">
@@ -223,11 +240,7 @@ export default function AppShellClient({
 
       {/* Mobile Topbar */}
       <div className="sticky top-0 z-30 flex items-center gap-x-4 bg-black px-4 py-3 text-white shadow-sm lg:hidden">
-        <button
-          type="button"
-          onClick={() => setSidebarOpen(true)}
-          className="-m-2.5 p-2.5 text-gray-200 hover:text-white"
-        >
+        <button type="button" onClick={() => setSidebarOpen(true)} className="-m-2.5 p-2.5 text-gray-200 hover:text-white">
           <span className="sr-only">Open sidebar</span>
           <Bars3Icon className="size-6" />
         </button>

@@ -41,7 +41,6 @@ export default function Sidebar({ email }: { email?: string | null }) {
         <NavItem href="/" label="Dashboard" />
         <NavItem href="/notebooks" label="Notebooks" />
         <NavItem href="/settings" label="Settings" />
-        <NavItem href="mailto:info@qnotes.net" label="Hilfe" />
       </nav>
 
       {/* User */}

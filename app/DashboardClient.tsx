@@ -6,11 +6,11 @@ import type { LucideIcon } from "lucide-react";
 import {
   Camera,
   Clock,
-  NotebookPen,
   FileText,
   ChevronRight,
   Settings,
   Plus,
+  BookOpenIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -30,7 +30,7 @@ type Props = { userName: string; userEmail: string };
 export default function DashboardClient({ userName, userEmail }: Props) {
   // —— Dummy-Daten (2 Notizbücher)
   const stats = [
-    { key: "notebooks", label: "Notizbücher", value: 2, icon: NotebookPen },
+    { key: "notebooks", label: "Notizbücher", value: 2, icon: BookOpenIcon },
     { key: "pagesWeek", label: "Seiten (7T)", value: 36, icon: FileText },
   ];
 
@@ -84,7 +84,7 @@ export default function DashboardClient({ userName, userEmail }: Props) {
         {/* Top Row: 4 Karten in einer Zeile */}
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <MetricCard
-            icon={NotebookPen}
+            icon={BookOpenIcon}
             title="Notizbücher"
             value={String(stats.find((s) => s.key === "notebooks")?.value ?? 0)}
           />
