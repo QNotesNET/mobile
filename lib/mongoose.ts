@@ -1,6 +1,8 @@
+// lib/mongoose.ts
 import mongoose from "mongoose";
 
 declare global {
+  // eslint-disable-next-line no-var
   var _mongooseConn: Promise<typeof mongoose> | undefined;
 }
 
@@ -17,3 +19,6 @@ export async function connectToDB() {
   }
   return global._mongooseConn;
 }
+
+// 👉 zusätzlich als Default exportieren (vermeidet Import-Verwirrungen)
+export default connectToDB;

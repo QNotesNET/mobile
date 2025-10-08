@@ -99,16 +99,13 @@ export default function NotebookDetailClient({
                           {/* Downloads */}
                           {scanned ? (
                             <>
-                              <a
-                                href={`/api/pages/${pageIdForExport}/export?format=pdf`}
-                                className="rounded border px-3 py-1 hover:bg-gray-50"
-                              >
+                              <a href={`/api/pages/${pageIdForExport}/export?format=pdf`} className="rounded border px-3 py-1 hover:bg-gray-50">
                                 PDF
                               </a>
-                              <a
-                                href={`/api/pages/${pageIdForExport}/export?format=png`}
-                                className="rounded border px-3 py-1 hover:bg-gray-50"
-                              >
+                              <a href={`/api/pages/${pageIdForExport}/export?format=jpg`} className="rounded border px-3 py-1 hover:bg-gray-50">
+                                JPG
+                              </a>
+                              <a href={`/api/pages/${pageIdForExport}/export?format=png`} className="rounded border px-3 py-1 hover:bg-gray-50">
                                 PNG
                               </a>
                             </>
