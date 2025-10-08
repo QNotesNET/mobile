@@ -50,7 +50,7 @@ export default function NotebookDetailClient({
                 <th className="px-4 py-3 text-left w-24">Seite</th>
                 <th className="px-4 py-3 text-left">Token</th>
                 <th className="px-4 py-3 text-left w-40">Status</th>
-                <th className="px-4 py-3 text-left w-64">Aktionen</th>
+                <th className="px-4 py-3 text-left w-96">Aktionen</th>
               </tr>
             </thead>
             <tbody>
@@ -63,9 +63,12 @@ export default function NotebookDetailClient({
               ) : (
                 pages.map((p) => {
                   const scanned = (p.images?.length ?? 0) > 0;
+                  const pageIdxStr = String(p.pageIndex);
+                  const pageIdForExport = p.pageToken; // wir verwenden den Token als :id in der API
+
                   return (
-                    <tr key={String(p.pageIndex)} className="border-t">
-                      <td className="px-4 py-3 font-medium">#{String(p.pageIndex)}</td>
+                    <tr key={pageIdxStr} className="border-t">
+                      <td className="px-4 py-3 font-medium">#{pageIdxStr}</td>
                       <td className="px-4 py-3 font-mono">{p.pageToken}</td>
                       <td className="px-4 py-3">
                         <span
@@ -78,19 +81,57 @@ export default function NotebookDetailClient({
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <Link
                             href={`/notebooks/${notebookId}/page/${p.pageIndex}`}
                             className="rounded border px-3 py-1 hover:bg-gray-50"
                           >
                             Öffnen
                           </Link>
+
                           <Link
                             href={`/s/${p.pageToken}`}
                             className="rounded bg-black px-3 py-1 text-white hover:bg-black/90"
                           >
                             Scannen
                           </Link>
+
+                          {/* Downloads */}
+                          {scanned ? (
+                            <>
+                              <a
+                                href={`/api/pages/${pageIdForExport}/export?format=pdf`}
+                                className="rounded border px-3 py-1 hover:bg-gray-50"
+                              >
+                                PDF
+                              </a>
+                              <a
+                                href={`/api/pages/${pageIdForExport}/export?format=png`}
+                                className="rounded border px-3 py-1 hover:bg-gray-50"
+                              >
+                                PNG
+                              </a>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed"
+                                disabled
+                                aria-disabled
+                                title="Noch keine gescannte Seite vorhanden"
+                              >
+                                PDF
+                              </button>
+                              <button
+                                className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed"
+                                disabled
+                                aria-disabled
+                                title="Noch keine gescannte Seite vorhanden"
+                              >
+                                PNG
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
