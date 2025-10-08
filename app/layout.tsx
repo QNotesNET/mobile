@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "QNotes - Notizen, die bleiben.",
+  title: "QNotes | App",
   description: "Willkommen in der App von QNotes!",
   icons: {
     icon: [{ url: "/favicon.ico" }, { url: "/icon.png", type: "image/png" }],

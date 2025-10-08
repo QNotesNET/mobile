@@ -4,7 +4,7 @@ import { useState, Fragment, type ComponentType, type SVGProps } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
-import { ArrowRightOnRectangleIcon } from "@heroicons/react/24/outline";
+import { ArrowRightOnRectangleIcon, EnvelopeIcon } from "@heroicons/react/24/outline";
 
 import { Dialog, DialogBackdrop, DialogPanel, TransitionChild } from "@headlessui/react";
 import {
@@ -13,7 +13,6 @@ import {
   Cog6ToothIcon,
   XMarkIcon,
   BookOpenIcon,
-  EnvelopeIcon,
 } from "@heroicons/react/24/outline";
 
 function classNames(...classes: Array<string | false | null | undefined>) {
@@ -37,16 +36,19 @@ const NAV: NavItem[] = [
   { name: "Dashboard", href: "/", icon: HomeIcon },
   { name: "Notizbücher", href: "/notebooks", icon: BookOpenIcon },
   { name: "Einstellungen", href: "/settings", icon: Cog6ToothIcon },
+  { name: "Hilfe & Kontakt", href: "mailto:info@qnotes.net", icon: EnvelopeIcon }, // neu als reguläres Nav-Item
 ];
 
 export default function AppShellClient({
   email,
   displayName,
   children,
+  currentPlan = "Starter", // später aus dem Backend setzen
 }: {
   email: string | null;
   displayName?: string | null;
   children: React.ReactNode;
+  currentPlan?: "Starter" | "Pro" | "Team" | string;
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -55,7 +57,10 @@ export default function AppShellClient({
 
   const navWithActive = NAV.map((n) => ({
     ...n,
-    current: n.href === "/" ? pathname === "/" : pathname === n.href || pathname.startsWith(n.href + "/"),
+    current:
+      n.href.startsWith("mailto:")
+        ? false
+        : n.href === "/" ? pathname === "/" : pathname === n.href || pathname.startsWith(n.href + "/"),
   }));
 
   return (
@@ -93,46 +98,59 @@ export default function AppShellClient({
               </div>
 
               <nav className="flex flex-1 flex-col">
+                {/* Hauptnav */}
                 <ul className="-mx-2 space-y-1">
                   {navWithActive.map((item) => (
                     <li key={item.name}>
-                      <Link
-                        href={item.href}
-                        onClick={() => setSidebarOpen(false)}
-                        aria-current={item.current ? "page" : undefined}
-                        className={classNames(
-                          item.current ? "bg-white/10 text-white" : "text-gray-300 hover:bg-white/10 hover:text-white",
-                          "group flex gap-x-3 rounded-md p-2 text-sm font-semibold"
-                        )}
-                      >
-                        <item.icon className="size-6 shrink-0" />
-                        {item.name}
-                      </Link>
+                      {item.href.startsWith("mailto:") ? (
+                        <a
+                          href={item.href}
+                          onClick={() => setSidebarOpen(false)}
+                          className="group flex gap-x-3 rounded-md p-2 text-sm font-semibold text-gray-300 hover:bg-white/10 hover:text-white"
+                        >
+                          <item.icon className="size-6 shrink-0" />
+                          {item.name}
+                        </a>
+                      ) : (
+                        <Link
+                          href={item.href}
+                          onClick={() => setSidebarOpen(false)}
+                          aria-current={item.current ? "page" : undefined}
+                          className={classNames(
+                            item.current ? "bg-white/10 text-white" : "text-gray-300 hover:bg-white/10 hover:text-white",
+                            "group flex gap-x-3 rounded-md p-2 text-sm font-semibold"
+                          )}
+                        >
+                          <item.icon className="size-6 shrink-0" />
+                          {item.name}
+                        </Link>
+                      )}
                     </li>
                   ))}
                 </ul>
 
-                {/* Hilfe-Box (ohne Icon, Subtext einzeilig) */}
-                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-white">Brauchst du Hilfe?</div>
-                    <p className="text-xs text-gray-300 whitespace-nowrap truncate">
-                      Schreib uns – wir melden uns rasch.
-                    </p>
-                  </div>
-                  <div className="mt-3">
-                    <a
-                      href="mailto:info@qnotes.net"
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-medium text-black hover:bg-white/90"
-                    >
-                      <EnvelopeIcon className="h-4 w-4" />
-                      Kontaktiere uns
-                    </a>
+                {/* Spacer, damit der Tarif-Streifen unten sitzt */}
+                <div className="flex-1" />
+
+                {/* PLAN-STREIFEN (MOBILE) – kurz vor Nutzerbereich */}
+                <div className="mt-4">
+                  <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                    <div className="text-[10px] uppercase tracking-wider text-gray-300">Dein Tarif</div>
+                    <div className="mt-0.5 flex items-center justify-between">
+                      <div className="text-sm font-semibold text-white truncate">{currentPlan}</div>
+                      <Link
+                        href="/pricing"
+                        onClick={() => setSidebarOpen(false)}
+                        className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-white/90"
+                      >
+                        Verwalten
+                      </Link>
+                    </div>
                   </div>
                 </div>
 
                 {/* User / Logout */}
-                <div className="mt-auto border-t border-white/10 pt-4">
+                <div className="mt-3 border-t border-white/10 pt-4">
                   {email ? (
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
@@ -171,47 +189,55 @@ export default function AppShellClient({
             </Link>
           </div>
 
-          {/* Nav */}
+          {/* Hauptnav */}
           <nav className="flex flex-1 flex-col">
             <ul className="-mx-2 space-y-1">
               {navWithActive.map((item) => (
                 <li key={item.name}>
-                  <Link
-                    href={item.href}
-                    aria-current={item.current ? "page" : undefined}
-                    className={classNames(
-                      item.current ? "bg-white/10 text-white" : "text-gray-300 hover:bg-white/10 hover:text-white",
-                      "group flex gap-x-3 rounded-md p-2 text-sm font-semibold"
-                    )}
-                  >
-                    <item.icon className="size-6 shrink-0" />
-                    {item.name}
-                  </Link>
+                  {item.href.startsWith("mailto:") ? (
+                    <a
+                      href={item.href}
+                      className="group flex gap-x-3 rounded-md p-2 text-sm font-semibold text-gray-300 hover:bg-white/10 hover:text-white"
+                    >
+                      <item.icon className="size-6 shrink-0" />
+                      {item.name}
+                    </a>
+                  ) : (
+                    <Link
+                      href={item.href}
+                      aria-current={item.current ? "page" : undefined}
+                      className={classNames(
+                        item.current ? "bg-white/10 text-white" : "text-gray-300 hover:bg-white/10 hover:text-white",
+                        "group flex gap-x-3 rounded-md p-2 text-sm font-semibold"
+                      )}
+                    >
+                      <item.icon className="size-6 shrink-0" />
+                      {item.name}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
 
-            {/* Hilfe-Box (ohne Icon, Subtext einzeilig) */}
-            <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
-              <div className="min-w-0">
-                <div className="text-sm font-medium text-white">Brauchst du Hilfe?</div>
-                <p className="text-xs text-gray-300 whitespace-nowrap truncate">
-                  Schreib uns – wir melden uns rasch.
-                </p>
-              </div>
-              <div className="mt-3">
-                <a
-                  href="mailto:info@qnotes.net"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-medium text-black hover:bg-white/90"
+            {/* Spacer, damit der Tarif-Streifen unten sitzt */}
+            <div className="flex-1" />
+
+            {/* PLAN-STREIFEN (DESKTOP) – direkt oberhalb der Trennlinie/Nutzerinfo */}
+            <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="text-[10px] uppercase tracking-wider text-gray-300">Dein Tarif</div>
+              <div className="mt-0.5 flex items-center justify-between">
+                <div className="text-sm font-semibold text-white truncate">{currentPlan}</div>
+                <Link
+                  href="/pricing"
+                  className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-white/90"
                 >
-                  <EnvelopeIcon className="h-4 w-4" />
-                  Kontaktiere uns
-                </a>
+                  Verwalten
+                </Link>
               </div>
             </div>
 
             {/* User / Logout */}
-            <div className="mt-auto border-t border-white/10 pt-4">
+            <div className="mt-3 border-t border-white/10 pt-4">
               {email ? (
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
