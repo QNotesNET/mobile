@@ -41,7 +41,7 @@ async function getFirstImageByToken(pageToken: string): Promise<{ url: string; m
   return { url: img.url, mimeGuess: img.mime || mimeFromUrlGuess(img.url) };
 }
 
-/** Gibt garantiert ein ArrayBuffer-gestütztes Uint8Array zurück (TS-sicher getypt). */
+/** Gibt garantiert ein ArrayBuffer-gestütztes Uint8Array zurück (TS-sicher für pdf-lib). */
 function ensureABU8(u8: Uint8Array): Uint8Array<ArrayBuffer> {
   const buf = u8.buffer as ArrayBuffer | SharedArrayBuffer;
   if (buf instanceof ArrayBuffer) {
@@ -52,8 +52,7 @@ function ensureABU8(u8: Uint8Array): Uint8Array<ArrayBuffer> {
   copy.set(u8);
   return copy as Uint8Array<ArrayBuffer>;
 }
-
-/** ArrayBuffer aus U8 (für NextResponse Body) */
+/** ArrayBuffer aus U8 (kein SharedArrayBuffer in Responses) */
 function toArrayBuffer(u8: Uint8Array): ArrayBuffer {
   const buf = u8.buffer as ArrayBuffer | SharedArrayBuffer;
   if (buf instanceof ArrayBuffer) return buf.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
@@ -82,15 +81,24 @@ export async function GET(
     const baseOrigin = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || reqOrigin;
     const absoluteUrl = toAbsoluteUrl(asset.url, baseOrigin);
 
-    // Quelle laden (S3/Uploads)
-    const imgRes = await fetch(absoluteUrl, { cache: "no-store" });
+    // ---- Bild laden (Cookies mitgeben, falls /uploads geschützt ist) ----
+    const cookieHeader = (req.headers.get("cookie") ?? "").trim();
+    const imgRes = await fetch(absoluteUrl, {
+      cache: "no-store",
+      headers: cookieHeader ? { cookie: cookieHeader } : undefined,
+      redirect: "follow",
+    });
     if (!imgRes.ok) return new NextResponse("Source fetch failed", { status: 502 });
 
-    const srcMime = (imgRes.headers.get("content-type") || asset.mimeGuess).split(";")[0].toLowerCase();
-    const srcU8_raw = new Uint8Array(await imgRes.arrayBuffer());
-    const srcU8 = ensureABU8(srcU8_raw); // 🔒 jetzt Uint8Array<ArrayBuffer>
+    const contentType = (imgRes.headers.get("content-type") || asset.mimeGuess).split(";")[0].toLowerCase();
+    if (!contentType.startsWith("image/")) {
+      // Wahrscheinlich Login-HTML o.ä.
+      return new NextResponse("Fetched resource is not an image (auth/cookies missing?).", { status: 502 });
+    }
 
-    // -------- BILD-DOWNLOAD (JPG/PNG) – konvertiert mit sharp --------
+    const srcU8 = ensureABU8(new Uint8Array(await imgRes.arrayBuffer()));
+
+    // -------- BILD-DOWNLOAD (JPG/PNG) – konvertieren mit sharp --------
     if (mode === "jpg" || mode === "png") {
       const sharp = (await import("sharp")).default;
 
@@ -121,9 +129,9 @@ export async function GET(
 
     // -------- PDF – jpg/png direkt, andere vorher nach PNG --------
     let bytesForPdf = srcU8;
-    let usePng = srcMime.includes("png");
+    let usePng = contentType.includes("png");
 
-    if (!(srcMime.includes("png") || srcMime.includes("jpeg") || srcMime.includes("jpg"))) {
+    if (!(contentType.includes("png") || contentType.includes("jpeg") || contentType.includes("jpg"))) {
       const sharp = (await import("sharp")).default;
       const pngBuf = await sharp(srcU8).png().toBuffer();
       bytesForPdf = ensureABU8(new Uint8Array(pngBuf.buffer, pngBuf.byteOffset, pngBuf.byteLength));
@@ -134,8 +142,8 @@ export async function GET(
     const page = pdf.addPage();
 
     const embedded = usePng
-      ? await pdf.embedPng(bytesForPdf) // ✅ erwartet Uint8Array<ArrayBuffer>
-      : await pdf.embedJpg(bytesForPdf); // ✅ ebenso
+      ? await pdf.embedPng(bytesForPdf)
+      : await pdf.embedJpg(bytesForPdf);
 
     const { width, height } = embedded.size();
     const pw = page.getWidth();
@@ -149,7 +157,7 @@ export async function GET(
       height: height * scale,
     });
 
-    const pdfU8 = await pdf.save(); // Uint8Array (ArrayBuffer-gestützt)
+    const pdfU8 = await pdf.save();
     return new NextResponse(toArrayBuffer(pdfU8), {
       status: 200,
       headers: {
