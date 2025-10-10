@@ -40,6 +40,14 @@ export default function NotebookDetailClient({
         >
           Digital
         </button>
+
+        {/* Optional: kompletter QR-Bogen als PDF */}
+        <a
+          href={`/api/qr/sheet/${notebookId}`}
+          className="ml-auto inline-flex items-center rounded-xl border px-3 py-1.5 hover:bg-gray-50"
+        >
+          QR-Bogen (PDF)
+        </a>
       </div>
 
       {view === "list" ? (
@@ -50,7 +58,7 @@ export default function NotebookDetailClient({
                 <th className="px-4 py-3 text-left w-24">Seite</th>
                 <th className="px-4 py-3 text-left">Token</th>
                 <th className="px-4 py-3 text-left w-40">Status</th>
-                <th className="px-4 py-3 text-left w-96">Aktionen</th>
+                <th className="px-4 py-3 text-left w-[460px]">Aktionen</th>
               </tr>
             </thead>
             <tbody>
@@ -96,16 +104,34 @@ export default function NotebookDetailClient({
                             Scannen
                           </Link>
 
+                          {/* NEU: QR-Detailseite zu dieser Seite */}
+                          <Link
+                            href={`/notebooks/${notebookId}/page/${p.pageIndex}/qr`}
+                            className="rounded border px-3 py-1 hover:bg-gray-50"
+                            title="QR-Detailseite"
+                          >
+                            QR
+                          </Link>
+
                           {/* Downloads */}
                           {scanned ? (
                             <>
-                              <a href={`/api/pages/${pageIdForExport}/export?format=pdf`} className="rounded border px-3 py-1 hover:bg-gray-50">
+                              <a
+                                href={`/api/pages/${pageIdForExport}/export?format=pdf`}
+                                className="rounded border px-3 py-1 hover:bg-gray-50"
+                              >
                                 PDF
                               </a>
-                              <a href={`/api/pages/${pageIdForExport}/export?format=jpg`} className="rounded border px-3 py-1 hover:bg-gray-50">
+                              <a
+                                href={`/api/pages/${pageIdForExport}/export?format=jpg`}
+                                className="rounded border px-3 py-1 hover:bg-gray-50"
+                              >
                                 JPG
                               </a>
-                              <a href={`/api/pages/${pageIdForExport}/export?format=png`} className="rounded border px-3 py-1 hover:bg-gray-50">
+                              <a
+                                href={`/api/pages/${pageIdForExport}/export?format=png`}
+                                className="rounded border px-3 py-1 hover:bg-gray-50"
+                              >
                                 PNG
                               </a>
                             </>
@@ -118,6 +144,14 @@ export default function NotebookDetailClient({
                                 title="Noch keine gescannte Seite vorhanden"
                               >
                                 PDF
+                              </button>
+                              <button
+                                className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed"
+                                disabled
+                                aria-disabled
+                                title="Noch keine gescannte Seite vorhanden"
+                              >
+                                JPG
                               </button>
                               <button
                                 className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed"
