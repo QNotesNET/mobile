@@ -73,10 +73,10 @@ export default function DashboardClient({ userName, userEmail }: Props) {
           <div className="flex w-full items-center gap-2 md:w-auto">
             <Input placeholder="Suchen… (⌘K)" className="md:w-80" />
             <Button asChild>
-              <Link href="/notebooks/new" aria-label="Neues Notizbuch anlegen">
+              {/* <Link href="/notebooks/new" aria-label="Neues Notizbuch anlegen">
                 <Plus className="mr-2 h-4 w-4" />
                 Neues Notizbuch
-              </Link>
+              </Link> */}
             </Button>
           </div>
         </div>
