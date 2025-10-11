@@ -23,26 +23,24 @@ export async function POST(req: Request) {
     if (!db) throw new Error("MongoDB connection is not ready");
     const col = db.collection("notebooks");
 
-    // Basis: nur ungeclaimte Bücher
-    const filter: any = { ownerId: { $exists: false } };
+    // Basisfilter
+    const filter: Record<string, unknown> = { ownerId: { $exists: false } };
 
-    // Wir bauen ein $or, um robust zu sein:
-    const ors: any[] = [];
+    // $or-Bedingungen robust aufbauen
+    const ors: Array<Record<string, unknown>> = [];
 
-    // 1) exakter claimToken Match (wenn vorhanden)
     if (claimToken) {
       ors.push({ claimToken: String(claimToken) });
-
-      // 2) Fallback: ID aus token parsen → "one-time-<24hex>-..."
       const m = /^one-time-([0-9a-fA-F]{24})-/.exec(String(claimToken));
       if (m) {
         try {
           ors.push({ _id: new ObjectId(m[1]) });
-        } catch {}
+        } catch {
+          /* ignore */
+        }
       }
     }
 
-    // 3) direkter notebookId Match (wenn mitgegeben)
     if (notebookId) {
       try {
         ors.push({ _id: new ObjectId(String(notebookId)) });
@@ -51,11 +49,11 @@ export async function POST(req: Request) {
       }
     }
 
-    if (ors.length) filter.$or = ors;
+    if (ors.length) (filter as Record<string, unknown>).$or = ors;
 
     const update = {
       $set: {
-        ownerId: new ObjectId(String(session.userId)), // als ObjectId speichern
+        ownerId: new ObjectId(String(session.userId)),
         claimedAt: new Date(),
       },
       $unset: { claimToken: "" },

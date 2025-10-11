@@ -1,4 +1,4 @@
-// /app/qr/page.tsx
+// app/(dashboard)/qr/page.tsx
 "use client";
 
 import { useState } from "react";
@@ -9,6 +9,9 @@ type GenState =
   | { status: "working" }
   | { status: "done"; token: string; url: string; dataUrl?: string }
   | { status: "error"; message: string };
+
+type QrApiOk = { token: string; url: string };
+type QrApiErr = { error: string };
 
 export default function QRPage() {
   const [notebookId, setNotebookId] = useState("");
@@ -26,14 +29,14 @@ export default function QRPage() {
     try {
       setState({ status: "working" });
 
-      // 1) Token erzeugen & im Notebook speichern (API gibt token + url zurück)
       const res = await fetch(`/api/qr/single?notebookId=${encodeURIComponent(id)}`);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.token || !data?.url) {
-        throw new Error(data?.error || `Fehler beim Erzeugen des Tokens (HTTP ${res.status})`);
+      const data: QrApiOk | QrApiErr = await res.json();
+
+      if (!res.ok || !("token" in data) || !("url" in data)) {
+        const msg = "error" in data ? data.error : `HTTP_${res.status}`;
+        throw new Error(msg);
       }
 
-      // 2) QR-Bild erzeugen (DataURL)
       const dataUrl = await QRCode.toDataURL(String(data.url), {
         errorCorrectionLevel: "M",
         margin: 2,
@@ -41,8 +44,9 @@ export default function QRPage() {
       });
 
       setState({ status: "done", token: data.token, url: data.url, dataUrl });
-    } catch (err: any) {
-      setState({ status: "error", message: err?.message || "Unbekannter Fehler" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Unbekannter Fehler";
+      setState({ status: "error", message });
       console.error("[QR] generate failed", err);
     }
   }
@@ -52,9 +56,7 @@ export default function QRPage() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
       <h1 className="text-2xl font-semibold">QR-Code erzeugen</h1>
-      <p className="text-sm text-gray-500 mt-1">
-        Erzeuge einen einmaligen Claim-Link für ein Notizbuch.
-      </p>
+      <p className="text-sm text-gray-500 mt-1">Erzeuge einen einmaligen Claim-Link für ein Notizbuch.</p>
 
       <form
         className="mt-6 space-y-4"
@@ -78,9 +80,7 @@ export default function QRPage() {
             type="button"
             onClick={handleGenerate}
             disabled={disabled}
-            className={`rounded-xl px-4 py-2 text-white ${
-              disabled ? "bg-gray-400" : "bg-gray-900 hover:bg-black"
-            }`}
+            className={`rounded-xl px-4 py-2 text-white ${disabled ? "bg-gray-400" : "bg-gray-900 hover:bg-black"}`}
           >
             {disabled ? "Erzeuge…" : "QR-Code generieren"}
           </button>
@@ -92,27 +92,18 @@ export default function QRPage() {
           <div className="rounded-xl border p-4">
             <div className="text-sm">
               <div className="mb-1">
-                <span className="font-medium">Token:</span>{" "}
-                <code className="break-all">{state.token}</code>
+                <span className="font-medium">Token:</span> <code className="break-all">{state.token}</code>
               </div>
               <div className="mb-3">
                 <span className="font-medium">URL:</span>{" "}
-                <a
-                  href={state.url}
-                  className="text-blue-600 underline break-all"
-                  target="_blank"
-                  rel="noreferrer"
-                >
+                <a href={state.url} className="text-blue-600 underline break-all" target="_blank" rel="noreferrer">
                   {state.url}
                 </a>
               </div>
               {state.dataUrl && (
                 <div className="flex items-start gap-6">
-                  <img
-                    src={state.dataUrl}
-                    alt="QR Code"
-                    className="h-48 w-48 rounded-lg border bg-white"
-                  />
+                  {/* <img> Warnung darf bleiben; hier egal fürs Build */}
+                  <img src={state.dataUrl} alt="QR Code" className="h-48 w-48 rounded-lg border bg-white" />
                   <div className="space-y-2">
                     <a
                       href={state.dataUrl}

@@ -3,7 +3,17 @@ import { NextResponse } from "next/server";
 import { connectToDB } from "@/lib/mongoose";
 import Notebook from "@/models/Notebook";
 import { getCurrentUser } from "@/lib/session";
-import { Types } from "mongoose";
+import { Types, PipelineStage } from "mongoose";
+import type { ObjectId } from "mongodb";
+
+type AggOut = {
+  _id: ObjectId;
+  title: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  ownerId?: unknown;
+  ownerIdStr?: string;
+};
 
 export async function GET() {
   await connectToDB();
@@ -12,15 +22,9 @@ export async function GET() {
 
   const uidStr = String(user.id);
   let uidObj: Types.ObjectId | null = null;
-  try {
-    uidObj = new Types.ObjectId(uidStr);
-  } catch {
-    uidObj = null;
-  }
+  try { uidObj = new Types.ObjectId(uidStr); } catch { uidObj = null; }
 
-  // 🔎 Aggregation: vergleicht ownerId als ObjectId, als String
-  // und zusätzlich ownerId->toString() gegen uidStr (falls ownerId ObjectId und wir String vergleichen).
-  const pipeline: any[] = [
+  const pipeline: PipelineStage[] = [
     { $addFields: { ownerIdStr: { $toString: "$ownerId" } } },
     {
       $match: {
@@ -32,10 +36,17 @@ export async function GET() {
       },
     },
     { $sort: { createdAt: -1 } },
-    { $project: { title: 1, createdAt: 1, updatedAt: 1 } },
+    { $project: { _id: 1, title: 1, createdAt: 1, updatedAt: 1 } },
   ];
 
-  const items = await Notebook.aggregate(pipeline).exec();
+  const docs = (await Notebook.aggregate(pipeline).exec()) as AggOut[];
+  const items = docs.map((d) => ({
+    id: String(d._id),
+    title: d.title,
+    createdAt: d.createdAt,
+    updatedAt: d.updatedAt,
+  }));
+
   return NextResponse.json({ items });
 }
 
@@ -44,19 +55,20 @@ export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { title } = await req.json().catch(() => ({}));
-  if (!title || typeof title !== "string") {
+  const body = (await req.json().catch(() => ({}))) as { title?: unknown };
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  if (!title) {
     return NextResponse.json({ error: "Missing title" }, { status: 400 });
   }
 
   const uidStr = String(user.id);
-  let ownerId: any = uidStr;
+  let ownerId: unknown = uidStr;
   try {
-    ownerId = new Types.ObjectId(uidStr); // ✅ ab jetzt als ObjectId speichern
+    ownerId = new Types.ObjectId(uidStr);
   } catch {
-    // Fallback auf String, falls user.id kein ObjectId-Format hätte
+    // Fallback auf String, falls nötig
   }
 
-  const nb = await Notebook.create({ title: title.trim(), ownerId });
+  const nb = await Notebook.create({ title, ownerId });
   return NextResponse.json({ item: { id: String(nb._id), title: nb.title } }, { status: 201 });
 }

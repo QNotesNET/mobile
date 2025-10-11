@@ -1,8 +1,11 @@
-// /app/register-notebook/page.tsx
+// app/register-notebook/page.tsx
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+
+type ClaimOk = { ok: true };
+type ClaimErr = { ok: false; error?: string };
 
 export default function RegisterNotebookPage() {
   const router = useRouter();
@@ -16,7 +19,7 @@ export default function RegisterNotebookPage() {
 
   useEffect(() => {
     if (params.get("auto") === "1" && (notebookId || token)) {
-      handleClaim();
+      void handleClaim();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -35,20 +38,20 @@ export default function RegisterNotebookPage() {
         }),
       });
 
-      let data: any = null;
-      try { data = await res.json(); } catch {}
+      const data: ClaimOk | ClaimErr = await res.json();
 
-      if (!res.ok || !data?.ok) {
-        const reason = data?.error || `HTTP_${res.status}`;
+      if (!res.ok || !("ok" in data) || data.ok !== true) {
+        const reason = "error" in data && data.error ? data.error : `HTTP_${res.status}`;
         throw new Error(reason);
       }
 
       setStatus("done");
       setMessage("Notizbuch erfolgreich zugewiesen. Weiterleitung …");
       setTimeout(() => router.replace("/notebooks"), 800);
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Unbekannter Fehler";
       setStatus("error");
-      setMessage(`Zuweisung fehlgeschlagen: ${e?.message || "Unbekannter Fehler"}`);
+      setMessage(`Zuweisung fehlgeschlagen: ${msg}`);
       console.error("[register-notebook] claim failed", e);
     }
   }
@@ -62,8 +65,12 @@ export default function RegisterNotebookPage() {
 
       <div className="mt-6 space-y-3">
         <div className="text-sm">
-          <div><span className="font-medium">Notebook ID:</span> {notebookId || "—"}</div>
-          <div><span className="font-medium">Claim Token:</span> {token || "—"}</div>
+          <div>
+            <span className="font-medium">Notebook ID:</span> {notebookId || "—"}
+          </div>
+          <div>
+            <span className="font-medium">Claim Token:</span> {token || "—"}
+          </div>
         </div>
 
         <button
