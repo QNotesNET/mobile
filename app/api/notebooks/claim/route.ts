@@ -1,25 +1,84 @@
 // app/api/notebooks/claim/route.ts
 import { NextResponse } from "next/server";
+import { ObjectId } from "mongodb";
+import connectToDB from "@/lib/mongoose";
+import { getSessionUserFromRequest } from "@/lib/auth";
 
-// TODO: Hole userId aus Session (z.B. Auth Middleware)
-async function getUserIdFromRequest(_req: Request) {
-  return "demo-user-1";
-}
-
-// TODO: DB: token prüfen, notebook finden, zuweisen, token invalidieren
-async function claimNotebookByToken(token: string, userId: string) {
-  // Fake: akzeptiere alles, was mit "one-time" oder "sheet-token" beginnt
-  if (!/^((one-time|sheet-token)-)/.test(token)) return { ok: false, error: "Ungültiger Token." };
-  const notebookId = token.split("-")[2] || "unknown";
-  // DB: update notebooks set user_id = userId where id = notebookId
-  return { ok: true, notebookId };
-}
+export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  const { token } = await req.json();
-  if (!token) return NextResponse.json({ error: "token required" }, { status: 400 });
-  const userId = await getUserIdFromRequest(req);
-  const res = await claimNotebookByToken(token, userId);
-  if (!res.ok) return NextResponse.json({ error: res.error }, { status: 400 });
-  return NextResponse.json({ success: true, notebookId: res.notebookId });
+  try {
+    const { notebookId, claimToken } = await req.json();
+
+    const session = await getSessionUserFromRequest(req);
+    if (!session?.userId) {
+      return NextResponse.json({ ok: false, error: "UNAUTHENTICATED" }, { status: 401 });
+    }
+    if (!notebookId && !claimToken) {
+      return NextResponse.json({ ok: false, error: "MISSING_PARAMS" }, { status: 400 });
+    }
+
+    const mongoose = await connectToDB();
+    const db = mongoose.connection.db;
+    if (!db) throw new Error("MongoDB connection is not ready");
+    const col = db.collection("notebooks");
+
+    // Basis: nur ungeclaimte Bücher
+    const filter: any = { ownerId: { $exists: false } };
+
+    // Wir bauen ein $or, um robust zu sein:
+    const ors: any[] = [];
+
+    // 1) exakter claimToken Match (wenn vorhanden)
+    if (claimToken) {
+      ors.push({ claimToken: String(claimToken) });
+
+      // 2) Fallback: ID aus token parsen → "one-time-<24hex>-..."
+      const m = /^one-time-([0-9a-fA-F]{24})-/.exec(String(claimToken));
+      if (m) {
+        try {
+          ors.push({ _id: new ObjectId(m[1]) });
+        } catch {}
+      }
+    }
+
+    // 3) direkter notebookId Match (wenn mitgegeben)
+    if (notebookId) {
+      try {
+        ors.push({ _id: new ObjectId(String(notebookId)) });
+      } catch {
+        return NextResponse.json({ ok: false, error: "INVALID_NOTEBOOK_ID" }, { status: 400 });
+      }
+    }
+
+    if (ors.length) filter.$or = ors;
+
+    const update = {
+      $set: {
+        ownerId: new ObjectId(String(session.userId)), // als ObjectId speichern
+        claimedAt: new Date(),
+      },
+      $unset: { claimToken: "" },
+    };
+
+    const result = await col.updateOne(filter, update);
+
+    const debug = {
+      userId: session.userId,
+      filterUsed: filter,
+      matchedCount: result.matchedCount,
+      modifiedCount: result.modifiedCount,
+    };
+    console.log("[claim-notebook]", debug);
+
+    if (result.modifiedCount !== 1) {
+      const reason = result.matchedCount === 0 ? "NOT_FOUND_OR_ALREADY_OWNED" : "NO_CHANGE";
+      return NextResponse.json({ ok: false, error: reason, debug }, { status: 409 });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[claim-notebook][ERROR]", err);
+    return NextResponse.json({ ok: false, error: "SERVER_ERROR" }, { status: 500 });
+  }
 }

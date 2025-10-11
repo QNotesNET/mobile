@@ -1,11 +1,11 @@
-// app/api/auth/register/route.ts
+// /app/api/auth/register/route.ts
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { connectToDB } from "@/lib/mongoose";
 import User from "@/models/User";
 import { hash } from "bcryptjs";
-import { createSessionJWT, cookieOptions, publicUser } from "@/lib/auth";
+import { createSessionJWT, cookieOptions, publicUser, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { Types } from "mongoose";
 
 type CreatedLean = {
@@ -19,20 +19,26 @@ type CreatedLean = {
 export async function POST(req: Request) {
   await connectToDB();
 
-  const body = await req.json().catch(() => ({} as Partial<{
-    firstName: string;
-    lastName: string;
-    email: string;
-    password: string;
-  }>));
+  const body = await req.json().catch(
+    () =>
+      ({} as Partial<{
+        firstName: string;
+        lastName: string;
+        email: string;
+        password: string;
+      }>)
+  );
 
   const firstName = (body.firstName || "").trim();
-  const lastName  = (body.lastName || "").trim();
-  const email     = (body.email || "").trim().toLowerCase();
-  const password  = String(body.password || "");
+  const lastName = (body.lastName || "").trim();
+  const email = (body.email || "").trim().toLowerCase();
+  const password = String(body.password || "");
 
   if (!firstName || !lastName || !email || !password) {
-    return NextResponse.json({ error: "Vorname, Nachname, E-Mail und Passwort sind erforderlich" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Vorname, Nachname, E-Mail und Passwort sind erforderlich" },
+      { status: 400 }
+    );
   }
   if (password.length < 8) {
     return NextResponse.json({ error: "Passwort muss mindestens 8 Zeichen haben" }, { status: 400 });
@@ -45,16 +51,13 @@ export async function POST(req: Request) {
 
   const passwordHash = await hash(password, 10);
 
-  // anlegen (Mongoose Document zurück)
   const createdDoc = await User.create({
     email,
     firstName,
     lastName,
     passwordHash,
-    // role: "user", // nur setzen, falls dein Schema keinen Default hat
   });
 
-  // in ein schlankes Plain Object konvertieren und streng typisieren
   const lean = createdDoc.toObject() as CreatedLean;
 
   const token = await createSessionJWT({
@@ -75,6 +78,6 @@ export async function POST(req: Request) {
   });
 
   const res = NextResponse.json({ user: safeUser }, { status: 201 });
-  res.cookies.set("qnotes_session", token, cookieOptions());
+  res.cookies.set(SESSION_COOKIE_NAME, token, cookieOptions());
   return res;
 }

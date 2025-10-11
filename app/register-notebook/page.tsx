@@ -1,60 +1,91 @@
-// app/register-notebook/page.tsx
+// /app/register-notebook/page.tsx
 "use client";
 
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
 
 export default function RegisterNotebookPage() {
-  const sp = useSearchParams();
   const router = useRouter();
-  const token = sp.get("token") || "";
-  const [status, setStatus] = useState<"idle"|"claiming"|"ok"|"error">("idle");
-  const [msg, setMsg] = useState<string>("");
+  const params = useSearchParams();
+
+  const notebookId = params.get("notebookId") ?? "";
+  const token = params.get("token") ?? "";
+
+  const [status, setStatus] = useState<"idle" | "working" | "done" | "error">("idle");
+  const [message, setMessage] = useState<string>("");
 
   useEffect(() => {
-    if (!token) setMsg("Kein Registrierungs-Token gefunden.");
-  }, [token]);
-
-  const claim = async () => {
-    setStatus("claiming");
-    const r = await fetch("/api/notebooks/claim", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
-    });
-    if (r.ok) {
-      setStatus("ok");
-      setTimeout(() => router.push("/notebooks"), 900);
-    } else {
-      const j = await r.json().catch(() => ({}));
-      setMsg(j?.error || "Registrierung fehlgeschlagen.");
-      setStatus("error");
+    if (params.get("auto") === "1" && (notebookId || token)) {
+      handleClaim();
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleClaim() {
+    try {
+      setStatus("working");
+      setMessage("");
+
+      const res = await fetch("/api/notebooks/claim", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notebookId: notebookId || undefined,
+          claimToken: token || undefined,
+        }),
+      });
+
+      let data: any = null;
+      try { data = await res.json(); } catch {}
+
+      if (!res.ok || !data?.ok) {
+        const reason = data?.error || `HTTP_${res.status}`;
+        throw new Error(reason);
+      }
+
+      setStatus("done");
+      setMessage("Notizbuch erfolgreich zugewiesen. Weiterleitung …");
+      setTimeout(() => router.replace("/notebooks"), 800);
+    } catch (e: any) {
+      setStatus("error");
+      setMessage(`Zuweisung fehlgeschlagen: ${e?.message || "Unbekannter Fehler"}`);
+      console.error("[register-notebook] claim failed", e);
+    }
+  }
+
+  const disabled = status === "working";
 
   return (
-    <div className="mx-auto max-w-lg py-12">
-      <h1 className="text-2xl font-semibold tracking-tight">Notizbuch registrieren</h1>
-      <p className="mt-1 text-sm text-gray-600">
-        Dieses Notizbuch deinem Account zuordnen.
-      </p>
+    <main className="mx-auto max-w-md px-4 py-10">
+      <h1 className="text-2xl font-semibold">Notizbuch zuweisen</h1>
+      <p className="text-sm text-gray-500 mt-1">Dieses Notizbuch wird deinem Account zugeordnet.</p>
 
-      <div className="mt-6 rounded-2xl border p-4">
-        <div className="text-sm text-gray-700">
-          Token: <span className="font-mono">{token || "—"}</span>
+      <div className="mt-6 space-y-3">
+        <div className="text-sm">
+          <div><span className="font-medium">Notebook ID:</span> {notebookId || "—"}</div>
+          <div><span className="font-medium">Claim Token:</span> {token || "—"}</div>
         </div>
+
         <button
-          onClick={claim}
-          disabled={!token || status === "claiming"}
-          className="mt-4 rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-black disabled:opacity-50"
+          onClick={handleClaim}
+          disabled={disabled || (!notebookId && !token)}
+          className={`w-full rounded-xl px-4 py-2 text-white ${disabled ? "bg-gray-400" : "bg-gray-900 hover:bg-black"}`}
         >
-          {status === "claiming" ? "Wird registriert..." : "Notizbuch zuordnen"}
+          {status === "working" ? "Wird zugewiesen …" : "Jetzt zuweisen"}
         </button>
 
-        {status === "ok" && <p className="mt-3 text-sm text-green-600">Erfolgreich! Weiterleitung…</p>}
-        {status === "error" && <p className="mt-3 text-sm text-red-600">{msg}</p>}
-        {!token && <p className="mt-3 text-sm text-red-600">{msg}</p>}
+        {message && (
+          <div
+            className={`rounded-xl border px-3 py-2 text-sm ${
+              status === "error"
+                ? "border-red-300 text-red-700 bg-red-50"
+                : "border-green-300 text-green-700 bg-green-50"
+            }`}
+          >
+            {message}
+          </div>
+        )}
       </div>
-    </div>
+    </main>
   );
 }

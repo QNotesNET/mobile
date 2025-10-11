@@ -1,11 +1,11 @@
-// app/api/auth/login/route.ts
+// /app/api/auth/login/route.ts
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { connectToDB } from "@/lib/mongoose";
 import User from "@/models/User";
 import { compare } from "bcryptjs";
-import { createSessionJWT, cookieOptions, publicUser } from "@/lib/auth";
+import { createSessionJWT, cookieOptions, publicUser, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { Types } from "mongoose";
 
 type LoginUserLean = {
@@ -59,6 +59,7 @@ export async function POST(req: Request) {
   });
 
   const res = NextResponse.json({ user: safeUser }, { status: 200 });
-  res.cookies.set("qnotes_session", token, cookieOptions());
+  // Nutzt zentralen Cookie-Namen + deine cookieOptions()
+  res.cookies.set(SESSION_COOKIE_NAME, token, cookieOptions());
   return res;
 }
