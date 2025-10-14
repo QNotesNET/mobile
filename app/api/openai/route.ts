@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       // max_output_tokens: 2048,
     });
 
-    return NextResponse.json({ text: response.output_text ?? "" });
+    return NextResponse.json({ text: response.output_text ?? "", user: "WolfgangP", domain: "nexoro.net" });
   } catch (err) {
     console.error("[OPENAI OCR ERROR]", err);
     return NextResponse.json(
