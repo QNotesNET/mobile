@@ -30,7 +30,7 @@ export async function POST(req: Request) {
             {
               type: "input_image",
               image_url: imageUrl,
-              detail: "auto"
+              detail: "low"
             },
           ],
         },

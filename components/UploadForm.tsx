@@ -15,6 +15,39 @@ type ActionItem = {
   editValue?: string; // Inhalt im Editfeld
 };
 
+// Utils: Bild clientseitig verkleinern & als File zurückgeben
+async function downscaleImage(file: File, maxSide = 1600, quality = 0.75): Promise<File> {
+  const dataUrl = await new Promise<string>((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(String(r.result));
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+
+  const img = await new Promise<HTMLImageElement>((res, rej) => {
+    const i = new Image();
+    i.onload = () => res(i);
+    i.onerror = rej;
+    i.src = dataUrl;
+  });
+
+  const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const blob: Blob = await new Promise((res) =>
+    canvas.toBlob((b) => res(b as Blob), "image/jpeg", quality)
+  );
+
+  return new File([blob], (file.name || "image") + ".jpg", { type: "image/jpeg" });
+}
+
 function parseOcrText(ocrText: string) {
   const lines = (ocrText || "").split(/\r?\n/);
   const items: ActionItem[] = [];
@@ -203,14 +236,23 @@ export default function UploadForm({
         setScanError(null);
         setItems([]);
         try {
+          // ▼▼▼ Downscale auch im Auto-Pfad
+          let uploadFile = file;
+          if (
+            uploadFile.size > 1_000_000 ||
+            (uploadFile.type.startsWith("image/") && /jpeg|png|heic|heif/i.test(uploadFile.type))
+          ) {
+            uploadFile = await downscaleImage(uploadFile, 1600, 0.75);
+          }
+
           // 1) Presign
           const presignRes = await fetch("/api/uploads/presign", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               pageId,
-              fileName: file.name,
-              contentType: file.type || "application/octet-stream",
+              fileName: uploadFile.name,
+              contentType: uploadFile.type || "application/octet-stream",
             }),
           });
           if (!presignRes.ok) {
@@ -222,8 +264,8 @@ export default function UploadForm({
           // 2) Upload
           const putRes = await fetch(uploadUrl, {
             method: "PUT",
-            headers: { "Content-Type": file.type || "application/octet-stream" },
-            body: file,
+            headers: { "Content-Type": uploadFile.type || "application/octet-stream" },
+            body: uploadFile,
           });
           if (!putRes.ok) throw new Error("Upload zu S3 fehlgeschlagen.");
 
@@ -263,8 +305,16 @@ export default function UploadForm({
 
     const form = e.currentTarget;
     const input = form.elements.namedItem("file") as HTMLInputElement | null;
-    const file = input?.files?.[0];
+    let file = input?.files?.[0];
     if (!file) return alert("Bitte eine Datei auswählen.");
+
+    // Mobile-Fotos sind riesig -> verkleinern
+    if (
+      file.size > 1_000_000 || // > ~1 MB
+      (file.type.startsWith("image/") && /jpeg|png|heic|heif/i.test(file.type))
+    ) {
+      file = await downscaleImage(file, 1600, 0.75);
+    }
 
     setBusy(true);
     setText("");
