@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Check } from "lucide-react";
-import { useEffect } from "react";
-
 
 type ItemType = "CAL" | "WA" | "TODO";
 type ItemStatus = "pending" | "accepted" | "rejected" | "editing";
@@ -26,7 +24,7 @@ function parseOcrText(ocrText: string) {
   lines.forEach((raw, i) => {
     const m = raw.match(re);
     if (m) {
-      const type = (m[1].toUpperCase() as ItemType);
+      const type = m[1].toUpperCase() as ItemType;
       const content = (m[2] || "").trim();
       items.push({
         id: `it-${i}-${Math.random().toString(36).slice(2, 7)}`,
@@ -72,15 +70,15 @@ function typeStyles(t: ItemType) {
 export default function UploadForm({
   pageId,
   notebookId,
-  pageToken
+  pageToken,
 }: {
   pageId: string;
   notebookId: string;
   pageToken: string;
 }) {
   const [busy, setBusy] = useState(false);
-  const [submitting, setSubmitting] = useState(false);   // NEU: disable während Bestätigen
-  const [submitted, setSubmitted] = useState(false);     // NEU: Success-Screen
+  const [submitting, setSubmitting] = useState(false); // disable während Bestätigen
+  const [submitted, setSubmitted] = useState(false); // Success-Screen
   const [imageUrl, setImageUrl] = useState<string>("");
   const [text, setText] = useState<string>("");
   const [scanning, setScanning] = useState(false);
@@ -89,7 +87,91 @@ export default function UploadForm({
 
   const r = useRouter();
 
-    useEffect(() => {
+  // ---- Scan-Queue: Helper ----
+  function buildItemsFromJob(job: any): ActionItem[] {
+    const next: ActionItem[] = [
+      ...(Array.isArray(job.cal) ? job.cal : []).map((c: string, i: number) => ({
+        id: `cal-${i}`,
+        type: "CAL" as const,
+        content: c,
+        status: "pending",
+      })),
+      ...(Array.isArray(job.wa) ? job.wa : []).map((c: string, i: number) => ({
+        id: `wa-${i}`,
+        type: "WA" as const,
+        content: c,
+        status: "pending",
+      })),
+      ...(Array.isArray(job.todo) ? job.todo : []).map((c: string, i: number) => ({
+        id: `todo-${i}`,
+        type: "TODO" as const,
+        content: c,
+        status: "pending",
+      })),
+    ];
+    return next;
+  }
+
+  async function startScanJob(publicUrl: string) {
+    await fetch("/api/page-scans", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pageId, notebookId, imageUrl: publicUrl }),
+    });
+  }
+
+  function pollScanJob() {
+    setScanning(true);
+    const tick = async () => {
+      try {
+        const r = await fetch(`/api/page-scans/${pageId}`);
+        const { job } = await r.json();
+        if (!job) return setTimeout(tick, 1500);
+
+        if (job.status === "succeeded") {
+          setImageUrl(job.imageUrl || "");
+          setText(job.text || "");
+          setItems(buildItemsFromJob(job));
+          setScanning(false);
+          return;
+        }
+        if (job.status === "failed") {
+          setScanError(job.error || "AI-Scan fehlgeschlagen.");
+          setScanning(false);
+          return;
+        }
+        // queued/processing
+        setTimeout(tick, 1500);
+      } catch {
+        setTimeout(tick, 2000);
+      }
+    };
+    tick();
+  }
+
+  // Beim Mount: evtl. bestehende Jobs laden (Seite verlassen/neu laden)
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch(`/api/page-scans/${pageId}`);
+        const { job } = await r.json();
+        if (!job) return;
+
+        if (job.status === "succeeded") {
+          setImageUrl(job.imageUrl || "");
+          setText(job.text || "");
+          setItems(buildItemsFromJob(job));
+        } else if (job.status === "queued" || job.status === "processing") {
+          pollScanJob();
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, [pageId]);
+
+  // Auto-Weiterleitung aus Kamera (SessionStorage) → lädt & triggert Scan-Job
+  useEffect(() => {
     try {
       const raw = sessionStorage.getItem("scan:pending");
       if (!raw) return;
@@ -102,7 +184,6 @@ export default function UploadForm({
       if (!parsed || !parsed.imageDataUrl) return;
       if (pageToken && parsed.pageToken !== pageToken) return; // falsche Seite
 
-      // einmalig verbrauchen
       sessionStorage.removeItem("scan:pending");
 
       // DataURL -> Blob
@@ -115,7 +196,6 @@ export default function UploadForm({
       const blob = new Blob([bytes], { type: mime });
       const file = new File([blob], "scan.jpg", { type: mime });
 
-      // identisch zu onSubmit – aber ohne Form, rein programmatic:
       (async () => {
         setBusy(true);
         setText("");
@@ -146,9 +226,6 @@ export default function UploadForm({
           });
           if (!putRes.ok) throw new Error("Upload zu S3 fehlgeschlagen.");
 
-          // sofort anzeigen
-          setImageUrl(publicUrl);
-
           // 3) Referenz speichern
           const saveRes = await fetch(`/api/pages/${pageId}/images`, {
             method: "POST",
@@ -160,34 +237,24 @@ export default function UploadForm({
             throw new Error(err?.error || "Speichern des Bildes fehlgeschlagen.");
           }
 
-          // 4) AI-Scan
-          setScanning(true);
-          const aiRes = await fetch("/api/openai", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ imageUrl: publicUrl }),
-          });
-          if (!aiRes.ok) {
-            const msg = await aiRes.text();
-            throw new Error(msg || "AI-Scan fehlgeschlagen.");
-          }
-          const { text: ocrText } = await aiRes.json();
-          const { items, cleanedText } = parseOcrText(ocrText || "");
-          setItems(items);
-          setText(cleanedText);
+          // Bild anzeigen
+          setImageUrl(publicUrl);
+
+          // 4) Scan-Job starten & pollen
+          await startScanJob(publicUrl);
+          pollScanJob();
         } catch (e) {
           console.error("auto upload failed", e);
           setScanError((e as Error)?.message || "Fehler beim automatischen Upload.");
         } finally {
           setBusy(false);
-          setScanning(false);
           r.refresh();
         }
       })();
     } catch {
       /* ignore */
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageToken, pageId, notebookId]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -228,9 +295,6 @@ export default function UploadForm({
       });
       if (!putRes.ok) throw new Error("Upload zu S3 fehlgeschlagen.");
 
-      // Bild sofort anzeigen
-      setImageUrl(publicUrl);
-
       // 3) In DB referenzieren
       const saveRes = await fetch(`/api/pages/${pageId}/images`, {
         method: "POST",
@@ -242,30 +306,12 @@ export default function UploadForm({
         throw new Error(err?.error || "Speichern des Bildes fehlgeschlagen.");
       }
 
-      // 4) AI-Scan im Hintergrund
-      setScanning(true);
-      void (async () => {
-        try {
-          const aiRes = await fetch("/api/openai", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ imageUrl: publicUrl }),
-          });
-          if (!aiRes.ok) {
-            const msg = await aiRes.text();
-            throw new Error(msg || "AI-Scan fehlgeschlagen.");
-          }
-          const { text: ocrText } = await aiRes.json();
-          const { items, cleanedText } = parseOcrText(ocrText || "");
-          setItems(items);
-          setText(cleanedText);
-        } catch (err) {
-          console.error("openai scan failed", err);
-          setScanError((err as string) || "AI-Scan fehlgeschlagen.");
-        } finally {
-          setScanning(false);
-        }
-      })();
+      // Bild sofort anzeigen
+      setImageUrl(publicUrl);
+
+      // 4) Scan-Job starten & pollen
+      await startScanJob(publicUrl);
+      pollScanJob();
 
       r.refresh();
     } catch (e) {
@@ -286,31 +332,29 @@ export default function UploadForm({
       prev.map((it) =>
         it.id === id
           ? {
-            ...it,
-            status: it.status === "editing" ? "pending" : "editing",
-            editValue: it.editValue ?? it.content,
-          }
+              ...it,
+              status: it.status === "editing" ? "pending" : "editing",
+              editValue: it.editValue ?? it.content,
+            }
           : it
       )
     );
   }
 
   function updateEditValue(id: string, value: string) {
-    setItems((prev) =>
-      prev.map((it) => (it.id === id ? { ...it, editValue: value } : it))
-    );
+    setItems((prev) => (prev.map((it) => (it.id === id ? { ...it, editValue: value } : it))));
   }
 
-  // per-Card speichern: nur lokal übernehmen, KEIN console.log
+  // per-Card speichern: nur lokal übernehmen
   function applyItemEdit(id: string) {
     setItems((prev) =>
       prev.map((x) =>
         x.id === id
           ? {
-            ...x,
-            content: (x.editValue ?? x.content).trim(),
-            status: "accepted", // nach „Speichern“ als bestätigt markieren
-          }
+              ...x,
+              content: (x.editValue ?? x.content).trim(),
+              status: "accepted",
+            }
           : x
       )
     );
@@ -318,11 +362,9 @@ export default function UploadForm({
 
   // globaler Speichern/Bestätigen-Button unten:
   async function saveAll() {
-    setSubmitting(true); // NEU: Buttons deaktivieren
+    setSubmitting(true);
 
-    // nur akzeptierte Items (nicht rejected, nicht pending)
     const accepted = items.filter((x) => x.status === "accepted");
-
     const todo = accepted.filter((x) => x.type === "TODO").map((x) => x.content);
     const cal = accepted.filter((x) => x.type === "CAL").map((x) => x.content);
     const wa = accepted.filter((x) => x.type === "WA").map((x) => x.content);
@@ -349,16 +391,15 @@ export default function UploadForm({
         const msg = await res.text().catch(() => "");
         throw new Error(msg || "Speichern in pages_context fehlgeschlagen.");
       }
-      // Success-Screen anzeigen
       setSubmitted(true);
     } catch (e) {
       console.error("pages_context save failed", e);
       alert((e as string) || "Speichern fehlgeschlagen");
-      setSubmitting(false); // wieder aktivieren bei Fehler
+      setSubmitting(false);
     }
   }
 
-  // Wenn erfolgreich abgesendet: Success-Screen rendern
+  // Success-Screen
   if (submitted) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -385,13 +426,18 @@ export default function UploadForm({
 
   return (
     <form onSubmit={onSubmit} className="grid gap-3 border rounded-xl p-4">
-      <input type="file" name="file" accept="image/*" required />
-      <button
-        className="bg-black text-white rounded px-3 py-2 disabled:opacity-50"
-        disabled={busy || submitting} // NEU: auch während submit disabled
-      >
-        {busy ? "Hochladen…" : "Hochladen"}
-      </button>
+      {/* Upload-Controls AUSBLENDEN, wenn bereits Bild vorhanden oder Scan läuft */}
+      {!(imageUrl || scanning) && (
+        <>
+          <input type="file" name="file" accept="image/*" required />
+          <button
+            className="bg-black text-white rounded px-3 py-2 disabled:opacity-50"
+            disabled={busy || submitting}
+          >
+            {busy ? "Hochladen…" : "Hochladen"}
+          </button>
+        </>
+      )}
 
       {/* Vorschau & Ergebnisse */}
       {imageUrl && (
@@ -474,7 +520,7 @@ export default function UploadForm({
                     </div>
                   </div>
 
-                  {/* Edit-Feld + lokales Speichern (nur wenn editing) */}
+                  {/* Edit-Feld + lokales Speichern */}
                   {it.status === "editing" && (
                     <div className="mt-3">
                       <textarea
@@ -501,7 +547,7 @@ export default function UploadForm({
             </div>
           )}
 
-          {/* Status / Fehler / Gesamter Text (ohne --kw) */}
+          {/* Status / Fehler / Gesamter Text */}
           <div className="mt-3 text-sm text-gray-700">
             {scanning && (
               <div className="flex items-center gap-2">
