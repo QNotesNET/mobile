@@ -12,7 +12,7 @@ type ActionItem = {
   type: ItemType;
   content: string;
   status: ItemStatus;
-  editValue?: string; // UI: Inhalt im Editfeld
+  editValue?: string; // Inhalt im Editfeld
 };
 
 function parseOcrText(ocrText: string) {
@@ -33,7 +33,7 @@ function parseOcrText(ocrText: string) {
         status: "pending",
         editValue: content,
       });
-      cleanedLines.push(content); // ohne --kw
+      cleanedLines.push(content);
     } else {
       cleanedLines.push(raw);
     }
@@ -69,10 +69,8 @@ function typeStyles(t: ItemType) {
 
 export default function UploadForm({
   pageId,
-  notebookId, // optional – nur fürs Console-Log, Logik bleibt gleich
 }: {
   pageId: string;
-  notebookId?: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [imageUrl, setImageUrl] = useState<string>("");
@@ -135,7 +133,7 @@ export default function UploadForm({
         throw new Error(err?.error || "Speichern des Bildes fehlgeschlagen.");
       }
 
-      // 4) AI-Scan im Hintergrund (nur Frontend-Parsing unten)
+      // 4) AI-Scan im Hintergrund
       setScanning(true);
       void (async () => {
         try {
@@ -194,31 +192,44 @@ export default function UploadForm({
     );
   }
 
-  function saveItem(id: string) {
-    const it = items.find((x) => x.id === id);
-    if (!it) return;
+  // per-Card speichern: nur lokal übernehmen, KEIN console.log
+  function applyItemEdit(id: string) {
+    setItems((prev) =>
+      prev.map((x) =>
+        x.id === id
+          ? {
+              ...x,
+              content: (x.editValue ?? x.content).trim(),
+              status: "accepted", // nach „Speichern“ als bestätigt markieren
+            }
+          : x
+      )
+    );
+  }
 
-    const finalText = (it.editValue ?? it.content).trim();
+  // globaler Speichern/Bestätigen-Button unten:
+  function saveAll() {
+    // nur akzeptierte Items (nicht rejected, nicht pending)
+    const accepted = items.filter((x) => x.status === "accepted");
 
-    // Objekt fürs Logging bauen
+    const todo = accepted.filter((x) => x.type === "TODO").map((x) => x.content);
+    const cal  = accepted.filter((x) => x.type === "CAL").map((x) => x.content);
+    const wa   = accepted.filter((x) => x.type === "WA").map((x) => x.content);
+
+    const notebookid =
+      imageUrl?.match(/\/pages\/([^/]+)/)?.[1] ?? null;
+
     const payload = {
-      todo: it.type === "TODO" ? finalText : null,
-      cal: it.type === "CAL" ? finalText : null,
-      wa: it.type === "WA" ? finalText : null,
-      text, // gesamter (gesäuberter) OCR-Text
-      notebookid: notebookId ?? null,
+      todo,
+      cal,
+      wa,
+      text,
+      notebookid,
       imageUrl: imageUrl || null,
       page: pageId,
     };
 
-    console.log("SAVE ITEM →", payload);
-
-    // nach dem Speichern Status auf "accepted" und content übernehmen
-    setItems((prev) =>
-      prev.map((x) =>
-        x.id === id ? { ...x, content: finalText, status: "accepted" } : x
-      )
-    );
+    console.log("SAVE ALL →", payload);
   }
 
   return (
@@ -246,9 +257,7 @@ export default function UploadForm({
               {items.map((it) => (
                 <div
                   key={it.id}
-                  className={`rounded-xl border p-3 ${typeStyles(
-                    it.type
-                  )}`}
+                  className={`rounded-xl border p-3 ${typeStyles(it.type)}`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="pr-3">
@@ -311,7 +320,7 @@ export default function UploadForm({
                     </div>
                   </div>
 
-                  {/* Edit-Feld + Speichern (nur wenn editing) */}
+                  {/* Edit-Feld + lokales Speichern (nur wenn editing) */}
                   {it.status === "editing" && (
                     <div className="mt-3">
                       <textarea
@@ -324,7 +333,7 @@ export default function UploadForm({
                         <button
                           type="button"
                           className="bg-black text-white rounded px-3 py-2"
-                          onClick={() => saveItem(it.id)}
+                          onClick={() => applyItemEdit(it.id)}
                         >
                           Speichern
                         </button>
@@ -341,7 +350,7 @@ export default function UploadForm({
             {scanning && (
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Bilderkennung wird ausgeführt…</span>
+                <span>Foto wird analysiert…</span>
               </div>
             )}
             {!scanning && !text && scanError && (
@@ -354,6 +363,19 @@ export default function UploadForm({
               </>
             )}
           </div>
+
+          {/* Globaler Speichern/Bestätigen-Button */}
+          {!!items.length && (
+            <div className="mt-4">
+              <button
+                type="button"
+                className="bg-black text-white rounded px-3 py-2"
+                onClick={saveAll}
+              >
+                Bestätigen
+              </button>
+            </div>
+          )}
         </div>
       )}
     </form>
