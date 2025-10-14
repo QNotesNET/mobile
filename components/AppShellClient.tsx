@@ -13,6 +13,7 @@ import {
   Cog6ToothIcon,
   XMarkIcon,
   BookOpenIcon,
+  AdjustmentsHorizontalIcon
 } from "@heroicons/react/24/outline";
 
 function classNames(...classes: Array<string | false | null | undefined>) {
@@ -36,6 +37,7 @@ const NAV: NavItem[] = [
   { name: "Dashboard", href: "/", icon: HomeIcon },
   { name: "Notizbücher", href: "/notebooks", icon: BookOpenIcon },
   { name: "Einstellungen", href: "/settings", icon: Cog6ToothIcon },
+  { name: "Integrationen", href: "/integrations", icon: AdjustmentsHorizontalIcon }, // neu als reguläres Nav-Item
   { name: "Hilfe & Kontakt", href: "mailto:info@powerbook.net", icon: EnvelopeIcon }, // neu als reguläres Nav-Item
 ];
 
