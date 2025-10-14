@@ -89,10 +89,10 @@ export default function AppShellClient({
                   <Image
                     src="/images/logos/logo-white.svg"
                     alt="Powerbook"
-                    width={180}
-                    height={86}
+                    width={120}
+                    height={36}
                     priority
-                    className="h-20 w-auto pt-3"
+                    className="h-15 w-auto pt-3"
                   />
                 </Link>
               </div>
@@ -185,7 +185,7 @@ export default function AppShellClient({
           {/* Logo */}
           <div className="flex h-12 shrink-0 items-center">
             <Link href="/" className="flex items-center">
-              <Image src="/images/logos/logo-white.svg" alt="Powerbook" width={120} height={36} priority className="h-10 w-auto" />
+              <Image src="/images/logos/logo-white.svg" alt="Powerbook" width={120} height={36} priority className="h-15 w-auto" />
             </Link>
           </div>
 
