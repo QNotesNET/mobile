@@ -9,6 +9,10 @@ export interface UserDoc {
   lastName?: string;
   role?: string;
 
+  // Neu (optional)
+  nexoroUser?: string;    // z.B. "max.mustermann"
+  nexoroDomain?: string;  // z.B. "firma.de"
+
   // Passwort-Reset
   resetToken?: string | null;
   resetTokenExpiresAt?: Date | null;
@@ -24,6 +28,10 @@ const UserSchema = new Schema<UserDoc>(
     firstName: String,
     lastName: String,
     role: String,
+
+    // Neu (optional)
+    nexoroUser: { type: String, default: "" },
+    nexoroDomain: { type: String, default: "" },
 
     // Felder für Passwort-Reset
     resetToken: { type: String, index: true, default: null },
