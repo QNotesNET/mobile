@@ -17,42 +17,29 @@ function parseOcrText(ocrText: string) {
   const lines = (ocrText || "").split(/\r?\n/);
   const items: ActionItem[] = [];
   const cleanedLines: string[] = [];
-
   const re = /^\s*--kw\s+(CAL|WA|TODO)\s*:?\s*(.*)$/i;
 
-  for (const [idx, raw] of lines.entries()) {
+  lines.forEach((raw, i) => {
     const m = raw.match(re);
     if (m) {
       const type = m[1].toUpperCase() as ItemType;
       const content = (m[2] || "").trim();
       items.push({
-        id: `it-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+        id: `it-${i}-${Math.random().toString(36).slice(2, 7)}`,
         type,
         content,
         status: "pending",
       });
-      cleanedLines.push(content); // ohne --kw vorne
+      cleanedLines.push(content); // ohne --kw
     } else {
       cleanedLines.push(raw);
     }
-  }
+  });
 
   return {
     items,
     cleanedText: cleanedLines.join("\n").trim(),
   };
-}
-
-function typeStyles(t: ItemType) {
-  // Tailwind-Farben pro Typ
-  switch (t) {
-    case "CAL":
-      return "border-blue-300 bg-blue-50";
-    case "WA":
-      return "border-green-300 bg-green-50";
-    case "TODO":
-      return "border-amber-300 bg-amber-50";
-  }
 }
 
 function typeLabel(t: ItemType) {
@@ -66,13 +53,23 @@ function typeLabel(t: ItemType) {
   }
 }
 
+function typeStyles(t: ItemType) {
+  switch (t) {
+    case "CAL":
+      return "border-blue-300 bg-blue-50";
+    case "WA":
+      return "border-green-300 bg-green-50";
+    case "TODO":
+      return "border-amber-300 bg-amber-50";
+  }
+}
+
 export default function UploadForm({ pageId }: { pageId: string }) {
   const [busy, setBusy] = useState(false);               // nur für Upload/Speichern
   const [imageUrl, setImageUrl] = useState<string>("");  // S3-URL zur Anzeige
-  const [text, setText] = useState<string>("");          // kompletter (gesäub.) Text
+  const [text, setText] = useState<string>("");          // gesäuberter Text
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
-
   const [items, setItems] = useState<ActionItem[]>([]);  // erkannte KW-Items
 
   const r = useRouter();
@@ -115,7 +112,7 @@ export default function UploadForm({ pageId }: { pageId: string }) {
       });
       if (!putRes.ok) throw new Error("Upload zu S3 fehlgeschlagen.");
 
-      // Bild SOFORT anzeigen
+      // Bild sofort anzeigen
       setImageUrl(publicUrl);
 
       // 3) In DB referenzieren
@@ -129,7 +126,7 @@ export default function UploadForm({ pageId }: { pageId: string }) {
         throw new Error(err?.error || "Speichern des Bildes fehlgeschlagen.");
       }
 
-      // 4) AI-Scan PARALLEL starten
+      // 4) AI-Scan im Hintergrund (Frontend-only Änderung unten)
       setScanning(true);
       void (async () => {
         try {
@@ -138,15 +135,20 @@ export default function UploadForm({ pageId }: { pageId: string }) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ imageUrl: publicUrl }),
           });
-          if (!aiRes.ok) throw new Error(await aiRes.text());
+          if (!aiRes.ok) {
+            const msg = await aiRes.text();
+            throw new Error(msg || "AI-Scan fehlgeschlagen.");
+          }
           const { text: ocrText } = await aiRes.json();
 
+          // ↓↓↓ FRONTEND: OCR-Text hübsch machen & Items extrahieren
           const { items, cleanedText } = parseOcrText(ocrText || "");
           setItems(items);
           setText(cleanedText);
+          // ↑↑↑ nur Frontend
         } catch (err) {
           console.error("openai scan failed", err);
-          setScanError(err as string || "AI-Scan fehlgeschlagen.");
+          setScanError((err as string) || "AI-Scan fehlgeschlagen.");
         } finally {
           setScanning(false);
         }
@@ -155,10 +157,10 @@ export default function UploadForm({ pageId }: { pageId: string }) {
       r.refresh();
     } catch (e) {
       console.error(e);
-      alert(e as string || "Upload fehlgeschlagen");
+      alert((e as string) || "Upload fehlgeschlagen");
     } finally {
       setBusy(false);
-      (e.currentTarget as HTMLFormElement).reset();
+      form.reset();
     }
   }
 
@@ -176,7 +178,7 @@ export default function UploadForm({ pageId }: { pageId: string }) {
         {busy ? "Hochladen…" : "Hochladen"}
       </button>
 
-      {/* Bild-Vorschau */}
+      {/* Vorschau & Ergebnisse */}
       {imageUrl && (
         <div className="mt-2">
           <img
@@ -185,7 +187,7 @@ export default function UploadForm({ pageId }: { pageId: string }) {
             className="max-h-96 rounded border"
           />
 
-          {/* Aktion-Cards über dem Text */}
+          {/* Aktion-Cards über dem Text (nur Frontend/UI) */}
           {!!items.length && (
             <div className="mt-3 grid gap-3">
               {items.map((it) => (
@@ -195,11 +197,12 @@ export default function UploadForm({ pageId }: { pageId: string }) {
                     it.type
                   )}`}
                 >
-                  <div>
+                  <div className="pr-3">
                     <div className="text-sm font-semibold">
                       {typeLabel(it.type)}
                     </div>
                     <div className="text-sm mt-1">{it.content}</div>
+
                     {/* Status-Badge */}
                     <div className="mt-2">
                       {it.status === "pending" && (
@@ -257,6 +260,7 @@ export default function UploadForm({ pageId }: { pageId: string }) {
             </div>
           )}
 
+          {/* Status / Fehler / Gesamter Text (ohne --kw) */}
           <div className="mt-3 text-sm text-gray-700">
             {scanning && "Scan läuft…"}
             {!scanning && !text && scanError && (
