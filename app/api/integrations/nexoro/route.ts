@@ -7,21 +7,11 @@ import { Types } from "mongoose";
 
 export const runtime = "nodejs";
 
-// ----- Lean-Typen für Queries -----
-type UserLean = {
-  _id: Types.ObjectId;
-  nexoroUser?: string;
-  nexoroDomain?: string;
-};
-
-type NotebookLean = {
-  _id: Types.ObjectId;
-  ownerId: Types.ObjectId;
-};
-
+type UserLean = { _id: Types.ObjectId; nexoroUser?: string; nexoroDomain?: string };
+type NotebookLean = { _id: Types.ObjectId; ownerId: Types.ObjectId };
 type ContextLean = {
-  notebookId: string;            // als String gespeichert
-  page: Types.ObjectId;          // Ref auf Page
+  notebookId: string;
+  page: Types.ObjectId;
   imageUrl?: string;
   text?: string;
   wa?: string[];
@@ -29,104 +19,155 @@ type ContextLean = {
   todo?: string[];
 };
 
-type ResultItem = {
-  notebookId: string;
-  page: Types.ObjectId;
-  imageUrl: string;
-  text: string;
-  wa: string[];
-  cal: string[];
-  todo: string[];
+type Action = {
+  type: "TODO" | "CAL" | "WA";
+  title: string;
+  content: string;
+  contactName: string | null;
+  phone: string | null;
+  datetime: string | null;
 };
 
-type ResultPerUser = {
-  nexoroId: string;
-  nexoroDomain: string;
-  contexts: ResultItem[];
-};
+function trimOrNull(v?: string | null): string | null {
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  return t === "" ? null : t;
+}
+function parseWA(s: string): { contactName: string | null; content: string } {
+  const m =
+    s.match(/^\s*([^:\-\u2013>\u2192]+)\s*(?:[:\-–>\u2192]+)\s*(.+)\s*$/u) ||
+    s.match(/^\s*([^:]+):\s*(.+)\s*$/u);
+  if (m) {
+    const name = trimOrNull(m[1]);
+    const body = (m[2] || "").trim();
+    return { contactName: name, content: body };
+  }
+  return { contactName: null, content: s.trim() };
+}
+function titleFromCal(s: string): string {
+  const t = s.trim();
+  const timeLike = /\b(\d{1,2}[:.]\d{2})\b/;
+  if (timeLike.test(t)) {
+    const idx = t.search(timeLike);
+    if (idx > 0) return t.slice(0, idx).trim().replace(/[-–,:]*\s*$/, "");
+  }
+  const m = t.match(/^\s*([^:]{2,}):\s*.+$/);
+  if (m) return m[1].trim();
+  return t;
+}
+function titleFromTodo(s: string): string {
+  const t = s.trim().replace(/\.\.\.$/, "");
+  const m = t.match(/^\s*([^:]{2,}):\s*(.+)$/);
+  if (m) return m[2].trim();
+  return t;
+}
 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const domain = (searchParams.get("nexoroDomain") || "").trim();
     if (!domain) {
-      return NextResponse.json({ error: "Missing nexoroDomain" }, { status: 400 });
+      return NextResponse.json({ response: "Error", error: "Missing nexoroDomain" }, { status: 400 });
     }
 
     await connectToDB();
 
-    // 1) User mit Domain holen (grober Filter) …
+    // 1) valide nexoro-User dieser Domain
     const usersRaw = await User.find(
       { nexoroDomain: domain },
       { _id: 1, nexoroUser: 1, nexoroDomain: 1 }
     ).lean<UserLean[]>();
-
-    // … und streng filtern (non-empty nexoroUser, exakte Domain)
-    const users: UserLean[] = usersRaw.filter(
+    const users = usersRaw.filter(
       (u) =>
         typeof u?.nexoroUser === "string" &&
         u.nexoroUser.trim() !== "" &&
         typeof u?.nexoroDomain === "string" &&
         u.nexoroDomain.trim() === domain
     );
-
     if (users.length === 0) {
-      return NextResponse.json({ results: [] as ResultPerUser[] });
+      return NextResponse.json({ response: "Success", data: {} });
     }
 
+    // 2) Notebooks dieser User
     const userIds: Types.ObjectId[] = users.map((u) => u._id);
-
-    // 2) Notebooks der gefilterten User
     const notebooks = await Notebook.find(
       { ownerId: { $in: userIds } },
       { _id: 1, ownerId: 1 }
     ).lean<NotebookLean[]>();
 
-    // Map notebookId(string) -> ownerId(string)
-    const notebookIdToOwner = new Map<string, string>();
-    const allNotebookIdsAsString: string[] = [];
-    for (const n of notebooks) {
-      const nid = String(n._id);
-      notebookIdToOwner.set(nid, String(n.ownerId));
-      allNotebookIdsAsString.push(nid);
+    const allNotebookIdsAsString = notebooks.map((n) => String(n._id));
+    if (allNotebookIdsAsString.length === 0) {
+      return NextResponse.json({ response: "Success", data: {} });
     }
 
     // 3) Passende PagesContexts
-    const contexts: ContextLean[] = allNotebookIdsAsString.length
-      ? await PagesContext.find(
-          { notebookId: { $in: allNotebookIdsAsString } },
-          { notebookId: 1, page: 1, imageUrl: 1, text: 1, wa: 1, cal: 1, todo: 1 }
-        ).lean<ContextLean[]>()
-      : [];
+    const contexts = await PagesContext.find(
+      { notebookId: { $in: allNotebookIdsAsString } },
+      { notebookId: 1, page: 1, imageUrl: 1, text: 1, wa: 1, cal: 1, todo: 1 }
+    ).lean<ContextLean[]>();
 
-    // 4) Response pro User
-    const results: ResultPerUser[] = users.map((u) => {
-      const ownerIdStr = String(u._id);
+    // 4) Gruppieren: notebookId -> pageId -> { image, actions[] }
+    const data: Record<
+      string,
+      Record<
+        string,
+        {
+          image: string;
+          actions: Action[];
+        }
+      >
+    > = {};
 
-      const myContexts: ResultItem[] = contexts
-        .filter((c) => notebookIdToOwner.get(c.notebookId) === ownerIdStr)
-        .map((c) => ({
-          notebookId: c.notebookId,
-          page: c.page,
-          imageUrl: c.imageUrl ?? "",
-          text: c.text ?? "",
-          wa: Array.isArray(c.wa) ? c.wa : [],
-          cal: Array.isArray(c.cal) ? c.cal : [],
-          todo: Array.isArray(c.todo) ? c.todo : [],
-        }));
+    for (const c of contexts) {
+      const nb = c.notebookId;
+      const pageId = String(c.page);
+      const image = c.imageUrl ?? "";
 
-      return {
-        nexoroId: u.nexoroUser!.trim(),
-        nexoroDomain: u.nexoroDomain!.trim(),
-        contexts: myContexts,
-      };
-    });
+      if (!data[nb]) data[nb] = {};
+      if (!data[nb][pageId]) data[nb][pageId] = { image, actions: [] };
 
-    return NextResponse.json({ results });
-  } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : "Server error";
+      // WA
+      for (const s of c.wa ?? []) {
+        const { contactName, content } = parseWA(s);
+        data[nb][pageId].actions.push({
+          type: "WA",
+          title: "WA-Nachricht",
+          content,
+          contactName,
+          phone: null,
+          datetime: null,
+        });
+      }
+      // CAL
+      for (const s of c.cal ?? []) {
+        const content = s.trim();
+        data[nb][pageId].actions.push({
+          type: "CAL",
+          title: titleFromCal(content),
+          content,
+          contactName: null,
+          phone: null,
+          datetime: null,
+        });
+      }
+      // TODO
+      for (const s of c.todo ?? []) {
+        const content = s.trim();
+        data[nb][pageId].actions.push({
+          type: "TODO",
+          title: titleFromTodo(content),
+          content,
+          contactName: null,
+          phone: null,
+          datetime: null,
+        });
+      }
+    }
+
+    return NextResponse.json({ response: "Success", data });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Server error";
     console.error("[GET /api/integrations/nexoro] error:", message);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ response: "Error", error: message }, { status: 500 });
   }
 }
