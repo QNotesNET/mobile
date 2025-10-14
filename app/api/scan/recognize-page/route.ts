@@ -59,7 +59,7 @@ export async function POST(req: Request) {
       temperature: 0,
     });
 
-    const rawText = (resp as any).output_text as string || "";
+    const rawText = (resp).output_text as string || "";
     const pageIndex = extractInt(rawText ?? "");
     if (pageIndex == null) {
       return NextResponse.json({ error: "Page number not detected" }, { status: 422 });
