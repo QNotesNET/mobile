@@ -34,7 +34,7 @@ export default async function ScanPage(
       {/* Client-Formular */}
       <UploadForm pageId={String(page._id)} />
 
-      <div className="mt-6 grid gap-3">
+      {/* <div className="mt-6 grid gap-3">
         {(page.images ?? []).map((img) => (
           <div key={img.url} className="overflow-hidden rounded border">
             <Image
@@ -48,7 +48,7 @@ export default async function ScanPage(
             />
           </div>
         ))}
-      </div>
+      </div> */}
     </main>
   );
 }

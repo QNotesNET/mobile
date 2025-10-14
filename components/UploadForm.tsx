@@ -3,12 +3,77 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+type ItemType = "CAL" | "WA" | "TODO";
+type ItemStatus = "pending" | "accepted" | "rejected" | "editing";
+
+type ActionItem = {
+  id: string;
+  type: ItemType;
+  content: string;
+  status: ItemStatus;
+};
+
+function parseOcrText(ocrText: string) {
+  const lines = (ocrText || "").split(/\r?\n/);
+  const items: ActionItem[] = [];
+  const cleanedLines: string[] = [];
+
+  const re = /^\s*--kw\s+(CAL|WA|TODO)\s*:?\s*(.*)$/i;
+
+  for (const [idx, raw] of lines.entries()) {
+    const m = raw.match(re);
+    if (m) {
+      const type = m[1].toUpperCase() as ItemType;
+      const content = (m[2] || "").trim();
+      items.push({
+        id: `it-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+        type,
+        content,
+        status: "pending",
+      });
+      cleanedLines.push(content); // ohne --kw vorne
+    } else {
+      cleanedLines.push(raw);
+    }
+  }
+
+  return {
+    items,
+    cleanedText: cleanedLines.join("\n").trim(),
+  };
+}
+
+function typeStyles(t: ItemType) {
+  // Tailwind-Farben pro Typ
+  switch (t) {
+    case "CAL":
+      return "border-blue-300 bg-blue-50";
+    case "WA":
+      return "border-green-300 bg-green-50";
+    case "TODO":
+      return "border-amber-300 bg-amber-50";
+  }
+}
+
+function typeLabel(t: ItemType) {
+  switch (t) {
+    case "CAL":
+      return "Neuer Kalendereintrag";
+    case "WA":
+      return "Neue WhatsApp-Nachricht";
+    case "TODO":
+      return "Neue Aufgabe";
+  }
+}
+
 export default function UploadForm({ pageId }: { pageId: string }) {
-  const [busy, setBusy] = useState(false);        // nur für Upload/Speichern
-  const [imageUrl, setImageUrl] = useState<string>(""); // S3-URL zur Anzeige
-  const [text, setText] = useState<string>("");   // Scan-Ergebnis
+  const [busy, setBusy] = useState(false);               // nur für Upload/Speichern
+  const [imageUrl, setImageUrl] = useState<string>("");  // S3-URL zur Anzeige
+  const [text, setText] = useState<string>("");          // kompletter (gesäub.) Text
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+
+  const [items, setItems] = useState<ActionItem[]>([]);  // erkannte KW-Items
 
   const r = useRouter();
 
@@ -23,6 +88,7 @@ export default function UploadForm({ pageId }: { pageId: string }) {
     setBusy(true);
     setText("");
     setScanError(null);
+    setItems([]);
 
     try {
       // 1) Presign
@@ -47,14 +113,12 @@ export default function UploadForm({ pageId }: { pageId: string }) {
         headers: { "Content-Type": file.type || "application/octet-stream" },
         body: file,
       });
-      if (!putRes.ok) {
-        throw new Error("Upload zu S3 fehlgeschlagen.");
-      }
+      if (!putRes.ok) throw new Error("Upload zu S3 fehlgeschlagen.");
 
-      // ⇒ Bild SOFORT anzeigen
+      // Bild SOFORT anzeigen
       setImageUrl(publicUrl);
 
-      // 3) In DB referenzieren (warten wir der Einfachheit halber ab)
+      // 3) In DB referenzieren
       const saveRes = await fetch(`/api/pages/${pageId}/images`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -65,7 +129,7 @@ export default function UploadForm({ pageId }: { pageId: string }) {
         throw new Error(err?.error || "Speichern des Bildes fehlgeschlagen.");
       }
 
-      // 4) AI-Scan im Hintergrund STARTEN (nicht blockieren)
+      // 4) AI-Scan PARALLEL starten
       setScanning(true);
       void (async () => {
         try {
@@ -74,12 +138,12 @@ export default function UploadForm({ pageId }: { pageId: string }) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ imageUrl: publicUrl }),
           });
-          if (!aiRes.ok) {
-            const msg = await aiRes.text();
-            throw new Error(msg || "AI-Scan fehlgeschlagen.");
-          }
+          if (!aiRes.ok) throw new Error(await aiRes.text());
           const { text: ocrText } = await aiRes.json();
-          setText(ocrText || "");
+
+          const { items, cleanedText } = parseOcrText(ocrText || "");
+          setItems(items);
+          setText(cleanedText);
         } catch (err) {
           console.error("openai scan failed", err);
           setScanError(err as string || "AI-Scan fehlgeschlagen.");
@@ -94,8 +158,12 @@ export default function UploadForm({ pageId }: { pageId: string }) {
       alert(e as string || "Upload fehlgeschlagen");
     } finally {
       setBusy(false);
-      form.reset();
+      (e.currentTarget as HTMLFormElement).reset();
     }
+  }
+
+  function updateItemStatus(id: string, status: ItemStatus) {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, status } : it)));
   }
 
   return (
@@ -116,16 +184,89 @@ export default function UploadForm({ pageId }: { pageId: string }) {
             alt="Upload preview"
             className="max-h-96 rounded border"
           />
-          <div className="mt-2 text-sm text-gray-700">
+
+          {/* Aktion-Cards über dem Text */}
+          {!!items.length && (
+            <div className="mt-3 grid gap-3">
+              {items.map((it) => (
+                <div
+                  key={it.id}
+                  className={`rounded-xl border p-3 flex items-start justify-between ${typeStyles(
+                    it.type
+                  )}`}
+                >
+                  <div>
+                    <div className="text-sm font-semibold">
+                      {typeLabel(it.type)}
+                    </div>
+                    <div className="text-sm mt-1">{it.content}</div>
+                    {/* Status-Badge */}
+                    <div className="mt-2">
+                      {it.status === "pending" && (
+                        <span className="text-xs px-2 py-0.5 rounded bg-gray-200">
+                          ausstehend
+                        </span>
+                      )}
+                      {it.status === "accepted" && (
+                        <span className="text-xs px-2 py-0.5 rounded bg-emerald-200">
+                          bestätigt
+                        </span>
+                      )}
+                      {it.status === "rejected" && (
+                        <span className="text-xs px-2 py-0.5 rounded bg-red-200">
+                          abgelehnt
+                        </span>
+                      )}
+                      {it.status === "editing" && (
+                        <span className="text-xs px-2 py-0.5 rounded bg-amber-200">
+                          zur Bearbeitung
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Controls */}
+                  <div className="flex gap-2 shrink-0">
+                    <button
+                      type="button"
+                      title="Bestätigen"
+                      className="rounded-lg border px-2 py-1 hover:bg-white"
+                      onClick={() => updateItemStatus(it.id, "accepted")}
+                    >
+                      ✓
+                    </button>
+                    <button
+                      type="button"
+                      title="Ablehnen"
+                      className="rounded-lg border px-2 py-1 hover:bg-white"
+                      onClick={() => updateItemStatus(it.id, "rejected")}
+                    >
+                      ✗
+                    </button>
+                    <button
+                      type="button"
+                      title="Bearbeiten"
+                      className="rounded-lg border px-2 py-1 hover:bg-white"
+                      onClick={() => updateItemStatus(it.id, "editing")}
+                    >
+                      ✎
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-3 text-sm text-gray-700">
             {scanning && "Scan läuft…"}
+            {!scanning && !text && scanError && (
+              <span className="text-red-600">{scanError}</span>
+            )}
             {!scanning && text && (
               <>
                 <div className="font-semibold mb-1">Erkannter Text:</div>
                 <pre className="whitespace-pre-wrap break-words">{text}</pre>
               </>
-            )}
-            {!scanning && !text && scanError && (
-              <span className="text-red-600">{scanError}</span>
             )}
           </div>
         </div>
