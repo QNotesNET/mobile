@@ -21,6 +21,8 @@ export async function POST(req: Request) {
               text:
                 "Give me the text provided based on this image. " +
                 "Can be German or English – write the response in the language which was provided originally. " +
+                "The user can also write keywords like 'CAL', 'TODO', 'WA' - ONLY if they are surrounded by a circle. Return it with the same writing " +
+                "so e.g. CAL MUST always be big. Everytime you extracted a keyword put a '--kw' in front of it. " +
                 "Return only the extracted text (preserve line breaks).",
             },
             {
