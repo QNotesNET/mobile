@@ -32,7 +32,7 @@ export default async function ScanPage(
       <p className="text-gray-600 mb-4">Notebook: {String(page.notebookId)}</p>
 
       {/* Client-Formular */}
-      <UploadForm pageId={String(page._id)} notebookId={String(page.notebookId)} />
+      <UploadForm pageId={String(page._id)} notebookId={String(page.notebookId)} pageToken={token}/>
 
       {/* <div className="mt-6 grid gap-3">
         {(page.images ?? []).map((img) => (

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Check } from "lucide-react";
+import { useEffect } from "react";
+
 
 type ItemType = "CAL" | "WA" | "TODO";
 type ItemStatus = "pending" | "accepted" | "rejected" | "editing";
@@ -69,10 +71,12 @@ function typeStyles(t: ItemType) {
 
 export default function UploadForm({
   pageId,
-  notebookId
+  notebookId,
+  pageToken
 }: {
   pageId: string;
   notebookId: string;
+  pageToken: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [submitting, setSubmitting] = useState(false);   // NEU: disable während Bestätigen
@@ -84,6 +88,107 @@ export default function UploadForm({
   const [items, setItems] = useState<ActionItem[]>([]);
 
   const r = useRouter();
+
+    useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("scan:pending");
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        notebookId: string;
+        pageToken: string;
+        pageIndex: number;
+        imageDataUrl: string;
+      };
+      if (!parsed || !parsed.imageDataUrl) return;
+      if (pageToken && parsed.pageToken !== pageToken) return; // falsche Seite
+
+      // einmalig verbrauchen
+      sessionStorage.removeItem("scan:pending");
+
+      // DataURL -> Blob
+      const m = parsed.imageDataUrl.match(/^data:(.+);base64,(.*)$/);
+      if (!m) return;
+      const mime = m[1];
+      const bin = atob(m[2]);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const blob = new Blob([bytes], { type: mime });
+      const file = new File([blob], "scan.jpg", { type: mime });
+
+      // identisch zu onSubmit – aber ohne Form, rein programmatic:
+      (async () => {
+        setBusy(true);
+        setText("");
+        setScanError(null);
+        setItems([]);
+        try {
+          // 1) Presign
+          const presignRes = await fetch("/api/uploads/presign", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              pageId,
+              fileName: file.name,
+              contentType: file.type || "application/octet-stream",
+            }),
+          });
+          if (!presignRes.ok) {
+            const err = await presignRes.json().catch(() => ({}));
+            throw new Error(err?.error || "Presign fehlgeschlagen.");
+          }
+          const { uploadUrl, publicUrl, key } = await presignRes.json();
+
+          // 2) Upload
+          const putRes = await fetch(uploadUrl, {
+            method: "PUT",
+            headers: { "Content-Type": file.type || "application/octet-stream" },
+            body: file,
+          });
+          if (!putRes.ok) throw new Error("Upload zu S3 fehlgeschlagen.");
+
+          // sofort anzeigen
+          setImageUrl(publicUrl);
+
+          // 3) Referenz speichern
+          const saveRes = await fetch(`/api/pages/${pageId}/images`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: publicUrl, key }),
+          });
+          if (!saveRes.ok) {
+            const err = await saveRes.json().catch(() => ({}));
+            throw new Error(err?.error || "Speichern des Bildes fehlgeschlagen.");
+          }
+
+          // 4) AI-Scan
+          setScanning(true);
+          const aiRes = await fetch("/api/openai", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageUrl: publicUrl }),
+          });
+          if (!aiRes.ok) {
+            const msg = await aiRes.text();
+            throw new Error(msg || "AI-Scan fehlgeschlagen.");
+          }
+          const { text: ocrText } = await aiRes.json();
+          const { items, cleanedText } = parseOcrText(ocrText || "");
+          setItems(items);
+          setText(cleanedText);
+        } catch (e) {
+          console.error("auto upload failed", e);
+          setScanError((e as Error)?.message || "Fehler beim automatischen Upload.");
+        } finally {
+          setBusy(false);
+          setScanning(false);
+          r.refresh();
+        }
+      })();
+    } catch {
+      /* ignore */
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageToken, pageId, notebookId]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -181,10 +286,10 @@ export default function UploadForm({
       prev.map((it) =>
         it.id === id
           ? {
-              ...it,
-              status: it.status === "editing" ? "pending" : "editing",
-              editValue: it.editValue ?? it.content,
-            }
+            ...it,
+            status: it.status === "editing" ? "pending" : "editing",
+            editValue: it.editValue ?? it.content,
+          }
           : it
       )
     );
@@ -202,10 +307,10 @@ export default function UploadForm({
       prev.map((x) =>
         x.id === id
           ? {
-              ...x,
-              content: (x.editValue ?? x.content).trim(),
-              status: "accepted", // nach „Speichern“ als bestätigt markieren
-            }
+            ...x,
+            content: (x.editValue ?? x.content).trim(),
+            status: "accepted", // nach „Speichern“ als bestätigt markieren
+          }
           : x
       )
     );
@@ -219,8 +324,8 @@ export default function UploadForm({
     const accepted = items.filter((x) => x.status === "accepted");
 
     const todo = accepted.filter((x) => x.type === "TODO").map((x) => x.content);
-    const cal  = accepted.filter((x) => x.type === "CAL").map((x) => x.content);
-    const wa   = accepted.filter((x) => x.type === "WA").map((x) => x.content);
+    const cal = accepted.filter((x) => x.type === "CAL").map((x) => x.content);
+    const wa = accepted.filter((x) => x.type === "WA").map((x) => x.content);
 
     const notebookid = notebookId;
 
