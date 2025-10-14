@@ -69,8 +69,10 @@ function typeStyles(t: ItemType) {
 
 export default function UploadForm({
   pageId,
+  notebookId
 }: {
   pageId: string;
+  notebookId: string;
 }) {
   const [busy, setBusy] = useState(false);
   const [imageUrl, setImageUrl] = useState<string>("");
@@ -216,8 +218,7 @@ export default function UploadForm({
     const cal  = accepted.filter((x) => x.type === "CAL").map((x) => x.content);
     const wa   = accepted.filter((x) => x.type === "WA").map((x) => x.content);
 
-    const notebookid =
-      imageUrl?.match(/\/pages\/([^/]+)/)?.[1] ?? null;
+    const notebookid = notebookId
 
     const payload = {
       todo,
