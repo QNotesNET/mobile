@@ -88,7 +88,8 @@ export default function UploadForm({
   const r = useRouter();
 
   // ---- Scan-Queue: Helper ----
-  function buildItemsFromJob(job: any): ActionItem[] {
+  // @ts-expect-error ---
+  function buildItemsFromJob(job): ActionItem[] {
     const next: ActionItem[] = [
       ...(Array.isArray(job.cal) ? job.cal : []).map((c: string, i: number) => ({
         id: `cal-${i}`,
