@@ -35,8 +35,8 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ ok: true, id: doc._id });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[pages-context POST] error:", err);
-    return NextResponse.json({ error: err?.message || "Server error" }, { status: 500 });
+    return NextResponse.json({ error: err as string || "Server error" }, { status: 500 });
   }
 }
