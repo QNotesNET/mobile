@@ -208,7 +208,7 @@ export default function UploadForm({
   }
 
   // globaler Speichern/Bestätigen-Button unten:
-  function saveAll() {
+  async function saveAll() {
     // nur akzeptierte Items (nicht rejected, nicht pending)
     const accepted = items.filter((x) => x.status === "accepted");
 
@@ -229,7 +229,23 @@ export default function UploadForm({
       page: pageId,
     };
 
-    console.log("SAVE ALL →", payload);
+    // ⇩⇩ NEU: statt console.log -> an API speichern
+    try {
+      const res = await fetch("/api/pages-context", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => "");
+        throw new Error(msg || "Speichern in pages_context fehlgeschlagen.");
+      }
+      // optional: Erfolg anzeigen oder UI zurücksetzen
+      // alert("Zusammenfassung gespeichert.");
+    } catch (e: any) {
+      console.error("pages_context save failed", e);
+      alert(e?.message || "Speichern fehlgeschlagen");
+    }
   }
 
   return (
