@@ -242,9 +242,9 @@ export default function UploadForm({
       }
       // optional: Erfolg anzeigen oder UI zurücksetzen
       // alert("Zusammenfassung gespeichert.");
-    } catch (e: any) {
+    } catch (e) {
       console.error("pages_context save failed", e);
-      alert(e?.message || "Speichern fehlgeschlagen");
+      alert(e as string || "Speichern fehlgeschlagen");
     }
   }
 
