@@ -36,10 +36,10 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ text: response.output_text ?? "" });
-  } catch (err: any) {
+  } catch (err) {
     console.error("[OPENAI OCR ERROR]", err);
     return NextResponse.json(
-      { error: err?.message ?? "OpenAI request failed" },
+      { error: err ?? "OpenAI request failed" },
       { status: 500 }
     );
   }
