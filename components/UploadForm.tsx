@@ -6,7 +6,21 @@ import { useRouter } from "next/navigation";
 
 export default function UploadForm({ pageId }: { pageId: string }) {
   const [busy, setBusy] = useState(false);
+    const [text, setText] = useState<string>("");
+
   const r = useRouter();
+
+    async function OpenAIScan() {
+    try {
+      const r = await fetch("/api/openai", { method: "POST" });
+      if (!r.ok) throw new Error("API error");
+      const { text } = await r.json();
+      setText(text);
+      console.log(text);
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -58,6 +72,24 @@ export default function UploadForm({ pageId }: { pageId: string }) {
         body: JSON.stringify({ url: publicUrl, key }),
       });
 
+      // OPENAI SCAN
+      console.log("Scanning AI")
+        const aiRes = await fetch("/api/openai", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageUrl: publicUrl }),
+        });
+        console.log("Scan progress")
+        if (!aiRes.ok) {
+          console.error("openai scan failed", await aiRes.text());
+        } else {
+          console.log("Scan")
+          const { text: ocrText } = await aiRes.json();
+          setText(ocrText || "");
+          console.log("OCR:", ocrText);
+        }
+
+
       if (!saveRes.ok) {
         const err = await saveRes.json().catch(() => ({}));
         console.error("save image failed", err);
@@ -81,6 +113,8 @@ export default function UploadForm({ pageId }: { pageId: string }) {
       <button className="bg-black text-white rounded px-3 py-2 disabled:opacity-50" disabled={busy}>
         {busy ? "Hochladen…" : "Hochladen"}
       </button>
+            <p>{text}</p>
+
     </form>
   );
 }
