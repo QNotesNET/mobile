@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 type ItemType = "CAL" | "WA" | "TODO";
 type ItemStatus = "pending" | "accepted" | "rejected" | "editing";
@@ -11,6 +12,7 @@ type ActionItem = {
   type: ItemType;
   content: string;
   status: ItemStatus;
+  editValue?: string; // UI: Inhalt im Editfeld
 };
 
 function parseOcrText(ocrText: string) {
@@ -29,6 +31,7 @@ function parseOcrText(ocrText: string) {
         type,
         content,
         status: "pending",
+        editValue: content,
       });
       cleanedLines.push(content); // ohne --kw
     } else {
@@ -64,13 +67,19 @@ function typeStyles(t: ItemType) {
   }
 }
 
-export default function UploadForm({ pageId }: { pageId: string }) {
-  const [busy, setBusy] = useState(false);               // nur für Upload/Speichern
-  const [imageUrl, setImageUrl] = useState<string>("");  // S3-URL zur Anzeige
-  const [text, setText] = useState<string>("");          // gesäuberter Text
+export default function UploadForm({
+  pageId,
+  notebookId, // optional – nur fürs Console-Log, Logik bleibt gleich
+}: {
+  pageId: string;
+  notebookId?: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string>("");
+  const [text, setText] = useState<string>("");
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
-  const [items, setItems] = useState<ActionItem[]>([]);  // erkannte KW-Items
+  const [items, setItems] = useState<ActionItem[]>([]);
 
   const r = useRouter();
 
@@ -126,7 +135,7 @@ export default function UploadForm({ pageId }: { pageId: string }) {
         throw new Error(err?.error || "Speichern des Bildes fehlgeschlagen.");
       }
 
-      // 4) AI-Scan im Hintergrund (Frontend-only Änderung unten)
+      // 4) AI-Scan im Hintergrund (nur Frontend-Parsing unten)
       setScanning(true);
       void (async () => {
         try {
@@ -140,12 +149,9 @@ export default function UploadForm({ pageId }: { pageId: string }) {
             throw new Error(msg || "AI-Scan fehlgeschlagen.");
           }
           const { text: ocrText } = await aiRes.json();
-
-          // ↓↓↓ FRONTEND: OCR-Text hübsch machen & Items extrahieren
           const { items, cleanedText } = parseOcrText(ocrText || "");
           setItems(items);
           setText(cleanedText);
-          // ↑↑↑ nur Frontend
         } catch (err) {
           console.error("openai scan failed", err);
           setScanError((err as string) || "AI-Scan fehlgeschlagen.");
@@ -160,12 +166,59 @@ export default function UploadForm({ pageId }: { pageId: string }) {
       alert((e as string) || "Upload fehlgeschlagen");
     } finally {
       setBusy(false);
-      form.reset();
+      (e.currentTarget as HTMLFormElement).reset();
     }
   }
 
   function updateItemStatus(id: string, status: ItemStatus) {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, status } : it)));
+  }
+
+  function toggleEdit(id: string) {
+    setItems((prev) =>
+      prev.map((it) =>
+        it.id === id
+          ? {
+              ...it,
+              status: it.status === "editing" ? "pending" : "editing",
+              editValue: it.editValue ?? it.content,
+            }
+          : it
+      )
+    );
+  }
+
+  function updateEditValue(id: string, value: string) {
+    setItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, editValue: value } : it))
+    );
+  }
+
+  function saveItem(id: string) {
+    const it = items.find((x) => x.id === id);
+    if (!it) return;
+
+    const finalText = (it.editValue ?? it.content).trim();
+
+    // Objekt fürs Logging bauen
+    const payload = {
+      todo: it.type === "TODO" ? finalText : null,
+      cal: it.type === "CAL" ? finalText : null,
+      wa: it.type === "WA" ? finalText : null,
+      text, // gesamter (gesäuberter) OCR-Text
+      notebookid: notebookId ?? null,
+      imageUrl: imageUrl || null,
+      page: pageId,
+    };
+
+    console.log("SAVE ITEM →", payload);
+
+    // nach dem Speichern Status auf "accepted" und content übernehmen
+    setItems((prev) =>
+      prev.map((x) =>
+        x.id === id ? { ...x, content: finalText, status: "accepted" } : x
+      )
+    );
   }
 
   return (
@@ -187,74 +240,97 @@ export default function UploadForm({ pageId }: { pageId: string }) {
             className="max-h-96 rounded border"
           />
 
-          {/* Aktion-Cards über dem Text (nur Frontend/UI) */}
+          {/* Aktion-Cards */}
           {!!items.length && (
             <div className="mt-3 grid gap-3">
               {items.map((it) => (
                 <div
                   key={it.id}
-                  className={`rounded-xl border p-3 flex items-start justify-between ${typeStyles(
+                  className={`rounded-xl border p-3 ${typeStyles(
                     it.type
                   )}`}
                 >
-                  <div className="pr-3">
-                    <div className="text-sm font-semibold">
-                      {typeLabel(it.type)}
-                    </div>
-                    <div className="text-sm mt-1">{it.content}</div>
+                  <div className="flex items-start justify-between">
+                    <div className="pr-3">
+                      <div className="text-sm font-semibold">
+                        {typeLabel(it.type)}
+                      </div>
+                      <div className="text-sm mt-1">{it.content}</div>
 
-                    {/* Status-Badge */}
-                    <div className="mt-2">
-                      {it.status === "pending" && (
-                        <span className="text-xs px-2 py-0.5 rounded bg-gray-200">
-                          ausstehend
-                        </span>
-                      )}
-                      {it.status === "accepted" && (
-                        <span className="text-xs px-2 py-0.5 rounded bg-emerald-200">
-                          bestätigt
-                        </span>
-                      )}
-                      {it.status === "rejected" && (
-                        <span className="text-xs px-2 py-0.5 rounded bg-red-200">
-                          abgelehnt
-                        </span>
-                      )}
-                      {it.status === "editing" && (
-                        <span className="text-xs px-2 py-0.5 rounded bg-amber-200">
-                          zur Bearbeitung
-                        </span>
-                      )}
+                      {/* Status-Badge */}
+                      <div className="mt-2">
+                        {it.status === "pending" && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-gray-200">
+                            ausstehend
+                          </span>
+                        )}
+                        {it.status === "accepted" && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-emerald-200">
+                            bestätigt
+                          </span>
+                        )}
+                        {it.status === "rejected" && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-red-200">
+                            abgelehnt
+                          </span>
+                        )}
+                        {it.status === "editing" && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-amber-200">
+                            zur Bearbeitung
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Controls */}
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        type="button"
+                        title="Bestätigen"
+                        className="rounded-lg border px-2 py-1 hover:bg-white"
+                        onClick={() => updateItemStatus(it.id, "accepted")}
+                      >
+                        ✓
+                      </button>
+                      <button
+                        type="button"
+                        title="Ablehnen"
+                        className="rounded-lg border px-2 py-1 hover:bg-white"
+                        onClick={() => updateItemStatus(it.id, "rejected")}
+                      >
+                        ✗
+                      </button>
+                      <button
+                        type="button"
+                        title="Bearbeiten"
+                        className="rounded-lg border px-2 py-1 hover:bg-white"
+                        onClick={() => toggleEdit(it.id)}
+                      >
+                        ✎
+                      </button>
                     </div>
                   </div>
 
-                  {/* Controls */}
-                  <div className="flex gap-2 shrink-0">
-                    <button
-                      type="button"
-                      title="Bestätigen"
-                      className="rounded-lg border px-2 py-1 hover:bg-white"
-                      onClick={() => updateItemStatus(it.id, "accepted")}
-                    >
-                      ✓
-                    </button>
-                    <button
-                      type="button"
-                      title="Ablehnen"
-                      className="rounded-lg border px-2 py-1 hover:bg-white"
-                      onClick={() => updateItemStatus(it.id, "rejected")}
-                    >
-                      ✗
-                    </button>
-                    <button
-                      type="button"
-                      title="Bearbeiten"
-                      className="rounded-lg border px-2 py-1 hover:bg-white"
-                      onClick={() => updateItemStatus(it.id, "editing")}
-                    >
-                      ✎
-                    </button>
-                  </div>
+                  {/* Edit-Feld + Speichern (nur wenn editing) */}
+                  {it.status === "editing" && (
+                    <div className="mt-3">
+                      <textarea
+                        className="w-full rounded-lg border p-2 text-sm"
+                        rows={3}
+                        value={it.editValue ?? ""}
+                        onChange={(e) => updateEditValue(it.id, e.target.value)}
+                      />
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          className="bg-black text-white rounded px-3 py-2"
+                          onClick={() => saveItem(it.id)}
+                        >
+                          Speichern
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -262,7 +338,12 @@ export default function UploadForm({ pageId }: { pageId: string }) {
 
           {/* Status / Fehler / Gesamter Text (ohne --kw) */}
           <div className="mt-3 text-sm text-gray-700">
-            {scanning && "Scan läuft…"}
+            {scanning && (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Bilderkennung wird ausgeführt…</span>
+              </div>
+            )}
             {!scanning && !text && scanError && (
               <span className="text-red-600">{scanError}</span>
             )}
