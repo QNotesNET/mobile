@@ -180,27 +180,27 @@ export default function NotebookDetailClient({
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-2">
-                          <Link
+                          {/* <Link
                             href={`/notebooks/${notebookId}/page/${p.pageIndex}`}
                             className="rounded border px-3 py-1 hover:bg-gray-50"
                           >
                             Öffnen
-                          </Link>
+                          </Link> */}
 
                           <Link
                             href={`/s/${p.pageToken}`}
                             className="rounded bg-black px-3 py-1 text-white hover:bg-black/90"
                           >
-                            Scannen
+                            Öffnen
                           </Link>
 
-                          <Link
+                          {/* <Link
                             href={`/notebooks/${notebookId}/page/${p.pageIndex}/qr`}
                             className="rounded border px-3 py-1 hover:bg-gray-50"
                             title="QR-Detailseite"
                           >
                             QR
-                          </Link>
+                          </Link> */}
 
                           {scanned ? (
                             <>
