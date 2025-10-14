@@ -80,18 +80,18 @@ export default function UploadForm({ pageId }: { pageId: string }) {
           }
           const { text: ocrText } = await aiRes.json();
           setText(ocrText || "");
-        } catch (err: any) {
+        } catch (err) {
           console.error("openai scan failed", err);
-          setScanError(err?.message || "AI-Scan fehlgeschlagen.");
+          setScanError(err as string || "AI-Scan fehlgeschlagen.");
         } finally {
           setScanning(false);
         }
       })();
 
       r.refresh();
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
-      alert(e?.message || "Upload fehlgeschlagen");
+      alert(e as string || "Upload fehlgeschlagen");
     } finally {
       setBusy(false);
       form.reset();
