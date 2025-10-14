@@ -1,40 +1,31 @@
-// components/UploadForm.tsx
 "use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function UploadForm({ pageId }: { pageId: string }) {
-  const [busy, setBusy] = useState(false);
-    const [text, setText] = useState<string>("");
+  const [busy, setBusy] = useState(false);        // nur für Upload/Speichern
+  const [imageUrl, setImageUrl] = useState<string>(""); // S3-URL zur Anzeige
+  const [text, setText] = useState<string>("");   // Scan-Ergebnis
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
 
   const r = useRouter();
-
-    async function OpenAIScan() {
-    try {
-      const r = await fetch("/api/openai", { method: "POST" });
-      if (!r.ok) throw new Error("API error");
-      const { text } = await r.json();
-      setText(text);
-      console.log(text);
-    } catch (e) {
-      console.error(e);
-    }
-  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
-    // 👇 stabile Referenz auf das Formular holen (Fix für .reset() nach async)
     const form = e.currentTarget;
-    const input = (form.elements.namedItem("file") as HTMLInputElement) || null;
-
+    const input = form.elements.namedItem("file") as HTMLInputElement | null;
     const file = input?.files?.[0];
     if (!file) return alert("Bitte eine Datei auswählen.");
 
     setBusy(true);
+    setText("");
+    setScanError(null);
+
     try {
-      // 1) Presign holen (WICHTIG: pageId, fileName, contentType mitschicken)
+      // 1) Presign
       const presignRes = await fetch("/api/uploads/presign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -44,77 +35,101 @@ export default function UploadForm({ pageId }: { pageId: string }) {
           contentType: file.type || "application/octet-stream",
         }),
       });
-
       if (!presignRes.ok) {
         const err = await presignRes.json().catch(() => ({}));
-        console.error("presign failed", err);
-        return alert(err?.error || "Presign fehlgeschlagen (400).");
+        throw new Error(err?.error || "Presign fehlgeschlagen.");
       }
-
       const { uploadUrl, publicUrl, key } = await presignRes.json();
 
-      // 2) Direkt zu S3 PUTten
+      // 2) Upload zu S3
       const putRes = await fetch(uploadUrl, {
         method: "PUT",
         headers: { "Content-Type": file.type || "application/octet-stream" },
         body: file,
       });
-
       if (!putRes.ok) {
-        console.error("s3 put failed", await putRes.text());
-        return alert("Upload zu S3 fehlgeschlagen.");
+        throw new Error("Upload zu S3 fehlgeschlagen.");
       }
 
-      // 3) In unserer DB an die Seite hängen
+      // ⇒ Bild SOFORT anzeigen
+      setImageUrl(publicUrl);
+
+      // 3) In DB referenzieren (warten wir der Einfachheit halber ab)
       const saveRes = await fetch(`/api/pages/${pageId}/images`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: publicUrl, key }),
       });
-
-      // OPENAI SCAN
-      console.log("Scanning AI")
-        const aiRes = await fetch("/api/openai", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ imageUrl: publicUrl }),
-        });
-        console.log("Scan progress")
-        if (!aiRes.ok) {
-          console.error("openai scan failed", await aiRes.text());
-        } else {
-          console.log("Scan")
-          const { text: ocrText } = await aiRes.json();
-          setText(ocrText || "");
-          console.log("OCR:", ocrText);
-        }
-
-
       if (!saveRes.ok) {
         const err = await saveRes.json().catch(() => ({}));
-        console.error("save image failed", err);
-        return alert(err?.error || "Speichern des Bildes fehlgeschlagen.");
+        throw new Error(err?.error || "Speichern des Bildes fehlgeschlagen.");
       }
 
-      alert("Upload erfolgreich!");
+      // 4) AI-Scan im Hintergrund STARTEN (nicht blockieren)
+      setScanning(true);
+      void (async () => {
+        try {
+          const aiRes = await fetch("/api/openai", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ imageUrl: publicUrl }),
+          });
+          if (!aiRes.ok) {
+            const msg = await aiRes.text();
+            throw new Error(msg || "AI-Scan fehlgeschlagen.");
+          }
+          const { text: ocrText } = await aiRes.json();
+          setText(ocrText || "");
+        } catch (err: any) {
+          console.error("openai scan failed", err);
+          setScanError(err?.message || "AI-Scan fehlgeschlagen.");
+        } finally {
+          setScanning(false);
+        }
+      })();
+
       r.refresh();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      alert("Upload fehlgeschlagen");
+      alert(e?.message || "Upload fehlgeschlagen");
     } finally {
       setBusy(false);
-      form?.reset(); // 👈 statt e.currentTarget.reset()
+      form.reset();
     }
   }
 
   return (
     <form onSubmit={onSubmit} className="grid gap-3 border rounded-xl p-4">
       <input type="file" name="file" accept="image/*" required />
-      <button className="bg-black text-white rounded px-3 py-2 disabled:opacity-50" disabled={busy}>
+      <button
+        className="bg-black text-white rounded px-3 py-2 disabled:opacity-50"
+        disabled={busy}
+      >
         {busy ? "Hochladen…" : "Hochladen"}
       </button>
-            <p>{text}</p>
 
+      {/* Bild-Vorschau */}
+      {imageUrl && (
+        <div className="mt-2">
+          <img
+            src={imageUrl}
+            alt="Upload preview"
+            className="max-h-96 rounded border"
+          />
+          <div className="mt-2 text-sm text-gray-700">
+            {scanning && "Scan läuft…"}
+            {!scanning && text && (
+              <>
+                <div className="font-semibold mb-1">Erkannter Text:</div>
+                <pre className="whitespace-pre-wrap break-words">{text}</pre>
+              </>
+            )}
+            {!scanning && !text && scanError && (
+              <span className="text-red-600">{scanError}</span>
+            )}
+          </div>
+        </div>
+      )}
     </form>
   );
 }
