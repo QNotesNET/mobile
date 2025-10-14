@@ -269,7 +269,7 @@ export default function UploadForm({
           <button
             type="button"
             className="mt-6 bg-black text-white rounded px-4 py-2"
-            onClick={() => r.push("/dashboard")}
+            onClick={() => r.push("/")}
           >
             Zurück zum Dashboard
           </button>
