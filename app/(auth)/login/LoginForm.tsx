@@ -45,10 +45,10 @@ export default function LoginForm() {
           <Image
             alt="Powerbook"
             src="/images/logos/logo-black.svg"
-            width={120}
-            height={36}
+            width={160}
+            height={80}
             priority
-            className="h-15 w-auto"
+            className="h-20 w-auto"
           />
           <h1 className="mt-8 text-2xl font-bold tracking-tight text-gray-900">
             Bei Powerbook anmelden

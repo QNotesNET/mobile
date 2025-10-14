@@ -38,7 +38,7 @@ export default function ResetForm() {
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
       <div className="flex items-center justify-center px-6 py-12 lg:px-20">
         <div className="w-full max-w-sm">
-          <img src="/images/logos/logo-black.svg" alt="Powerbook" className="h-15 w-auto" />
+          <img src="/images/logos/logo-black.svg" alt="Powerbook" className="h-20 w-auto" />
           <h1 className="mt-8 text-2xl font-bold tracking-tight text-gray-900">
             Neues Passwort setzen
           </h1>

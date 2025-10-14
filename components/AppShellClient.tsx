@@ -84,15 +84,15 @@ export default function AppShellClient({
 
             {/* Drawer content */}
             <div className="flex grow flex-col gap-y-5 overflow-y-auto px-6 pb-4">
-              <div className="flex h-16 shrink-0 items-center">
+              <div className="flex h-20 shrink-0 items-center">
                 <Link href="/" onClick={() => setSidebarOpen(false)} className="flex items-center">
                   <Image
                     src="/images/logos/logo-white.svg"
                     alt="Powerbook"
-                    width={120}
-                    height={36}
+                    width={180}
+                    height={86}
                     priority
-                    className="h-10 w-auto pt-3"
+                    className="h-20 w-auto pt-3"
                   />
                 </Link>
               </div>

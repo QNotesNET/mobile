@@ -30,9 +30,10 @@ export default function Sidebar({ email }: { email?: string | null }) {
         <Image
           src="/images/logos/logo-black.svg"
           alt="Powerbook"
-          width={130}
-          height={35}
+          width={140}
+          height={45}
           priority
+
         />
       </div>
 
