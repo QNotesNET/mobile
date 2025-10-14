@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         },
       ],
       // max_output_tokens: 16,
-      temperature: 0,
+    //   temperature: 0,
     });
 
     const rawText = (resp).output_text as string || "";
