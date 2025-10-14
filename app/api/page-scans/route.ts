@@ -65,7 +65,7 @@ export async function POST(req: Request) {
           ],
         });
 
-        const ocrText = (resp as any).output_text as string || "";
+        const ocrText = (resp).output_text as string || "";
         const { cleanedText, wa, cal, todo } = parseKwText(ocrText);
 
         await PageScan.updateOne(
