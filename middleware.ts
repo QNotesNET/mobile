@@ -35,6 +35,8 @@ const AUTH_PAGES = [
 const OTHER_PUBLIC = [
   "/s",                  // /s/<token>
   "/api/pages/resolve",  // token resolver API
+    "/api/integrations"
+
 ];
 
 function startsWithAny(pathname: string, prefixes: string[]) {
