@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check } from "lucide-react";
 
 type ItemType = "CAL" | "WA" | "TODO";
 type ItemStatus = "pending" | "accepted" | "rejected" | "editing";
@@ -24,7 +24,7 @@ function parseOcrText(ocrText: string) {
   lines.forEach((raw, i) => {
     const m = raw.match(re);
     if (m) {
-      const type = m[1].toUpperCase() as ItemType;
+      const type = (m[1].toUpperCase() as ItemType);
       const content = (m[2] || "").trim();
       items.push({
         id: `it-${i}-${Math.random().toString(36).slice(2, 7)}`,
@@ -75,6 +75,8 @@ export default function UploadForm({
   notebookId: string;
 }) {
   const [busy, setBusy] = useState(false);
+  const [submitting, setSubmitting] = useState(false);   // NEU: disable während Bestätigen
+  const [submitted, setSubmitted] = useState(false);     // NEU: Success-Screen
   const [imageUrl, setImageUrl] = useState<string>("");
   const [text, setText] = useState<string>("");
   const [scanning, setScanning] = useState(false);
@@ -211,6 +213,8 @@ export default function UploadForm({
 
   // globaler Speichern/Bestätigen-Button unten:
   async function saveAll() {
+    setSubmitting(true); // NEU: Buttons deaktivieren
+
     // nur akzeptierte Items (nicht rejected, nicht pending)
     const accepted = items.filter((x) => x.status === "accepted");
 
@@ -218,7 +222,7 @@ export default function UploadForm({
     const cal  = accepted.filter((x) => x.type === "CAL").map((x) => x.content);
     const wa   = accepted.filter((x) => x.type === "WA").map((x) => x.content);
 
-    const notebookid = notebookId
+    const notebookid = notebookId;
 
     const payload = {
       todo,
@@ -230,7 +234,6 @@ export default function UploadForm({
       page: pageId,
     };
 
-    // ⇩⇩ NEU: statt console.log -> an API speichern
     try {
       const res = await fetch("/api/pages-context", {
         method: "POST",
@@ -241,12 +244,38 @@ export default function UploadForm({
         const msg = await res.text().catch(() => "");
         throw new Error(msg || "Speichern in pages_context fehlgeschlagen.");
       }
-      // optional: Erfolg anzeigen oder UI zurücksetzen
-      // alert("Zusammenfassung gespeichert.");
+      // Success-Screen anzeigen
+      setSubmitted(true);
     } catch (e) {
       console.error("pages_context save failed", e);
-      alert(e as string || "Speichern fehlgeschlagen");
+      alert((e as string) || "Speichern fehlgeschlagen");
+      setSubmitting(false); // wieder aktivieren bei Fehler
     }
+  }
+
+  // Wenn erfolgreich abgesendet: Success-Screen rendern
+  if (submitted) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="text-center">
+          <div className="mx-auto mb-6 h-24 w-24 rounded-full bg-emerald-500 border-4 border-emerald-200 shadow-lg flex items-center justify-center">
+            <Check className="h-12 w-12 text-white" />
+          </div>
+          <h2 className="text-2xl font-semibold">Erfolgreich abgesendet</h2>
+          <p className="text-gray-600 mt-1">
+            Deine Einträge wurden gespeichert und stehen ab sofort im Dashboard bereit.
+          </p>
+
+          <button
+            type="button"
+            className="mt-6 bg-black text-white rounded px-4 py-2"
+            onClick={() => r.push("/dashboard")}
+          >
+            Zurück zum Dashboard
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -254,7 +283,7 @@ export default function UploadForm({
       <input type="file" name="file" accept="image/*" required />
       <button
         className="bg-black text-white rounded px-3 py-2 disabled:opacity-50"
-        disabled={busy}
+        disabled={busy || submitting} // NEU: auch während submit disabled
       >
         {busy ? "Hochladen…" : "Hochladen"}
       </button>
@@ -313,7 +342,8 @@ export default function UploadForm({
                       <button
                         type="button"
                         title="Bestätigen"
-                        className="rounded-lg border px-2 py-1 hover:bg-white"
+                        className="rounded-lg border px-2 py-1 hover:bg-white disabled:opacity-50"
+                        disabled={submitting}
                         onClick={() => updateItemStatus(it.id, "accepted")}
                       >
                         ✓
@@ -321,7 +351,8 @@ export default function UploadForm({
                       <button
                         type="button"
                         title="Ablehnen"
-                        className="rounded-lg border px-2 py-1 hover:bg-white"
+                        className="rounded-lg border px-2 py-1 hover:bg-white disabled:opacity-50"
+                        disabled={submitting}
                         onClick={() => updateItemStatus(it.id, "rejected")}
                       >
                         ✗
@@ -329,7 +360,8 @@ export default function UploadForm({
                       <button
                         type="button"
                         title="Bearbeiten"
-                        className="rounded-lg border px-2 py-1 hover:bg-white"
+                        className="rounded-lg border px-2 py-1 hover:bg-white disabled:opacity-50"
+                        disabled={submitting}
                         onClick={() => toggleEdit(it.id)}
                       >
                         ✎
@@ -341,15 +373,17 @@ export default function UploadForm({
                   {it.status === "editing" && (
                     <div className="mt-3">
                       <textarea
-                        className="w-full rounded-lg border p-2 text-sm"
+                        className="w-full rounded-lg border p-2 text-sm disabled:bg-gray-100"
                         rows={3}
                         value={it.editValue ?? ""}
                         onChange={(e) => updateEditValue(it.id, e.target.value)}
+                        disabled={submitting}
                       />
                       <div className="mt-2">
                         <button
                           type="button"
-                          className="bg-black text-white rounded px-3 py-2"
+                          className="bg-black text-white rounded px-3 py-2 disabled:opacity-50"
+                          disabled={submitting}
                           onClick={() => applyItemEdit(it.id)}
                         >
                           Speichern
@@ -386,10 +420,11 @@ export default function UploadForm({
             <div className="mt-4">
               <button
                 type="button"
-                className="bg-black text-white rounded px-3 py-2"
+                className="bg-black text-white rounded px-3 py-2 disabled:opacity-50"
+                disabled={submitting}
                 onClick={saveAll}
               >
-                Bestätigen
+                {submitting ? "Sende…" : "Bestätigen"}
               </button>
             </div>
           )}

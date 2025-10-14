@@ -7,6 +7,7 @@ import { Types } from "mongoose";
 
 export const runtime = "nodejs";
 
+// Lean-Typen
 type UserLean = { _id: Types.ObjectId; nexoroUser?: string; nexoroDomain?: string };
 type NotebookLean = { _id: Types.ObjectId; ownerId: Types.ObjectId };
 type ContextLean = {
@@ -28,22 +29,46 @@ type Action = {
   datetime: string | null;
 };
 
+// ---- kleine Parser-Heuristiken (unverändert) ----
 function trimOrNull(v?: string | null): string | null {
   if (typeof v !== "string") return null;
   const t = v.trim();
   return t === "" ? null : t;
 }
+// WA: "Name : Nachricht", "Name ; Nachricht", "Name；Nachricht", "Name：Nachricht",
+//     "Name, Nachricht", "Name -> Nachricht", "Name → Nachricht", "Name - Nachricht"
 function parseWA(s: string): { contactName: string | null; content: string } {
-  const m =
-    s.match(/^\s*([^:\-\u2013>\u2192]+)\s*(?:[:\-–>\u2192]+)\s*(.+)\s*$/u) ||
-    s.match(/^\s*([^:]+):\s*(.+)\s*$/u);
+  const str = (s ?? "").trim();
+
+  // Trenner: :, ;, ；(fullwidth semicolon), ：(fullwidth colon), ,(Komma),
+  //          -, – (EN dash), — (EM dash), >, →, ⇒
+  // Erlaubt auch Kombinationen wie " - > " (->)
+  const nameMsg =
+    /^\s*([^:;；：,>\-\u2013\u2014\u2192\u21D2]+?)\s*(?:[:;；：,>\-\u2013\u2014\u2192\u21D2]+)\s*(.+)\s*$/u;
+
+  const m = str.match(nameMsg);
   if (m) {
-    const name = trimOrNull(m[1]);
-    const body = (m[2] || "").trim();
-    return { contactName: name, content: body };
+    const contact = (m[1] || "").trim();
+    const msg = (m[2] || "").trim();
+    return {
+      contactName: contact === "" ? null : contact,
+      content: msg,
+    };
   }
-  return { contactName: null, content: s.trim() };
+  // Fallback: klassisches "Name: Nachricht"
+  const fallback = /^\s*([^:]+):\s*(.+)\s*$/u;
+  const m2 = str.match(fallback);
+  if (m2) {
+    const contact = (m2[1] || "").trim();
+    const msg = (m2[2] || "").trim();
+    return {
+      contactName: contact === "" ? null : contact,
+      content: msg,
+    };
+  }
+  return { contactName: null, content: str };
 }
+
 function titleFromCal(s: string): string {
   const t = s.trim();
   const timeLike = /\b(\d{1,2}[:.]\d{2})\b/;
@@ -61,6 +86,7 @@ function titleFromTodo(s: string): string {
   if (m) return m[2].trim();
   return t;
 }
+// -------------------------------------------------
 
 export async function GET(req: Request) {
   try {
@@ -77,6 +103,7 @@ export async function GET(req: Request) {
       { nexoroDomain: domain },
       { _id: 1, nexoroUser: 1, nexoroDomain: 1 }
     ).lean<UserLean[]>();
+
     const users = usersRaw.filter(
       (u) =>
         typeof u?.nexoroUser === "string" &&
@@ -88,6 +115,16 @@ export async function GET(req: Request) {
       return NextResponse.json({ response: "Success", data: {} });
     }
 
+    // Map: ownerId(string) -> user info
+    const ownerToUser = new Map<string, { id: string; nexoroId: string; nexoroDomain: string }>();
+    for (const u of users) {
+      ownerToUser.set(String(u._id), {
+        id: String(u._id),
+        nexoroId: u.nexoroUser!.trim(),
+        nexoroDomain: u.nexoroDomain!.trim(),
+      });
+    }
+
     // 2) Notebooks dieser User
     const userIds: Types.ObjectId[] = users.map((u) => u._id);
     const notebooks = await Notebook.find(
@@ -95,41 +132,56 @@ export async function GET(req: Request) {
       { _id: 1, ownerId: 1 }
     ).lean<NotebookLean[]>();
 
-    const allNotebookIdsAsString = notebooks.map((n) => String(n._id));
-    if (allNotebookIdsAsString.length === 0) {
+    if (notebooks.length === 0) {
       return NextResponse.json({ response: "Success", data: {} });
     }
 
-    // 3) Passende PagesContexts
+    // Maps
+    const notebookIdToOwner = new Map<string, string>(); // nid -> ownerId
+    const allNotebookIdsAsString = notebooks.map((n) => {
+      const nid = String(n._id);
+      notebookIdToOwner.set(nid, String(n.ownerId));
+      return nid;
+    });
+
+    // 3) PagesContexts zu diesen Notebooks
     const contexts = await PagesContext.find(
       { notebookId: { $in: allNotebookIdsAsString } },
       { notebookId: 1, page: 1, imageUrl: 1, text: 1, wa: 1, cal: 1, todo: 1 }
     ).lean<ContextLean[]>();
 
-    // 4) Gruppieren: notebookId -> pageId -> { image, actions[] }
+    // 4) Struktur aufbauen:
+    // data[notebookId] = { user: {...}, pages: { [pageId]: { image, actions[] } } }
     const data: Record<
       string,
-      Record<
-        string,
-        {
-          image: string;
-          actions: Action[];
-        }
-      >
+      {
+        user: { id: string; nexoroId: string; nexoroDomain: string };
+        pages: Record<string, { image: string; actions: Action[] }>;
+      }
     > = {};
 
     for (const c of contexts) {
       const nb = c.notebookId;
+      const ownerId = notebookIdToOwner.get(nb);
+      if (!ownerId) continue;
+
+      const userInfo = ownerToUser.get(ownerId);
+      if (!userInfo) continue; // sollte wegen Filter nicht passieren
+
+      if (!data[nb]) {
+        data[nb] = { user: userInfo, pages: {} };
+      }
+
       const pageId = String(c.page);
       const image = c.imageUrl ?? "";
-
-      if (!data[nb]) data[nb] = {};
-      if (!data[nb][pageId]) data[nb][pageId] = { image, actions: [] };
+      if (!data[nb].pages[pageId]) {
+        data[nb].pages[pageId] = { image, actions: [] };
+      }
 
       // WA
       for (const s of c.wa ?? []) {
         const { contactName, content } = parseWA(s);
-        data[nb][pageId].actions.push({
+        data[nb].pages[pageId].actions.push({
           type: "WA",
           title: "WA-Nachricht",
           content,
@@ -141,7 +193,7 @@ export async function GET(req: Request) {
       // CAL
       for (const s of c.cal ?? []) {
         const content = s.trim();
-        data[nb][pageId].actions.push({
+        data[nb].pages[pageId].actions.push({
           type: "CAL",
           title: titleFromCal(content),
           content,
@@ -153,7 +205,7 @@ export async function GET(req: Request) {
       // TODO
       for (const s of c.todo ?? []) {
         const content = s.trim();
-        data[nb][pageId].actions.push({
+        data[nb].pages[pageId].actions.push({
           type: "TODO",
           title: titleFromTodo(content),
           content,

@@ -23,6 +23,8 @@ export async function POST(req: Request) {
                 "Can be German or English – write the response in the language which was provided originally. " +
                 "The user can also write keywords like 'CAL', 'TODO', 'WA' - ONLY if they are surrounded by a circle. Return it with the same writing " +
                 "so e.g. CAL MUST always be big. Everytime you extracted a keyword put a '--kw' in front of it. " +
+                "Also check, if the content is not in one line (for example, a date is written above a time) but is within the same circle, it counts as one Keyword" +
+                " not as two different ones. This applies to all keywords. Don't care if it is written in one line, two or more. If it is within ONE circle, it counts as one Keyword." + 
                 "Return only the extracted text (preserve line breaks).",
             },
             {
