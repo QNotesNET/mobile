@@ -29,7 +29,7 @@ export default function Sidebar({ email }: { email?: string | null }) {
       <div className="flex items-center gap-3 h-16 border-b">
         <Image
           src="/images/logos/logo-black.svg"
-          alt="QNotes"
+          alt="Powerbook"
           width={130}
           height={35}
           priority

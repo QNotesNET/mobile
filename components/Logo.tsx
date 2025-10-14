@@ -6,7 +6,7 @@ export default function Logo({ className = "" }: { className?: string }) {
     <Link href="/" className={`inline-flex items-center gap-2 ${className}`}>
       <Image
         src="/images/logos/logo-black.svg"   
-        alt="QNotes"
+        alt="Powerbook"
         width={130}
         height={35}
         priority

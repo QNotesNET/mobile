@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "QNotes | App",
-  description: "Willkommen in der App von QNotes!",
+  title: "Powerbook | App",
+  description: "Willkommen in der App von Powerbook!",
   icons: {
     icon: [{ url: "/favicon.ico" }, { url: "/icon.png", type: "image/png" }],
     apple: [{ url: "/apple-icon.png" }],

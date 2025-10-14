@@ -36,7 +36,7 @@ const NAV: NavItem[] = [
   { name: "Dashboard", href: "/", icon: HomeIcon },
   { name: "Notizbücher", href: "/notebooks", icon: BookOpenIcon },
   { name: "Einstellungen", href: "/settings", icon: Cog6ToothIcon },
-  { name: "Hilfe & Kontakt", href: "mailto:info@qnotes.net", icon: EnvelopeIcon }, // neu als reguläres Nav-Item
+  { name: "Hilfe & Kontakt", href: "mailto:info@powerbook.net", icon: EnvelopeIcon }, // neu als reguläres Nav-Item
 ];
 
 export default function AppShellClient({
@@ -88,7 +88,7 @@ export default function AppShellClient({
                 <Link href="/" onClick={() => setSidebarOpen(false)} className="flex items-center">
                   <Image
                     src="/images/logos/logo-white.svg"
-                    alt="QNotes"
+                    alt="Powerbook"
                     width={120}
                     height={36}
                     priority
@@ -185,7 +185,7 @@ export default function AppShellClient({
           {/* Logo */}
           <div className="flex h-12 shrink-0 items-center">
             <Link href="/" className="flex items-center">
-              <Image src="/images/logos/logo-white.svg" alt="QNotes" width={120} height={36} priority className="h-10 w-auto" />
+              <Image src="/images/logos/logo-white.svg" alt="Powerbook" width={120} height={36} priority className="h-10 w-auto" />
             </Link>
           </div>
 
@@ -270,7 +270,7 @@ export default function AppShellClient({
           <span className="sr-only">Open sidebar</span>
           <Bars3Icon className="size-6" />
         </button>
-        <div className="flex-1 text-sm font-semibold">QNotes</div>
+        <div className="flex-1 text-sm font-semibold">Powerbook</div>
       </div>
 
       {/* Main */}

@@ -37,7 +37,7 @@ export default function ForgotForm() {
       {/* Linke Hälfte: Formular */}
       <div className="flex items-center justify-center px-6 py-12 lg:px-20">
         <div className="w-full max-w-sm">
-          <img src="/images/logos/logo-black.svg" alt="QNotes" className="h-15 w-auto" />
+          <img src="/images/logos/logo-black.svg" alt="Powerbook" className="h-15 w-auto" />
           <h1 className="mt-8 text-2xl font-bold tracking-tight text-gray-900">
             Passwort zurücksetzen
           </h1>

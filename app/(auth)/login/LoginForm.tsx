@@ -43,7 +43,7 @@ export default function LoginForm() {
       <div className="flex items-center justify-center px-6 py-12 lg:px-20">
         <div className="w-full max-w-sm">
           <Image
-            alt="QNotes"
+            alt="Powerbook"
             src="/images/logos/logo-black.svg"
             width={120}
             height={36}
@@ -51,7 +51,7 @@ export default function LoginForm() {
             className="h-15 w-auto"
           />
           <h1 className="mt-8 text-2xl font-bold tracking-tight text-gray-900">
-            Bei QNotes anmelden
+            Bei Powerbook anmelden
           </h1>
           <p className="mt-2 text-sm text-gray-600">
             Neu hier?{" "}
