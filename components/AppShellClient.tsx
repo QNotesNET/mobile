@@ -4,7 +4,7 @@ import { useState, Fragment, type ComponentType, type SVGProps } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
-import { ArrowRightOnRectangleIcon, EnvelopeIcon } from "@heroicons/react/24/outline";
+import { ArrowRightOnRectangleIcon, CalendarIcon, CheckIcon, EnvelopeIcon } from "@heroicons/react/24/outline";
 
 import { Dialog, DialogBackdrop, DialogPanel, TransitionChild } from "@headlessui/react";
 import {
@@ -36,9 +36,12 @@ type NavItem = { name: string; href: string; icon: IconCmp; current?: boolean };
 const NAV: NavItem[] = [
   { name: "Dashboard", href: "/", icon: HomeIcon },
   { name: "Notizbücher", href: "/notebooks", icon: BookOpenIcon },
-  { name: "Einstellungen", href: "/settings", icon: Cog6ToothIcon },
+  { name: "Aufgaben", href: "/todos", icon: CheckIcon }, // neu als reguläres Nav-Item
+  { name: "Kalendar", href: "/calendar", icon: CalendarIcon }, // neu als reguläres Nav-Item
   { name: "Integrationen", href: "/integrations", icon: AdjustmentsHorizontalIcon }, // neu als reguläres Nav-Item
+  { name: "Einstellungen", href: "/settings", icon: Cog6ToothIcon },
   { name: "Hilfe & Kontakt", href: "mailto:info@powerbook.net", icon: EnvelopeIcon }, // neu als reguläres Nav-Item
+
 ];
 
 export default function AppShellClient({
