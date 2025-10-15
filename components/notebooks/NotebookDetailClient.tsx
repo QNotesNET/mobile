@@ -5,6 +5,7 @@ import { Suspense, useState, useRef } from "react";
 import dynamic from "next/dynamic";
 import Loader from "@/components/Loader";
 import { useRouter } from "next/navigation";
+import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 
 const DigitalNotebook = dynamic(() => import("./DigitalNotebook"), { ssr: false });
 
@@ -178,7 +179,7 @@ export default function NotebookDetailClient({
                           {scanned ? "gescannt" : "leer"}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 flex justify-end">
                         <div className="flex flex-wrap items-center gap-2">
                           {/* <Link
                             href={`/notebooks/${notebookId}/page/${p.pageIndex}`}
@@ -186,6 +187,17 @@ export default function NotebookDetailClient({
                           >
                             Öffnen
                           </Link> */}
+
+                          {scanned && (
+                            <>
+                              <a
+                                href={`/api/pages/${pageIdForExport}/export?format=png`}
+                                className="rounded border px-3 py-1 hover:bg-gray-50 md:hidden"
+                              >
+                                <ArrowDownTrayIcon className="h-4 w-4 text-gray-800" />
+                              </a>
+                            </>
+                          )}
 
                           <Link
                             href={`/s/${p.pageToken}`}
@@ -203,7 +215,7 @@ export default function NotebookDetailClient({
                           </Link> */}
 
                           {scanned ? (
-                            <>
+                            <div className="hidden md:flex gap-x-2">
                               <a
                                 href={`/api/pages/${pageIdForExport}/export?format=pdf`}
                                 className="rounded border px-3 py-1 hover:bg-gray-50"
@@ -222,9 +234,9 @@ export default function NotebookDetailClient({
                               >
                                 PNG
                               </a>
-                            </>
+                            </div>
                           ) : (
-                            <>
+                            <div className="hidden md:flex gap-x-2">
                               <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled aria-disabled title="Noch keine gescannte Seite vorhanden">
                                 PDF
                               </button>
@@ -234,7 +246,7 @@ export default function NotebookDetailClient({
                               <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled aria-disabled title="Noch keine gescannte Seite vorhanden">
                                 PNG
                               </button>
-                            </>
+                            </div>
                           )}
                         </div>
                       </td>

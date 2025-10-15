@@ -56,12 +56,12 @@ export default function NotebookList({ items }: { items: NotebookItem[] }) {
         <input
           name="title"
           placeholder="Neues Notebook…"
-          className="border rounded px-3 py-2"
+          className="border rounded px-3 py-2 w-full"
           disabled={creating}
           required
         />
         <button className="bg-black text-white rounded px-3 py-2 disabled:opacity-50" disabled={creating}>
-          {creating ? "Anlegen…" : "Anlegen"}
+          {creating ? "Erstelle" : "Erstellen"}
         </button>
       </form>
 
@@ -79,12 +79,12 @@ export default function NotebookList({ items }: { items: NotebookItem[] }) {
                 {/* ➜ Link zur Übersicht /notebooks/[id] */}
                 <Link
                   href={`/notebooks/${notebookId}`}
-                  className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+                  className="rounded border px-3 py-1 text-sm hover:bg-black/90 bg-black text-white"
                 >
                   Details
                 </Link>
 
-                <button
+                {/* <button
                   onClick={async () => {
                     const title = prompt("Neuer Titel:", n.title);
                     if (!title) return;
@@ -93,9 +93,9 @@ export default function NotebookList({ items }: { items: NotebookItem[] }) {
                   className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
                 >
                   Umbenennen
-                </button>
+                </button> */}
 
-                <button
+                {/* <button
                   onClick={async () => {
                     if (!confirm("Notebook löschen?")) return;
                     await deleteNotebook(notebookId);
@@ -103,7 +103,7 @@ export default function NotebookList({ items }: { items: NotebookItem[] }) {
                   className="rounded bg-black px-3 py-1 text-sm text-white hover:bg-black/90"
                 >
                   Löschen
-                </button>
+                </button> */}
 
                 <button
                   onClick={async () => {
