@@ -13,7 +13,7 @@ type GenState =
 type QrApiOk = { token: string; url: string };
 type QrApiErr = { error: string };
 
-export default function QRPage() {
+export default function AdminPage() {
   const [notebookId, setNotebookId] = useState("");
   const [state, setState] = useState<GenState>({ status: "idle" });
 
@@ -55,6 +55,9 @@ export default function QRPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
+      <h1 className="text-2xl font-semibold">Admin Panel</h1><br></br><br></br><br></br>
+      <h1 className="text-2xl font-semibold">Neues Notizbuch erstellen und Kunden zuweisen</h1>
+      <p className="text-sm text-gray-500 mt-1">Mit PopUp Kunden Zuweisung, Seiten erzeugen usw - gehört noch gemacht</p><br></br><br></br><br></br>
       <h1 className="text-2xl font-semibold">QR-Code erzeugen</h1>
       <p className="text-sm text-gray-500 mt-1">Erzeuge einen einmaligen Claim-Link für ein Notizbuch.</p>
 
