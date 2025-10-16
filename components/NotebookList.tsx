@@ -55,7 +55,7 @@ export default function NotebookList({ items }: { items: NotebookItem[] }) {
       >
         <input
           name="title"
-          placeholder="Neues Notebook…"
+          placeholder="Neues Powerbook…"
           className="border rounded px-3 py-2 w-full"
           disabled={creating}
           required
@@ -66,7 +66,7 @@ export default function NotebookList({ items }: { items: NotebookItem[] }) {
       </form>
 
       <ul className="divide-y rounded-2xl border bg-white">
-        {items.length === 0 && <li className="p-6 text-gray-500">Noch keine Notebooks. Leg das erste an!</li>}
+        {items.length === 0 && <li className="p-6 text-gray-500">Noch keine Powerbooks. Leg das erste an!</li>}
 
         {items.map((n) => {
           const notebookId = (n.id ?? n._id) as string;

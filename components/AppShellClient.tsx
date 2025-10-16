@@ -35,7 +35,7 @@ type NavItem = { name: string; href: string; icon: IconCmp; current?: boolean };
 
 const NAV: NavItem[] = [
   { name: "Dashboard", href: "/", icon: HomeIcon },
-  { name: "Notizbücher", href: "/notebooks", icon: BookOpenIcon },
+  { name: "Powerbooks", href: "/notebooks", icon: BookOpenIcon },
   { name: "Aufgaben", href: "/todos", icon: CheckIcon }, // neu als reguläres Nav-Item
   { name: "Kalendar", href: "/calendar", icon: CalendarIcon }, // neu als reguläres Nav-Item
   { name: "Integrationen", href: "/integrations", icon: AdjustmentsHorizontalIcon }, // neu als reguläres Nav-Item
