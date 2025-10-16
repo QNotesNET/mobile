@@ -18,16 +18,17 @@ const ALLOWED_STATUS = new Set(["open", "in_progress", "done"]);
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }   // 👈 Next 15: params ist Promise
 ) {
   try {
     const me = await getCurrentUser();
     if (!me?.id) return new NextResponse("Unauthorized", { status: 401 });
 
-    await connectToDB();
-
-    const pid = ensureObjectId(params.id);
+    const { id } = await ctx.params;         // 👈 aus Promise auspacken
+    const pid = ensureObjectId(id);
     if (!pid) return new NextResponse("Invalid id", { status: 400 });
+
+    await connectToDB();
 
     const project = await Project.findOne({
       _id: pid,
@@ -53,13 +54,14 @@ export async function GET(
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }   // 👈 Promise
 ) {
   try {
     const me = await getCurrentUser();
     if (!me?.id) return new NextResponse("Unauthorized", { status: 401 });
 
-    const pid = ensureObjectId(params.id);
+    const { id } = await ctx.params;         // 👈 aus Promise auspacken
+    const pid = ensureObjectId(id);
     if (!pid) return new NextResponse("Invalid id", { status: 400 });
 
     const body = await req.json();
@@ -110,13 +112,14 @@ export async function PATCH(
 
 export async function DELETE(
   _req: Request,
-  { params }: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }   // 👈 Promise
 ) {
   try {
     const me = await getCurrentUser();
     if (!me?.id) return new NextResponse("Unauthorized", { status: 401 });
 
-    const pid = ensureObjectId(params.id);
+    const { id } = await ctx.params;         // 👈 aus Promise auspacken
+    const pid = ensureObjectId(id);
     if (!pid) return new NextResponse("Invalid id", { status: 400 });
 
     await connectToDB();
