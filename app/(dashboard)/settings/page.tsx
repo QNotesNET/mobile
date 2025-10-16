@@ -84,7 +84,7 @@ function ProfileCard() {
     <Card>
       <CardHeader
         title="Profil"
-        description="Dein Name erscheint in Notizbüchern, Kommentaren und E-Mails."
+        description="Dein Name erscheint in Powerbooks, Kommentaren und E-Mails."
       />
       <form onSubmit={onSave} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Vorname">

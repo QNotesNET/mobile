@@ -29,7 +29,7 @@ const PLANS: Plan[] = [
     monthly: 12,
     yearly: 120,
     highlight: true,
-    features: ["3 Notizbücher", "1.000 Seiten", "PDF & PNG Export", "Prioritätssupport"],
+    features: ["3 Powerbooks", "1.000 Seiten", "PDF & PNG Export", "Prioritätssupport"],
     cta: "Upgrade",
   },
   {
@@ -37,7 +37,7 @@ const PLANS: Plan[] = [
     name: "Team",
     monthly: 25,
     yearly: 250,
-    features: ["5+ Notizbücher", "Freigaben & Rollen", "Sammel-Export", "Support für Teams"],
+    features: ["5+ Powerbooks", "Freigaben & Rollen", "Sammel-Export", "Support für Teams"],
     cta: "Kontakt",
   },
 ];
