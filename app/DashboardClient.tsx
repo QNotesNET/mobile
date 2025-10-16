@@ -85,7 +85,7 @@ export default function DashboardClient({
             <CardContent>
               {notebooks.length === 0 ? (
                 <div className="rounded-xl border p-6 text-sm text-muted-foreground">
-                  Noch keine Notizbücher. Lege dein erstes an!
+                  Noch keine Powerbooks. Bestelle jetzt dein Powerbook!
                 </div>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2">
