@@ -1128,7 +1128,7 @@ function EventBlock({ ev }: { ev: Ev }) {
             </div>
 
             {/* Label „Kalender“ + Dropdown (wie zuletzt gewünscht) */}
-            <div className="space-y-1">
+            {/* <div className="space-y-1">
               <label className="text-xs font-medium text-neutral-600">
                 Kalender
               </label>
@@ -1149,7 +1149,7 @@ function EventBlock({ ev }: { ev: Ev }) {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </div> */}
             <div className="flex items-center gap-2">
               <Checkbox
                 checked={!!editing.allDay}
