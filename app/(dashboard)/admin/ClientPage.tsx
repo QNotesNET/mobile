@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// app/(dashboard)/qr/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState, Fragment } from "react";
@@ -11,6 +13,8 @@ import {
   PencilSquareIcon,
   TrashIcon,
   EnvelopeOpenIcon,
+  PencilIcon,
+  InformationCircleIcon,
 } from "@heroicons/react/24/outline";
 
 /* ======================= QR Types ======================= */
@@ -34,6 +38,18 @@ type UserRow = {
 };
 
 const USERS_API = "/api/users";
+
+/* ======================= Books Types ======================= */
+type BookRow = {
+  _id: string;
+  title: string;
+  ownerEmail: string;
+  totalPages: number;
+  scannedPages: number;
+  createdAt?: string | Date;
+};
+
+const BOOKS_API = "/api/admin/notebooks";
 
 function cx(...c: Array<string | false | null | undefined>) {
   return c.filter(Boolean).join(" ");
@@ -93,8 +109,10 @@ function UsersSection() {
     try {
       const res = await fetch(USERS_API, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP_${res.status}`);
-      const data = (await res.json()) as UserRow[];
-      setUsers(Array.isArray(data) ? data : []);
+      const data = await res.json();
+      // <-- FIX: akzeptiert Array ODER { users: [...] }
+      const rows: UserRow[] = Array.isArray(data) ? data : (data?.users ?? []);
+      setUsers(rows);
     } catch (e) {
       setErr("Konnte Benutzer nicht laden.");
     } finally {
@@ -142,7 +160,7 @@ function UsersSection() {
       setEditOpen(false);
       setEditTarget(null);
       await loadUsers();
-    } catch (e) {
+    } catch {
       alert("Speichern fehlgeschlagen.");
     } finally {
       setSaving(false);
@@ -162,7 +180,7 @@ function UsersSection() {
       setDelOpen(false);
       setDelTarget(null);
       await loadUsers();
-    } catch (e) {
+    } catch {
       alert("Löschen fehlgeschlagen.");
     } finally {
       setDeleting(false);
@@ -178,13 +196,6 @@ function UsersSection() {
             Verwalte Konten, Rollen und Stammdaten.
           </p>
         </div>
-
-        {/* <button
-          type="button"
-          className="inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium hover:bg-gray-50"
-        >
-          + User erstellen
-        </button> */}
       </div>
 
       {/* Controls */}
@@ -195,8 +206,6 @@ function UsersSection() {
           placeholder="Suchen (Name, Benutzername, E-Mail)…"
           className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-900/10"
         />
-
-        {/* hübscher Role-Dropdown */}
         <Listbox value={roleFilter} onChange={(v: "" | "admin" | "user") => setRoleFilter(v)}>
           <div className="relative">
             <Listbox.Button className="relative w-full rounded-xl border border-gray-300 bg-white px-3 py-2 pr-8 text-left text-sm focus:border-gray-400 focus:ring-2 focus:ring-gray-900/10">
@@ -208,7 +217,7 @@ function UsersSection() {
               </span>
             </Listbox.Button>
             <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
-              <Listbox.Options className="absolute z-20 mt-2 w-full rounded-xl bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none">
+              <Listbox.Options className="absolute z-50 mt-2 w-full rounded-xl bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none">
                 <Listbox.Option value="">
                   {({ selected, active }) => (
                     <div className={cx("flex cursor-pointer items-center justify-between px-3 py-2", active && "bg-gray-50")}>
@@ -250,7 +259,7 @@ function UsersSection() {
       ) : (
         <>
           {/* Desktop-Tabelle */}
-          <div className="hidden overflow-hidden rounded-2xl border bg-white sm:block">
+          <div className="hidden overflow-visible rounded-2xl border bg-white sm:block">
             <table className="w-full table-fixed text-sm">
               <thead className="bg-gray-50 text-gray-600">
                 <tr>
@@ -298,7 +307,7 @@ function UsersSection() {
                               leaveFrom="transform opacity-100 scale-100"
                               leaveTo="transform opacity-0 scale-95"
                             >
-                              <Menu.Items className="absolute right-0 z-20 mt-2 w-52 origin-top-right rounded-xl bg-white p-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none">
+                              <Menu.Items className="absolute right-0 z-50 mt-2 w-52 origin-top-right rounded-xl bg-white p-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none">
                                 <Menu.Item>
                                   {({ active }) => (
                                     <button
@@ -399,7 +408,7 @@ function UsersSection() {
                           leaveFrom="transform opacity-100 scale-100"
                           leaveTo="transform opacity-0 scale-95"
                         >
-                          <Menu.Items className="absolute right-0 z-20 mt-2 w-48 origin-top-right rounded-xl bg-white p-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none">
+                          <Menu.Items className="absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-xl bg-white p-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none">
                             <Menu.Item>
                               {({ active }) => (
                                 <button className={cx("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left", active && "bg-gray-50")} onClick={() => openEdit(u)}>
@@ -469,7 +478,7 @@ function UsersSection() {
                       </span>
                     </Listbox.Button>
                     <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
-                      <Listbox.Options className="absolute z-20 mt-2 w-full rounded-xl bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none">
+                      <Listbox.Options className="absolute z-50 mt-2 w-full rounded-xl bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none">
                         {["admin", "user"].map((r) => (
                           <Listbox.Option key={r} value={r as "admin" | "user"}>
                             {({ selected, active }) => (
@@ -536,7 +545,338 @@ function UsersSection() {
   );
 }
 
-/* ======================= Admin Page Client (unverändert außer Imports) ======================= */
+/* ======================= Books Section (nur relevante Klassen tweaked) ======================= */
+/* ======================= Books Section (Details / Rename / Delete) ======================= */
+function BooksSection() {
+  const [rows, setRows] = useState<BookRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState("");
+
+  const [q, setQ] = useState("");
+
+  // ── Modals / UI-States
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<BookRow | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
+  const [renaming, setRenaming] = useState(false);
+
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsData, setDetailsData] = useState<any>(null); // nur Anzeige
+  const [detailsLoading, setDetailsLoading] = useState(false);
+
+  const [delOpen, setDelOpen] = useState(false);
+  const [delTarget, setDelTarget] = useState<BookRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // ── Laden
+  async function loadBooks() {
+    try {
+      setLoading(true);
+      setErr("");
+      const res = await fetch(BOOKS_API, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP_${res.status}`);
+      const data = await res.json();
+      const list: BookRow[] = Array.isArray(data) ? data : (data?.notebooks ?? []);
+      setRows(list);
+    } catch {
+      setErr("Konnte Notizbücher nicht laden.");
+    } finally {
+      setLoading(false);
+    }
+  }
+  useEffect(() => {
+    void loadBooks();
+  }, []);
+
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter(
+      (r) =>
+        r.title.toLowerCase().includes(needle) ||
+        (r.ownerEmail || "").toLowerCase().includes(needle)
+    );
+  }, [rows, q]);
+
+  // ── Aktionen
+  function openRename(b: BookRow) {
+    setRenameTarget(b);
+    setRenameTitle(b.title);
+    setRenameOpen(true);
+  }
+  async function doRename() {
+    if (!renameTarget?._id) return;
+    try {
+      setRenaming(true);
+      const res = await fetch(`/api/admin/notebooks/${renameTarget._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: renameTitle.trim() }),
+      });
+      if (!res.ok) throw new Error("PATCH failed");
+      setRenameOpen(false);
+      setRenameTarget(null);
+      await loadBooks();
+    } catch {
+      alert("Umbenennen fehlgeschlagen.");
+    } finally {
+      setRenaming(false);
+    }
+  }
+
+  async function openDetails(b: BookRow) {
+    setDetailsData(null);
+    setDetailsLoading(true);
+    setDetailsOpen(true);
+    try {
+      const res = await fetch(`/api/admin/notebooks/${b._id}`, { cache: "no-store" });
+      if (!res.ok) throw new Error("GET detail failed");
+      const data = await res.json();
+      setDetailsData(data);
+    } catch {
+      setDetailsData({ error: "Details konnten nicht geladen werden." });
+    } finally {
+      setDetailsLoading(false);
+    }
+  }
+
+  function openDelete(b: BookRow) {
+    setDelTarget(b);
+    setDelOpen(true);
+  }
+  async function doDelete() {
+    if (!delTarget?._id) return;
+    try {
+      setDeleting(true);
+      const res = await fetch(`/api/admin/notebooks/${delTarget._id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("DELETE failed");
+      setDelOpen(false);
+      setDelTarget(null);
+      await loadBooks();
+    } catch {
+      alert("Löschen fehlgeschlagen.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <section className="mx-auto w-full max-w-6xl px-4 py-10">
+      <div className="mb-5">
+        <h1 className="text-2xl font-semibold">Powerbooks &amp; Scans</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Alle Notizbücher mit Besitzer, Seiten und Scan-Status.
+        </p>
+      </div>
+
+      <div className="mb-4">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Suchen (Titel, E-Mail)…"
+          className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-900/10"
+        />
+      </div>
+
+      {err ? (
+        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>
+      ) : null}
+
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-12 w-full animate-pulse rounded-xl bg-gray-100" />
+          ))}
+        </div>
+      ) : (
+        <div className="hidden overflow-visible rounded-2xl border bg-white md:block">
+          <table className="w-full table-fixed text-sm">
+            <thead className="bg-gray-50 text-gray-600">
+              <tr>
+                <th className="px-4 py-3 text-left w-[28%]">Titel</th>
+                <th className="px-4 py-3 text-left w-[32%]">Besitzer (E-Mail)</th>
+                <th className="px-4 py-3 text-left w-[10%]">Seiten</th>
+                <th className="px-4 py-3 text-left w-[10%]">Scans</th>
+                <th className="px-4 py-3 text-left w-[14%]">Angelegt</th>
+                <th className="px-4 py-3 text-left w-[6%]"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                    Keine Notizbücher gefunden.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((b) => (
+                  <tr key={b._id} className="border-t">
+                    <td className="truncate px-4 py-3">{b.title}</td>
+                    <td className="truncate px-4 py-3">{b.ownerEmail}</td>
+                    <td className="px-4 py-3">{b.totalPages}</td>
+                    <td className="px-4 py-3">{b.scannedPages}</td>
+                    <td className="px-4 py-3">{formatDate(b.createdAt)}</td>
+                    <td className="px-4 py-3">
+                      <Menu as="div" className="relative inline-block text-left">
+                        <Menu.Button className="rounded-md p-1 hover:bg-gray-50">
+                          <EllipsisHorizontalIcon className="h-5 w-5 text-gray-600" />
+                        </Menu.Button>
+                        <Transition
+                          as={Fragment}
+                          enter="transition ease-out duration-100"
+                          enterFrom="transform opacity-0 scale-95"
+                          enterTo="transform opacity-100 scale-100"
+                          leave="transition ease-in duration-75"
+                          leaveFrom="transform opacity-100 scale-100"
+                          leaveTo="transform opacity-0 scale-95"
+                        >
+                          <Menu.Items className="absolute right-0 z-50 mt-2 w-56 origin-top-right rounded-xl bg-white p-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none">
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  className={cx("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left", active && "bg-gray-50")}
+                                  onClick={() => openRename(b)}
+                                >
+                                  <PencilIcon className="h-4 w-4" /> Umbenennen
+                                </button>
+                              )}
+                            </Menu.Item>
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  className={cx("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left", active && "bg-gray-50")}
+                                  onClick={() => void openDetails(b)}
+                                >
+                                  <InformationCircleIcon className="h-4 w-4" /> Details
+                                </button>
+                              )}
+                            </Menu.Item>
+                            <div className="my-1 h-px bg-gray-100" />
+                            <Menu.Item>
+                              {({ active }) => (
+                                <button
+                                  className={cx("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-red-600", active && "bg-red-50")}
+                                  onClick={() => openDelete(b)}
+                                >
+                                  <TrashIcon className="h-4 w-4" /> Löschen
+                                </button>
+                              )}
+                            </Menu.Item>
+                          </Menu.Items>
+                        </Transition>
+                      </Menu>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Rename Dialog */}
+      <Transition show={renameOpen} as={Fragment}>
+        <Dialog onClose={() => setRenameOpen(false)} className="relative z-50">
+          <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <Dialog.Panel className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+              <Dialog.Title className="text-base font-semibold">Powerbook umbenennen</Dialog.Title>
+              <div className="mt-3 space-y-3">
+                <label className="block text-sm">
+                  <span className="text-gray-700">Titel</span>
+                  <input
+                    value={renameTitle}
+                    onChange={(e) => setRenameTitle(e.target.value)}
+                    className="mt-1 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-gray-400 focus:ring-2 focus:ring-gray-900/10"
+                  />
+                </label>
+              </div>
+              <div className="mt-5 flex items-center justify-end gap-2">
+                <button className="rounded px-3 py-1.5 hover:bg-gray-50" onClick={() => setRenameOpen(false)} disabled={renaming}>
+                  Abbrechen
+                </button>
+                <button
+                  className={cx("rounded bg-black px-3 py-1.5 text-white", renaming && "opacity-60")}
+                  onClick={() => void doRename()}
+                  disabled={renaming}
+                >
+                  {renaming ? "Speichere…" : "Speichern"}
+                </button>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Details Dialog */}
+      <Transition show={detailsOpen} as={Fragment}>
+        <Dialog onClose={() => setDetailsOpen(false)} className="relative z-50">
+          <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <Dialog.Panel className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl">
+              <Dialog.Title className="text-base font-semibold">Powerbook Details</Dialog.Title>
+              <div className="mt-3 text-sm">
+                {detailsLoading ? (
+                  <div className="h-24 animate-pulse rounded-xl bg-gray-100" />
+                ) : detailsData?.error ? (
+                  <div className="rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-red-700">{detailsData.error}</div>
+                ) : detailsData ? (
+                  <div className="space-y-2">
+                    <div><span className="text-gray-500">Titel:</span> <span className="font-medium">{detailsData.title}</span></div>
+                    <div><span className="text-gray-500">Besitzer:</span> {detailsData.ownerEmail}</div>
+                    <div><span className="text-gray-500">Seiten:</span> {detailsData.totalPages}</div>
+                    <div><span className="text-gray-500">Scans:</span> {detailsData.scannedPages}</div>
+                    <div><span className="text-gray-500">Geteilt mit:</span> {detailsData.sharedWithCount ?? 0}</div>
+                    <div><span className="text-gray-500">Angelegt:</span> {formatDate(detailsData.createdAt)}</div>
+                    {detailsData.projectId ? (
+                      <div><span className="text-gray-500">Projekt:</span> <span className="font-mono">{detailsData.projectId}</span></div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+              <div className="mt-5 flex items-center justify-end">
+                <button className="rounded px-3 py-1.5 hover:bg-gray-50" onClick={() => setDetailsOpen(false)}>
+                  Schließen
+                </button>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Delete Dialog */}
+      <Transition show={delOpen} as={Fragment}>
+        <Dialog onClose={() => setDelOpen(false)} className="relative z-50">
+          <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
+          <div className="fixed inset-0 flex items-center justify-center p-4">
+            <Dialog.Panel className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+              <Dialog.Title className="text-base font-semibold text-red-600">Powerbook löschen</Dialog.Title>
+              <p className="mt-2 text-sm text-gray-600">
+                Möchtest du <span className="font-medium">{delTarget?.title}</span> wirklich löschen?
+                Zugehörige Seiten/Scans werden entfernt. Diese Aktion kann nicht rückgängig gemacht werden.
+              </p>
+              <div className="mt-5 flex items-center justify-end gap-2">
+                <button className="rounded px-3 py-1.5 hover:bg-gray-50" onClick={() => setDelOpen(false)} disabled={deleting}>
+                  Abbrechen
+                </button>
+                <button
+                  className={cx("rounded bg-red-600 px-3 py-1.5 text-white", deleting && "opacity-60")}
+                  onClick={() => void doDelete()}
+                  disabled={deleting}
+                >
+                  {deleting ? "Lösche…" : "Löschen"}
+                </button>
+              </div>
+            </Dialog.Panel>
+          </div>
+        </Dialog>
+      </Transition>
+    </section>
+  );
+}
+
+
+/* ======================= Admin Page Client ======================= */
 export default function AdminPageClient() {
   const [notebookId, setNotebookId] = useState("");
   const [state, setState] = useState<GenState>({ status: "idle" });
@@ -651,7 +991,7 @@ export default function AdminPageClient() {
 
       {view === "users" && <UsersSection />}
 
-      {view === "books" && <p className="px-4 py-10">Neues Powerbook erstellen und Kunden zuweisen, Seiten erstellen usw</p>}
+      {view === "books" && <BooksSection />}
 
       {view === "prompt" && <p className="px-4 py-10">prompt settings dings do</p>}
     </AppShellClientAdmin>
