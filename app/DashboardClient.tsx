@@ -73,7 +73,7 @@ export default function DashboardClient({
           <Card className="lg:col-span-2">
             <CardHeader className="flex items-start justify-between pb-3">
               <div>
-                <CardTitle>Deine Notizbücher</CardTitle>
+                <CardTitle>Deine Powerbooks</CardTitle>
                 <CardDescription>Kurzer Überblick & schnelle Aktionen</CardDescription>
               </div>
               <Button variant="ghost" asChild>
