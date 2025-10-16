@@ -59,7 +59,7 @@ export async function POST(req: Request) {
                     "Everytime you extracted a keyword put a '--kw' in front of it. " +
                     "Return only the extracted text (preserve line breaks).",
                 },
-                { type: "input_image", image_url: imageUrl, detail: "auto" },
+                { type: "input_image", image_url: imageUrl, detail: "low" },
               ],
             },
           ],

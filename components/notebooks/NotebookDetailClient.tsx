@@ -33,34 +33,113 @@ export default function NotebookDetailClient({
   const fileRef = useRef<HTMLInputElement | null>(null);
   const r = useRouter();
 
+  // --- Helper: Bild runter skalieren & als JPEG erzeugen ---
+  async function downscaleImageToJpeg(
+    file: File,
+    maxDim = 1600,
+    quality = 0.7
+  ): Promise<{ blob: Blob; dataUrl: string }> {
+    const imgUrl = URL.createObjectURL(file);
+    try {
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const el = new Image();
+        el.onload = () => resolve(el);
+        el.onerror = (e) => reject(e);
+        el.src = imgUrl;
+      });
+
+      const { width, height } = img;
+      if (!width || !height) {
+        // Fallback: gib Original zurück
+        const buf = await file.arrayBuffer();
+        const blob = new Blob([buf], { type: "image/jpeg" });
+        const dataUrlFallback = await new Promise<string>((res) => {
+          const fr = new FileReader();
+          fr.onload = () => res(String(fr.result || ""));
+          fr.readAsDataURL(blob);
+        });
+        return { blob, dataUrl: dataUrlFallback };
+      }
+
+      // Zielgröße berechnen
+      let targetW = width;
+      let targetH = height;
+      if (Math.max(width, height) > maxDim) {
+        if (width >= height) {
+          targetW = maxDim;
+          targetH = Math.round((height / width) * maxDim);
+        } else {
+          targetH = maxDim;
+          targetW = Math.round((width / height) * maxDim);
+        }
+      }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas context not available");
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+
+      const blob: Blob = await new Promise((resolve, reject) =>
+        canvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
+          "image/jpeg",
+          quality
+        )
+      );
+
+      const dataUrl: string = await new Promise((resolve) =>
+        canvas.toBlob(
+          (b) => {
+            if (!b) {
+              resolve("");
+              return;
+            }
+            const fr = new FileReader();
+            fr.onload = () => resolve(String(fr.result || ""));
+            fr.readAsDataURL(b);
+          },
+          "image/jpeg",
+          quality
+        )
+      );
+
+      return { blob, dataUrl };
+    } finally {
+      URL.revokeObjectURL(imgUrl);
+    }
+  }
+
   async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
       setScanBusy(true);
 
-      // 1) DataURL zwischenspeichern (damit UploadForm auto loslegt)
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const fr = new FileReader();
-        fr.onload = () => resolve(String(fr.result || ""));
-        fr.onerror = reject;
-        fr.readAsDataURL(file);
-      });
+      // ↓↓↓ WICHTIG: Runterskalieren (mobile Quota-Fix)
+      const { blob, dataUrl } = await downscaleImageToJpeg(file, 1600, 0.7);
 
-      // 2) an Erkennungs-API: pageIndex + pageToken bestimmen
+      // 2) an Erkennungs-API: pageIndex + pageToken bestimmen (mit komprimiertem Bild)
       const form = new FormData();
-      form.append("image", file);
-      const resp = await fetch(`/api/scan/recognize-page?notebookId=${encodeURIComponent(notebookId)}`, {
-        method: "POST",
-        body: form,
-      });
+      form.append("image", new File([blob], "scan.jpg", { type: "image/jpeg" }));
+      const resp = await fetch(
+        `/api/scan/recognize-page?notebookId=${encodeURIComponent(notebookId)}`,
+        {
+          method: "POST",
+          body: form,
+        }
+      );
       if (!resp.ok) {
         const msg = await resp.text().catch(() => "");
         throw new Error(msg || "Seitenerkennung fehlgeschlagen.");
       }
-      const { pageIndex, pageToken } = (await resp.json()) as { pageIndex: number; pageToken: string };
+      const { pageIndex, pageToken } = (await resp.json()) as {
+        pageIndex: number;
+        pageToken: string;
+      };
 
-      // 3) Payload in Session legen – UploadForm liest das dann aus
+      // 3) Payload in Session legen – UploadForm liest das dann aus (komprimierte DataURL!)
       const payload = { notebookId, pageToken, pageIndex, imageDataUrl: dataUrl };
       sessionStorage.setItem("scan:pending", JSON.stringify(payload));
 
