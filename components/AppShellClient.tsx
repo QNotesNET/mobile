@@ -13,7 +13,8 @@ import {
   Cog6ToothIcon,
   XMarkIcon,
   BookOpenIcon,
-  AdjustmentsHorizontalIcon
+  AdjustmentsHorizontalIcon,
+  BoltIcon as Bolt
 } from "@heroicons/react/24/outline";
 
 function classNames(...classes: Array<string | false | null | undefined>) {
@@ -33,32 +34,49 @@ function prettyFromEmail(email?: string | null) {
 type IconCmp = ComponentType<SVGProps<SVGSVGElement>>;
 type NavItem = { name: string; href: string; icon: IconCmp; current?: boolean };
 
-const NAV: NavItem[] = [
-  { name: "Dashboard", href: "/", icon: HomeIcon },
-  { name: "Powerbooks", href: "/notebooks", icon: BookOpenIcon },
-  { name: "Aufgaben", href: "/todos", icon: CheckIcon }, // neu als reguläres Nav-Item
-  { name: "Kalendar", href: "/calendar", icon: CalendarIcon }, // neu als reguläres Nav-Item
-  { name: "Integrationen", href: "/integrations", icon: AdjustmentsHorizontalIcon }, // neu als reguläres Nav-Item
-  { name: "Einstellungen", href: "/settings", icon: Cog6ToothIcon },
-  { name: "Hilfe & Kontakt", href: "mailto:info@powerbook.net", icon: EnvelopeIcon }, // neu als reguläres Nav-Item
-
-];
 
 export default function AppShellClient({
   email,
   displayName,
   children,
   currentPlan = "Starter", // später aus dem Backend setzen
+  role
 }: {
   email: string | null;
   displayName?: string | null;
   children: React.ReactNode;
   currentPlan?: "Starter" | "Pro" | "Team" | string;
+  role: string;
 }) {
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const name = displayName || prettyFromEmail(email);
+
+  let NAV: NavItem[]
+
+  if (role === "admin") {
+    NAV = [
+      { name: "Dashboard", href: "/", icon: HomeIcon },
+      { name: "Powerbooks", href: "/notebooks", icon: BookOpenIcon },
+      { name: "Aufgaben", href: "/todos", icon: CheckIcon }, // neu als reguläres Nav-Item
+      { name: "Kalendar", href: "/calendar", icon: CalendarIcon }, // neu als reguläres Nav-Item
+      { name: "Integrationen", href: "/integrations", icon: AdjustmentsHorizontalIcon }, // neu als reguläres Nav-Item
+      { name: "Einstellungen", href: "/settings", icon: Cog6ToothIcon },
+      { name: "Hilfe & Kontakt", href: "mailto:info@powerbook.net", icon: EnvelopeIcon }, // neu als reguläres Nav-Item
+      { name: "Admin", href: "/admin", icon: Bolt }, // neu als reguläres Nav-Item
+    ];
+  } else {
+    NAV = [
+      { name: "Dashboard", href: "/", icon: HomeIcon },
+      { name: "Powerbooks", href: "/notebooks", icon: BookOpenIcon },
+      { name: "Aufgaben", href: "/todos", icon: CheckIcon }, // neu als reguläres Nav-Item
+      { name: "Kalendar", href: "/calendar", icon: CalendarIcon }, // neu als reguläres Nav-Item
+      { name: "Integrationen", href: "/integrations", icon: AdjustmentsHorizontalIcon }, // neu als reguläres Nav-Item
+      { name: "Einstellungen", href: "/settings", icon: Cog6ToothIcon },
+      { name: "Hilfe & Kontakt", href: "mailto:info@powerbook.net", icon: EnvelopeIcon }, // neu als reguläres Nav-Item
+    ];
+  }
 
   const navWithActive = NAV.map((n) => ({
     ...n,
@@ -67,6 +85,8 @@ export default function AppShellClient({
         ? false
         : n.href === "/" ? pathname === "/" : pathname === n.href || pathname.startsWith(n.href + "/"),
   }));
+
+  const isAdmin = pathname.includes("/admin")
 
   return (
     <div className="min-h-dvh bg-white">
@@ -279,9 +299,15 @@ export default function AppShellClient({
       </div>
 
       {/* Main */}
-      <main className="lg:pl-72">
-        <div className="px-4 py-8 sm:px-6 lg:px-8">{children}</div>
-      </main>
+      {isAdmin ? (
+        <main className="">
+          <div className="">{children}</div>
+        </main>
+      ) : (
+        <main className="lg:pl-72">
+          <div className="px-4 py-8 sm:px-6 lg:px-8">{children}</div>
+        </main>
+      )}
     </div>
   );
 }

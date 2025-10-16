@@ -22,7 +22,7 @@ export default async function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AppShellClient email={email} displayName={displayName}>
+    <AppShellClient email={email} displayName={displayName} role={session?.role ?? ""}>
       {children}
     </AppShellClient>
   );

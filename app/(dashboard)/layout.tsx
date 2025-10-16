@@ -1,5 +1,6 @@
 // app/(dashboard)/layout.tsx
 import AppShell from "@/components/AppShell";
+import { usePathname } from "next/navigation";
 
 export default function DashboardLayout({
   children,
