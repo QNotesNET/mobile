@@ -61,7 +61,7 @@ export default function DashboardClient({
 
         {/* Top Row */}
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard icon={BookOpenIcon} title="Notizbücher" value={String(notebookCount)} />
+          <MetricCard icon={BookOpenIcon} title="Powerbooks" value={String(notebookCount)} />
           <MetricCard icon={FileText} title="Erfasste Seiten" value={String(pagesTotal)} />
           <ActionCard icon={Camera} title="Seite scannen" href="/scan" hint="Schnell starten" />
           <ActionCard icon={Clock} title="Zuletzt bearbeitet" href="/notebooks?sort=recent" hint="Schnell starten" />
@@ -106,12 +106,12 @@ export default function DashboardClient({
                         <Tooltip>
                           <TooltipTrigger asChild>
                             <Button size="icon" variant="ghost" className="h-8 w-8" asChild>
-                              <Link href={`/notebooks/${nb.id}/settings`} aria-label="Notizbuch-Einstellungen">
+                              <Link href={`/notebooks/${nb.id}/settings`} aria-label="Powerbook-Einstellungen">
                                 <Settings className="h-4 w-4" />
                               </Link>
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Notizbuch-Einstellungen</TooltipContent>
+                          <TooltipContent>Powerbook-Einstellungen</TooltipContent>
                         </Tooltip>
                       </div>
 
