@@ -17,6 +17,239 @@ import {
   InformationCircleIcon,
 } from "@heroicons/react/24/outline";
 
+type SettingsState = {
+  vision: { model: string; resolution: string; prompt: string };
+  pageDetect: { model: string; resolution: string; prompt: string };
+  updatedAt?: string | null;
+};
+
+const SETTINGS_API = "/api/settings";
+
+const MODEL_OPTIONS = [
+  "gpt-4o-mini",
+  "gpt-4o",
+  "gpt-4.1-mini",
+  "gpt-4.1",
+  "other",
+];
+
+const RES_OPTIONS = ["low", "medium", "high"];
+
+function cx(...c: Array<string | false | null | undefined>) {
+  return c.filter(Boolean).join(" ");
+}
+
+function Select({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}) {
+  return (
+    <div>
+      <div className="mb-1 text-sm text-gray-700">{label}</div>
+      <Listbox value={value} onChange={onChange}>
+        <div className="relative">
+          <Listbox.Button className="relative w-full rounded-xl border border-gray-300 bg-white px-3 py-2 pr-8 text-left text-sm focus:border-gray-400 focus:ring-2 focus:ring-gray-900/10">
+            <span className="block truncate">{value}</span>
+            <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+              <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
+            </span>
+          </Listbox.Button>
+          <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
+            <Listbox.Options className="absolute z-50 mt-2 w-full rounded-xl bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none">
+              {options.map((opt) => (
+                <Listbox.Option key={opt} value={opt}>
+                  {({ selected, active }) => (
+                    <div className={cx("flex cursor-pointer items-center justify-between px-3 py-2", active && "bg-gray-50")}>
+                      <span>{opt}</span>
+                      {selected ? <CheckIcon className="h-5 w-5 text-gray-600" /> : null}
+                    </div>
+                  )}
+                </Listbox.Option>
+              ))}
+            </Listbox.Options>
+          </Transition>
+        </div>
+      </Listbox>
+    </div>
+  );
+}
+
+export function PromptSettingsSection() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
+  const [ok, setOk] = useState("");
+
+  const [s, setS] = useState<SettingsState>({
+    vision: { model: "gpt-4o-mini", resolution: "low", prompt: "" },
+    pageDetect: { model: "gpt-4o-mini", resolution: "low", prompt: "" },
+  });
+
+  async function load() {
+    setLoading(true);
+    setErr("");
+    setOk("");
+    try {
+      const res = await fetch(SETTINGS_API, { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP_${res.status}`);
+      const data = (await res.json()) as SettingsState;
+      setS({
+        vision: data.vision,
+        pageDetect: data.pageDetect,
+        updatedAt: data.updatedAt ?? null,
+      });
+    } catch {
+      setErr("Einstellungen konnten nicht geladen werden.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function save() {
+    setSaving(true);
+    setErr("");
+    setOk("");
+    try {
+      const res = await fetch(SETTINGS_API, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vision: s.vision,
+          pageDetect: s.pageDetect,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP_${res.status}`);
+      setOk("Gespeichert.");
+    } catch {
+      setErr("Speichern fehlgeschlagen.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="mx-auto w-full max-w-4xl px-4 py-10">
+      <h1 className="text-2xl font-semibold">Prompt Einstellungen</h1>
+      <p className="mt-1 text-sm text-gray-500">
+        Lege Model, Bildauflösung und Prompts für Bilderkennung und Seitennummern-Erkennung fest.
+      </p>
+
+      {err && (
+        <div className="mt-4 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {err}
+        </div>
+      )}
+      {ok && (
+        <div className="mt-4 rounded-xl border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700">
+          {ok}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="mt-6 space-y-3">
+          <div className="h-10 w-full animate-pulse rounded-xl bg-gray-100" />
+          <div className="h-28 w-full animate-pulse rounded-xl bg-gray-100" />
+          <div className="h-10 w-full animate-pulse rounded-xl bg-gray-100" />
+          <div className="h-28 w-full animate-pulse rounded-xl bg-gray-100" />
+        </div>
+      ) : (
+        <>
+          {/* Vision */}
+          <div className="mt-6 rounded-2xl border bg-white p-5">
+            <div className="mb-3 text-sm font-semibold">Bilderkennung (Vision)</div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Select
+                label="Modell"
+                value={s.vision.model}
+                onChange={(v) => setS((p) => ({ ...p, vision: { ...p.vision, model: v } }))}
+                options={MODEL_OPTIONS}
+              />
+              <Select
+                label="Auflösung"
+                value={s.vision.resolution}
+                onChange={(v) => setS((p) => ({ ...p, vision: { ...p.vision, resolution: v } }))}
+                options={RES_OPTIONS}
+              />
+            </div>
+            <div className="mt-3">
+              <div className="mb-1 text-sm text-gray-700">Prompt</div>
+              <textarea
+                value={s.vision.prompt}
+                onChange={(e) => setS((p) => ({ ...p, vision: { ...p.vision, prompt: e.target.value } }))}
+                rows={6}
+                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-gray-400 focus:ring-2 focus:ring-gray-900/10"
+                placeholder="Beschreibe, wie die Vision den Inhalt einer Seite erkennen/extrahieren soll…"
+              />
+            </div>
+          </div>
+
+          {/* Page detect */}
+          <div className="mt-6 rounded-2xl border bg-white p-5">
+            <div className="mb-3 text-sm font-semibold">Seitennummern-Erkennung</div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Select
+                label="Modell"
+                value={s.pageDetect.model}
+                onChange={(v) => setS((p) => ({ ...p, pageDetect: { ...p.pageDetect, model: v } }))}
+                options={MODEL_OPTIONS}
+              />
+              <Select
+                label="Auflösung"
+                value={s.pageDetect.resolution}
+                onChange={(v) => setS((p) => ({ ...p, pageDetect: { ...p.pageDetect, resolution: v } }))}
+                options={RES_OPTIONS}
+              />
+            </div>
+            <div className="mt-3">
+              <div className="mb-1 text-sm text-gray-700">Prompt</div>
+              <textarea
+                value={s.pageDetect.prompt}
+                onChange={(e) => setS((p) => ({ ...p, pageDetect: { ...p.pageDetect, prompt: e.target.value } }))}
+                rows={6}
+                className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-gray-400 focus:ring-2 focus:ring-gray-900/10"
+                placeholder="Beschreibe, wie die Seitennummer erkannt/extrahiert werden soll…"
+              />
+            </div>
+          </div>
+
+          <div className="mt-6 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              className="rounded px-3 py-1.5 hover:bg-gray-50"
+              onClick={() => void load()}
+              disabled={saving}
+            >
+              Neu laden
+            </button>
+            <button
+              type="button"
+              onClick={() => void save()}
+              disabled={saving}
+              className={cx(
+                "rounded bg-black px-4 py-2 text-white",
+                saving && "opacity-60"
+              )}
+            >
+              {saving ? "Speichere…" : "Speichern"}
+            </button>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 /* ======================= QR Types ======================= */
 type GenState =
   | { status: "idle" }
@@ -51,9 +284,6 @@ type BookRow = {
 
 const BOOKS_API = "/api/admin/notebooks";
 
-function cx(...c: Array<string | false | null | undefined>) {
-  return c.filter(Boolean).join(" ");
-}
 function formatDate(d?: string | Date) {
   if (!d) return "–";
   const dt = typeof d === "string" ? new Date(d) : d;
@@ -993,7 +1223,7 @@ export default function AdminPageClient() {
 
       {view === "books" && <BooksSection />}
 
-      {view === "prompt" && <p className="px-4 py-10">prompt settings dings do</p>}
+      {view === "prompt" && <PromptSettingsSection />}
     </AppShellClientAdmin>
   );
 }

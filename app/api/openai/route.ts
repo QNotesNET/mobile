@@ -1,5 +1,19 @@
+// app/api/openai/route.ts
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
+import { getSettings } from "@/lib/settings";
+
+export const dynamic = "force-dynamic";
+
+function mapResolution(detail: string | undefined): "low" | "high" {
+  // OpenAI "detail" akzeptiert i.d.R. "low" | "high"
+  // Wir mappen "medium" pragmatisch auf "high".
+  if (!detail) return "low";
+  const d = detail.toLowerCase();
+  if (d === "low") return "low";
+  // "medium" / "high" -> "high"
+  return "high";
+}
 
 export async function POST(req: Request) {
   try {
@@ -8,43 +22,49 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing imageUrl" }, { status: 400 });
     }
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    // 1) Settings laden (DB)
+    const settings = await getSettings();
+    const visionModel = settings.vision?.model || "gpt-4o-mini";
+    const visionDetail = mapResolution(settings.vision?.resolution || "low");
+    const visionPrompt =
+      settings.vision?.prompt?.trim() ||
+      "Extract all visible text from the image. Preserve original line breaks. Return text only.";
 
+    // 2) OpenAI-Client
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: "Missing OPENAI_API_KEY" }, { status: 500 });
+    }
+    const openai = new OpenAI({ apiKey });
+
+    // 3) Anfrage an Responses-API (Vision)
     const response = await openai.responses.create({
-      model: "gpt-5", // dein Modell
+      model: visionModel,
       input: [
         {
           role: "user",
           content: [
-            {
-              type: "input_text",
-              text:
-                "Give me the text provided based on this image. " +
-                "Can be German or English – write the response in the language which was provided originally. " +
-                "The user can also write keywords like 'CAL', 'TODO', 'WA' - ONLY if they are surrounded by a circle. Return it with the same writing " +
-                "so e.g. CAL MUST always be big. Everytime you extracted a keyword put a '--kw' in front of it. " +
-                "Also check, if the content is not in one line (for example, a date is written above a time) but is within the same circle, it counts as one Keyword" +
-                " not as two different ones. This applies to all keywords. Don't care if it is written in one line, two or more. If it is within ONE circle, it counts as one Keyword." + 
-                "Return only the extracted text (preserve line breaks).",
-            },
+            { type: "input_text", text: visionPrompt },
             {
               type: "input_image",
               image_url: imageUrl,
-              detail: "low"
+              detail: visionDetail, // "low" | "high" (gemappt)
             },
           ],
         },
       ],
-      // optional, je nach Länge
-      // max_output_tokens: 2048,
+      // max_output_tokens: 2048, // optional
     });
 
-    return NextResponse.json({ text: response.output_text ?? "", user: "WolfgangP", domain: "nexoro.net" });
+    return NextResponse.json({
+      text: response.output_text ?? "",
+      user: "WolfgangP",
+      domain: "nexoro.net",
+      model: visionModel,
+      detail: visionDetail,
+    });
   } catch (err) {
     console.error("[OPENAI OCR ERROR]", err);
-    return NextResponse.json(
-      { error: err ?? "OpenAI request failed" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "OpenAI request failed" }, { status: 500 });
   }
 }

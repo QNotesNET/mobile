@@ -4,19 +4,27 @@ import { connectToDB } from "@/lib/mongoose";
 import Page from "@/models/PageModel";
 import OpenAI from "openai";
 import { Types } from "mongoose";
+import { getSettings } from "@/lib/settings";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-// kleine Hilfen
+// ——— helpers ———
 function toDataUrl(buf: Buffer, mime: string) {
   return `data:${mime};base64,${buf.toString("base64")}`;
 }
 function extractInt(text: string): number | null {
-  // nimm die auffälligste Zahl (1–999), bevorzugt einzeln/umkringelt/„Seite X“
+  // nimm die auffälligste Zahl (1–999), bevorzugt „Seite X“/alleinstehend
   const candidates = [...text.matchAll(/\b(?:Seite\s*)?([1-9][0-9]{0,2})\b/gi)].map(m => Number(m[1]));
   if (candidates.length) return candidates[0];
   const anyDigits = text.match(/[0-9]{1,3}/);
   return anyDigits ? Number(anyDigits[0]) : null;
+}
+function mapResolution(detail?: string): "low" | "high" {
+  if (!detail) return "low";
+  const d = detail.toLowerCase();
+  if (d === "low") return "low";
+  return "high"; // „medium“/„high“ => high
 }
 
 export async function POST(req: Request) {
@@ -26,7 +34,10 @@ export async function POST(req: Request) {
     if (!notebookIdRaw) {
       return NextResponse.json({ error: "Missing notebookId" }, { status: 400 });
     }
-    const notebookId = new Types.ObjectId(notebookIdRaw); // validiert gleich mit
+    if (!Types.ObjectId.isValid(notebookIdRaw)) {
+      return NextResponse.json({ error: "Invalid notebookId" }, { status: 400 });
+    }
+    const notebookId = new Types.ObjectId(notebookIdRaw);
 
     // 1) Bild aus multipart ziehen
     const form = await req.formData();
@@ -36,36 +47,75 @@ export async function POST(req: Request) {
     }
     const mime = file.type || "image/jpeg";
     const buf = Buffer.from(await file.arrayBuffer());
+
+    // OPTIONAL: hier könntest du später ein leichtes Cropping/Downscaling einbauen
+    // (z.B. mit 'sharp'). Ganz wichtig: Immer fallback auf das Original.
+    // const processed = await maybeCropOrDownscale(buf).catch(() => buf);
+
     const dataUrl = toDataUrl(buf, mime);
 
-    // 2) OpenAI: Seitennummer erkennen
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    // 2) Settings laden (pageDetect: model/resolution/prompt)
+    const settings = await getSettings();
+    const model = settings.pageDetect?.model || "gpt-4o-mini";
+    const detail = mapResolution(settings.pageDetect?.resolution || "low");
     const prompt =
-      "Lies nur die gedruckte Seitennummer dieses Blattes (unten oder oben links/rechts). " +
-      "Antworte ausschließlich mit der Zahl (z.B. 12) ohne sonstigen Text.";
+      settings.pageDetect?.prompt?.trim() ||
+      "Erkenne die auf dem Blatt gedruckte Seitennummer. Antworte NUR mit der Zahl (z. B. 12), ohne Zusatz.";
 
-    const resp = await openai.responses.create({
-      model: "gpt-5",
+    // 3) OpenAI: Seitennummer erkennen
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: "Missing OPENAI_API_KEY" }, { status: 500 });
+    }
+    const openai = new OpenAI({ apiKey });
+
+    // Erster Versuch
+    const resp1 = await openai.responses.create({
+      model,
       input: [
         {
           role: "user",
           content: [
             { type: "input_text", text: prompt },
-            { type: "input_image", image_url: dataUrl, detail: "auto" },
+            { type: "input_image", image_url: dataUrl, detail },
           ],
         },
       ],
-      // max_output_tokens: 16,
-    //   temperature: 0,
+      // max_output_tokens: 32,
+      // temperature: 0,
     });
 
-    const rawText = (resp).output_text as string || "";
-    const pageIndex = extractInt(rawText ?? "");
+    let rawText = resp1.output_text || "";
+    let pageIndex = extractInt(rawText);
+
+    // Fallback: zweiter Versuch mit Fokus-Hinweis (ohne Bild zu verändern)
+    if (pageIndex == null) {
+      const fallbackPrompt =
+        `${prompt}\n` +
+        "Falls unklar: Prüfe explizit die Ecken (oben/unten links/rechts). Antworte NUR mit der Zahl.";
+      const resp2 = await openai.responses.create({
+        model,
+        input: [
+          {
+            role: "user",
+            content: [
+              { type: "input_text", text: fallbackPrompt },
+              { type: "input_image", image_url: dataUrl, detail },
+            ],
+          },
+        ],
+        // max_output_tokens: 32,
+        // temperature: 0,
+      });
+      rawText = resp2.output_text || rawText;
+      pageIndex = extractInt(rawText);
+    }
+
     if (pageIndex == null) {
       return NextResponse.json({ error: "Page number not detected" }, { status: 422 });
     }
 
-    // 3) DB: pageToken zu (notebookId, pageIndex) finden
+    // 4) DB: pageToken zu (notebookId, pageIndex) finden
     await connectToDB();
     const page = await Page.findOne({ notebookId, pageIndex })
       .select({ pageToken: 1 })
@@ -78,10 +128,12 @@ export async function POST(req: Request) {
       );
     }
 
-    // 4) Antwort
+    // 5) Antwort
     return NextResponse.json({
       pageIndex,
       pageToken: page.pageToken,
+      model,
+      detail,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Server error";
