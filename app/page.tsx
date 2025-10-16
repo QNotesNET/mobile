@@ -2,7 +2,7 @@ import AppShell from "@/components/AppShell";
 import { getCurrentUser } from "@/lib/session";
 
 import connectToDB from "@/lib/mongoose";
-import Notebook from "@/models/Notebook";
+import Notebook, { type NotebookDoc } from "@/models/Notebook";
 import Page from "@/models/PageModel";
 import DashboardClient from "./DashboardClient";
 import { Types } from "mongoose";
@@ -10,11 +10,24 @@ import { Types } from "mongoose";
 type NotebookCard = {
   id: string;
   title: string;
-  pages: number;        // GESCANNT (images.0 existiert)
-  totalPages: number;   // ALLE Seiten des Notizbuchs
+  pages: number;        // gescannt (images.0 existiert)
+  totalPages: number;   // alle Seiten des Notizbuchs
   lastUpdated: string;
   completion: number;   // pages / totalPages * 100
   color: string;
+};
+
+type NotebookWithTimestamps = NotebookDoc & {
+  createdAt?: Date;
+  updatedAt?: Date;
+  color?: string;
+};
+
+type PageAgg = {
+  _id: Types.ObjectId;
+  totalPages: number;
+  scannedPages: number;
+  lastPageUpdatedAt?: Date;
 };
 
 function formatRelative(date: Date): string {
@@ -41,7 +54,7 @@ export default async function DashboardPage() {
   })();
 
   let notebookCount = 0;
-  let pagesTotal = 0;            // GESCANNTE Seiten (global)
+  let pagesTotal = 0; // global gescannte Seiten
   let notebooks: NotebookCard[] = [];
 
   const userObjectId = user?.id ? new Types.ObjectId(user.id) : null;
@@ -49,23 +62,24 @@ export default async function DashboardPage() {
   if (userObjectId) {
     await connectToDB();
 
-    // Notizbücher des Users
-    const nbs = await Notebook.find({ ownerId: userObjectId })
+    // Notizbücher des Users (hydrated Docs → streng typisierbar)
+    const nbs = (await Notebook.find({ ownerId: userObjectId })
       .sort({ updatedAt: -1 })
-      .lean();
+      .exec()) as NotebookWithTimestamps[];
+
     notebookCount = nbs.length;
 
     if (notebookCount > 0) {
-      const nbIds = nbs.map((n) => n._id as Types.ObjectId);
+      const nbIds = nbs.map((n) => n._id);
 
-      // Globale gescannte Seiten: mind. 1 Image
+      // globale gescannte Seiten: pages mit mind. 1 image
       pagesTotal = await Page.countDocuments({
         notebookId: { $in: nbIds },
         "images.0": { $exists: true },
       });
 
-      // Pro-Notebook: total + scanned + letzte Änderung
-      const perNotebook = await Page.aggregate([
+      // pro Notebook: total/scanned/letzte Änderung
+      const perNotebook = await Page.aggregate<PageAgg>([
         { $match: { notebookId: { $in: nbIds } } },
         {
           $project: {
@@ -84,42 +98,29 @@ export default async function DashboardPage() {
         },
       ]);
 
-      const statsByNb = new Map<
-        string,
-        { totalPages: number; scannedPages: number; lastPageUpdatedAt?: Date }
-      >();
-      perNotebook.forEach((s) => {
-        statsByNb.set(String(s._id), {
-          totalPages: (s.totalPages as number) ?? 0,
-          scannedPages: (s.scannedPages as number) ?? 0,
-          lastPageUpdatedAt: (s.lastPageUpdatedAt as Date) ?? undefined,
-        });
-      });
+      const statsByNb = new Map<string, PageAgg>();
+      perNotebook.forEach((s) => statsByNb.set(String(s._id), s));
 
       const fallbackColors = ["bg-emerald-500", "bg-indigo-500", "bg-amber-500", "bg-rose-500"];
 
-      notebooks = nbs.slice(0, 4).map((n, i) => {
-        const key = String(n._id);
-        const stat = statsByNb.get(key) ?? { totalPages: 0, scannedPages: 0 };
-        const total = stat.totalPages;
-        const scanned = stat.scannedPages;
+      notebooks = nbs.slice(0, 4).map<NotebookCard>((n, i) => {
+        const stat = statsByNb.get(String(n._id));
+        const total = stat?.totalPages ?? 0;
+        const scanned = stat?.scannedPages ?? 0;
 
-        const lu =
-          stat.lastPageUpdatedAt ??
-          ((n as any).updatedAt as Date | undefined) ??
-          ((n as any).createdAt as Date | undefined) ??
-          new Date();
+        const lastUpdatedDate =
+          stat?.lastPageUpdatedAt ?? n.updatedAt ?? n.createdAt ?? new Date();
 
         const completion = total > 0 ? Math.round((scanned / total) * 100) : 0;
 
         return {
           id: String(n._id),
-          title: (n as any).title ?? "Unbenanntes Notizbuch",
-          pages: scanned,            // gescannte Seiten
-          totalPages: total,         // alle Seiten
-          lastUpdated: formatRelative(new Date(lu)),
+          title: n.title ?? "Unbenanntes Notizbuch",
+          pages: scanned,
+          totalPages: total,
+          lastUpdated: formatRelative(new Date(lastUpdatedDate)),
           completion: Math.max(0, Math.min(100, completion)),
-          color: (n as any).color ?? fallbackColors[i % fallbackColors.length],
+          color: n.color ?? fallbackColors[i % fallbackColors.length],
         };
       });
     }
@@ -131,7 +132,7 @@ export default async function DashboardPage() {
         userName={firstName}
         userEmail={email}
         notebookCount={notebookCount}
-        pagesTotal={pagesTotal}   // „Seiten“ oben: gescannt gesamt
+        pagesTotal={pagesTotal}
         notebooks={notebooks}
       />
     </AppShell>
