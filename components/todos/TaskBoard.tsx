@@ -60,9 +60,10 @@ import {
   EllipsisVertical,
   Pencil,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
-import { de } from "date-fns/locale/de";
+import { de } from "date-fns/locale";
 
 type Priority = "none" | "low" | "medium" | "high";
 
@@ -86,6 +87,7 @@ export type TaskList = {
   userId: string;
   createdAt: string;
   updatedAt: string;
+  openCount?: number;
 };
 
 function isToday(ts?: string | null) {
@@ -226,7 +228,6 @@ function SortableTaskItem({
                   In „{l.name}“ verschieben
                 </DropdownMenuItem>
               ))}
-
             {lists.filter((l) => l._id !== task.listId).length === 0 && (
               <DropdownMenuItem disabled>
                 Keine andere Liste vorhanden
@@ -246,6 +247,10 @@ export default function TaskBoard({ userId }: { userId: string }) {
   const [lists, setLists] = useState<TaskList[]>([]);
   const [activeListId, setActiveListId] = useState<string>("");
   const [tasksByList, setTasksByList] = useState<Record<string, Task[]>>({});
+  const [openCounts, setOpenCounts] = useState<Record<string, number>>({});
+  const [loadingLists, setLoadingLists] = useState(true);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+
   const [newTitle, setNewTitle] = useState("");
   const [newNote, setNewNote] = useState("");
   const [newPriority, setNewPriority] = useState<Priority>("none");
@@ -258,23 +263,34 @@ export default function TaskBoard({ userId }: { userId: string }) {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch(`/api/lists?userId=${userId}`);
+      setLoadingLists(true);
+      const res = await fetch(`/api/lists?userId=${userId}&withCounts=true`);
       const data = await res.json();
       const items: TaskList[] = data.items || [];
       setLists(items);
+      const cm: Record<string, number> = {};
+      items.forEach((l) => (cm[l._id] = l.openCount ?? 0));
+      setOpenCounts(cm);
       if (items[0]) setActiveListId(items[0]._id);
+      setLoadingLists(false);
     })();
   }, [userId]);
 
   useEffect(() => {
     if (!activeListId) return;
     (async () => {
+      setLoadingTasks(true);
       const res = await fetch(
         `/api/tasks?userId=${userId}&listId=${activeListId}&sort=order:1`
       );
       const data = await res.json();
       const items: Task[] = data.items || [];
       setTasksByList((p) => ({ ...p, [activeListId]: items }));
+      setOpenCounts((p) => ({
+        ...p,
+        [activeListId]: items.filter((t) => !t.completed).length,
+      }));
+      setLoadingTasks(false);
     })();
   }, [activeListId, userId]);
 
@@ -286,10 +302,20 @@ export default function TaskBoard({ userId }: { userId: string }) {
   const openTasks = activeTasks.filter((t) => !t.completed);
   const doneTasks = activeTasks.filter((t) => t.completed);
 
+  const incCount = (listId: string, delta: number) =>
+    setOpenCounts((p) => ({
+      ...p,
+      [listId]: Math.max(0, (p[listId] ?? 0) + delta),
+    }));
+
   const refreshLists = async () => {
-    const res = await fetch(`/api/lists?userId=${userId}`);
+    const res = await fetch(`/api/lists?userId=${userId}&withCounts=true`);
     const data = await res.json();
-    setLists(data.items || []);
+    const items: TaskList[] = data.items || [];
+    setLists(items);
+    const cm: Record<string, number> = {};
+    items.forEach((l) => (cm[l._id] = l.openCount ?? 0));
+    setOpenCounts(cm);
   };
 
   const addTask = async () => {
@@ -313,6 +339,7 @@ export default function TaskBoard({ userId }: { userId: string }) {
       ...p,
       [activeListId]: [...(p[activeListId] || []), t],
     }));
+    incCount(activeListId, +1);
     setNewTitle("");
     setNewNote("");
     setNewPriority("none");
@@ -332,17 +359,21 @@ export default function TaskBoard({ userId }: { userId: string }) {
         t._id === updated._id ? updated : t
       ),
     }));
+    incCount(activeListId, updated.completed ? -1 : +1);
   };
 
   const removeTask = async (id: string) => {
+    const t = activeTasks.find((x) => x._id === id);
     await fetch(`/api/tasks/${id}`, { method: "DELETE" });
     setTasksByList((p) => ({
       ...p,
-      [activeListId]: (p[activeListId] || []).filter((t) => t._id !== id),
+      [activeListId]: (p[activeListId] || []).filter((x) => x._id !== id),
     }));
+    if (t && !t.completed) incCount(activeListId, -1);
   };
 
   const moveTask = async (taskId: string, targetListId: string) => {
+    const t = activeTasks.find((x) => x._id === taskId);
     const res = await fetch(`/api/tasks/${taskId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -350,10 +381,14 @@ export default function TaskBoard({ userId }: { userId: string }) {
     });
     const updated: Task = await res.json();
     setTasksByList((p) => {
-      const from = (p[activeListId] || []).filter((t) => t._id !== taskId);
+      const from = (p[activeListId] || []).filter((x) => x._id !== taskId);
       const to = [...(p[targetListId] || []), updated];
       return { ...p, [activeListId]: from, [targetListId]: to };
     });
+    if (t && !t.completed) {
+      incCount(activeListId, -1);
+      incCount(targetListId, +1);
+    }
   };
 
   const handleDragEnd = async (e: DragEndEvent) => {
@@ -446,69 +481,80 @@ export default function TaskBoard({ userId }: { userId: string }) {
             <Plus className="h-4 w-4" />
           </Button>
         </div>
-        <Separator />
-        <ScrollArea className="h-[calc(100vh-200px)]">
-          <div className="flex flex-col gap-2">
-            {lists.map((l) => {
-              const count = (tasksByList[l._id] || []).filter(
-                (t) => !t.completed
-              ).length;
-              const active = l._id === activeListId;
-              return (
-                <div
-                  key={l._id}
-                  className={`flex items-center gap-2 rounded-lg border border-gray-200 p-2 ${
-                    active ? "bg-black text-white" : "bg-white text-black"
-                  }`}
-                >
-                  <button
+        <Separator className="mb-4" />
+        {loadingLists ? (
+          <div className="mt-3 space-y-2">
+            <div className="h-10 w-full animate-pulse rounded-lg bg-neutral-100" />
+            <div className="h-10 w-full animate-pulse rounded-lg bg-neutral-100" />
+            <div className="h-10 w-full animate-pulse rounded-lg bg-neutral-100" />
+          </div>
+        ) : (
+          <ScrollArea className="h-[calc(100vh-200px)]">
+            <div className="flex flex-col gap-2">
+              {lists.map((l) => {
+                const count = openCounts[l._id] ?? 0;
+                const active = l._id === activeListId;
+                return (
+                  <div
+                    key={l._id}
                     onClick={() => setActiveListId(l._id)}
-                    className="flex-1 text-left text-sm font-medium"
-                  >
-                    {l.name}
-                  </button>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${
-                      active ? "bg-white text-black" : "bg-black text-white"
+                    className={`flex items-center gap-2 rounded-lg border border-gray-200 p-2 ${
+                      active ? "bg-black text-white" : "bg-white text-black"
                     }`}
                   >
-                    {count}
-                  </span>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant={active ? "secondary" : "ghost"}
-                        size="icon"
-                        className="bg-transparent text-white hover:bg-white/20 cursor-pointer"
-                      >
-                        <EllipsisVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => {
-                          setRenameListId(l._id);
-                          setRenameListName(l.name);
-                        }}
-                      >
-                        <Pencil className="mr-2 h-4 w-4" /> Umbenennen
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        className="text-red-600"
-                        onClick={() => deleteList(l._id)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" /> Löschen
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              );
-            })}
-          </div>
-        </ScrollArea>
+                    <button className="flex-1 text-left text-sm font-medium">
+                      {l.name}
+                    </button>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs ${
+                        active ? "bg-white text-black" : "bg-black text-white"
+                      }`}
+                    >
+                      {count}
+                    </span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant={active ? "secondary" : "ghost"}
+                          size="icon"
+                          className="bg-transparent text-white hover:bg-white/20 cursor-pointer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <EllipsisVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setRenameListId(l._id);
+                            setRenameListName(l.name);
+                          }}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" /> Umbenennen
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-red-600"
+                          onClick={() => deleteList(l._id)}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" /> Löschen
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+        )}
       </div>
 
-      <div className="flex-1 p-4 md:p-6">
+      <div className="relative flex-1 p-4 md:p-6">
+        {(loadingLists || loadingTasks) && (
+          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-white/60">
+            <Loader2 className="h-6 w-6 animate-spin text-black" />
+          </div>
+        )}
+
         <div className="mb-4 md:hidden flex items-center gap-2">
           <Select
             value={activeListId}
@@ -521,12 +567,7 @@ export default function TaskBoard({ userId }: { userId: string }) {
               <SelectGroup>
                 {lists.map((l) => (
                   <SelectItem key={l._id} value={l._id}>
-                    {l.name} (
-                    {
-                      (tasksByList[l._id] || []).filter((t) => !t.completed)
-                        .length
-                    }
-                    )
+                    {l.name} ({openCounts[l._id] ?? 0})
                   </SelectItem>
                 ))}
               </SelectGroup>
@@ -708,14 +749,11 @@ export default function TaskBoard({ userId }: { userId: string }) {
                   </PopoverTrigger>
                   <PopoverContent className="p-0" align="start">
                     <Calendar
-                      required
                       mode="single"
                       selected={
                         editTask.dueAt ? new Date(editTask.dueAt) : undefined
                       }
-                      onSelect={(d: {
-                        toISOString: () => string | null | undefined;
-                      }) =>
+                      onSelect={(d) =>
                         setEditTask((p) =>
                           p ? { ...p, dueAt: d ? d.toISOString() : null } : p
                         )
