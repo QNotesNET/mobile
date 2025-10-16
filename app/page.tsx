@@ -6,6 +6,8 @@ import Notebook, { type NotebookDoc } from "@/models/Notebook";
 import Page from "@/models/PageModel";
 import DashboardClient from "./DashboardClient";
 import { Types } from "mongoose";
+import User from "@/models/User";
+
 
 type NotebookCard = {
   id: string;
@@ -30,6 +32,12 @@ type PageAgg = {
   lastPageUpdatedAt?: Date;
 };
 
+function nameFromEmail(address: string): string {
+  const local = address.split("@")[0];
+  const part = local.split(/[._-]/)[0] || local;
+  return part.charAt(0).toUpperCase() + part.slice(1);
+}
+
 function formatRelative(date: Date): string {
   const diffMs = Date.now() - date.getTime();
   const minutes = Math.floor(diffMs / 60000);
@@ -45,13 +53,20 @@ function formatRelative(date: Date): string {
 export default async function DashboardPage() {
   const user = await getCurrentUser();
 
-  const email = user?.email ?? "—";
-  const firstName = (() => {
-    if (!user?.email) return "Gast";
-    const local = user.email.split("@")[0];
-    const part = local.split(/[._-]/)[0] || local;
-    return part.charAt(0).toUpperCase() + part.slice(1);
-  })();
+  // Standardwerte
+  let email = user?.email ?? "—";
+  let displayName = "Gast";
+
+  // Wenn eingeloggt: Namen & (evtl. geänderte) E-Mail aus der DB holen
+  if (user?.id) {
+    await connectToDB();
+    const doc = await User.findById(new Types.ObjectId(user.id))
+      .select({ firstName: 1, email: 1 })
+      .lean();
+
+    email = doc?.email ?? email;
+    displayName = (doc?.firstName && doc.firstName.trim()) || nameFromEmail(email);
+  }
 
   let notebookCount = 0;
   let pagesTotal = 0; // global gescannte Seiten
@@ -129,7 +144,7 @@ export default async function DashboardPage() {
   return (
     <AppShell>
       <DashboardClient
-        userName={firstName}
+        userName={displayName}
         userEmail={email}
         notebookCount={notebookCount}
         pagesTotal={pagesTotal}

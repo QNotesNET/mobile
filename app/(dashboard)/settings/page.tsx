@@ -1,7 +1,6 @@
-// app/(dashboard)/settings/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { isValidElement, cloneElement } from "react";
 
@@ -30,21 +29,70 @@ function ProfileCard() {
   const [firstName, setFirstName] = useState<string>("");
   const [lastName, setLastName] = useState<string>("");
 
+  const [loading, setLoading] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
+  const [saved, setSaved] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const res = await fetch("/api/settings/profile", { method: "GET" });
+        if (!res.ok) throw new Error(await res.text());
+        const data: { firstName?: string; lastName?: string } = await res.json();
+        if (!alive) return;
+        setFirstName(data.firstName ?? "");
+        setLastName(data.lastName ?? "");
+      } catch {
+        setError("Profil konnte nicht geladen werden.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  async function onSave(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      setSaving(true);
+      setSaved(false);
+      setError("");
+      const res = await fetch("/api/settings/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName: firstName.trim(), lastName: lastName.trim() }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      setError("Speichern fehlgeschlagen.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const canSave = !loading && !saving && (firstName.trim().length > 0 || lastName.trim().length > 0);
+
   return (
     <Card>
       <CardHeader
         title="Profil"
         description="Dein Name erscheint in Notizbüchern, Kommentaren und E-Mails."
       />
-      <form
-        onSubmit={(e) => e.preventDefault()}
-        className="grid grid-cols-1 gap-4 sm:grid-cols-2"
-      >
+      <form onSubmit={onSave} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Vorname">
           <Input
             placeholder="Max"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
+            disabled={loading || saving}
           />
         </Field>
         <Field label="Nachname">
@@ -52,14 +100,16 @@ function ProfileCard() {
             placeholder="Mustermann"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
+            disabled={loading || saving}
           />
         </Field>
 
         <div className="sm:col-span-2 flex items-center gap-3 pt-2">
-          <Button type="submit" disabled>
-            Änderungen speichern
+          <Button type="submit" disabled={!canSave}>
+            {saving ? "Speichere…" : "Änderungen speichern"}
           </Button>
-          <MutedHint>Design-Only: Button ist deaktiviert.</MutedHint>
+          {saved ? <span className="text-xs text-emerald-600">Gespeichert.</span> : null}
+          {error ? <span className="text-xs text-red-600">{error}</span> : null}
         </div>
       </form>
     </Card>
@@ -71,27 +121,96 @@ function ProfileCard() {
 function AccountCard() {
   const [email, setEmail] = useState<string>("");
 
+  const [loading, setLoading] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
+  const [saved, setSaved] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const res = await fetch("/api/settings/account", { method: "GET" });
+        if (!res.ok) throw new Error(await res.text());
+        const data: { email?: string } = await res.json();
+        if (!alive) return;
+        setEmail(data.email ?? "");
+      } catch {
+        setError("Account-Daten konnten nicht geladen werden.");
+      } finally {
+        setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  function isValidEmail(val: string) {
+    // simple RFC5322-ish
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
+  }
+
+  async function onSave(e: React.FormEvent) {
+    e.preventDefault();
+    try {
+      setSaving(true);
+      setSaved(false);
+      setError("");
+
+      const val = email.trim();
+      if (!isValidEmail(val)) {
+        setError("Bitte eine gültige E-Mail eingeben.");
+        setSaving(false);
+        return;
+      }
+
+      const res = await fetch("/api/settings/account", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: val }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(text || "Update fehlgeschlagen");
+      }
+
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      setError("Speichern fehlgeschlagen (E-Mail eventuell bereits vergeben?).");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const canSave = !loading && !saving && isValidEmail(email.trim());
+
   return (
     <Card>
       <CardHeader
         title="Account"
         description="Diese E-Mail nutzen wir für Login und Benachrichtigungen."
       />
-      <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
+      <form onSubmit={onSave} className="space-y-4">
         <Field label="E-Mail">
           <Input
             type="email"
             placeholder="dein.name@beispiel.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            disabled={loading || saving}
           />
         </Field>
 
         <div className="flex items-center gap-3 pt-2">
-          <Button type="submit" disabled>
-            Änderungen speichern
+          <Button type="submit" disabled={!canSave}>
+            {saving ? "Speichere…" : "Änderungen speichern"}
           </Button>
-          <MutedHint>Kommt später ans Backend.</MutedHint>
+          {saved ? <span className="text-xs text-emerald-600">Gespeichert.</span> : null}
+          <span className="text-xs text-red-600">{error}</span> 
         </div>
       </form>
     </Card>
@@ -209,9 +328,11 @@ function Button(
       {...rest}
       disabled={disabled}
       className={`inline-flex items-center justify-center rounded-xl px-3 py-1.5 text-sm font-medium transition-colors
-      ${disabled
+      ${
+        disabled
           ? "cursor-not-allowed border border-gray-200 bg-gray-50 text-gray-400"
-          : "border border-gray-900 bg-gray-900 text-white hover:bg-black"}
+          : "border border-gray-900 bg-gray-900 text-white hover:bg-black"
+      }
       ${className ?? ""}`}
     />
   );
