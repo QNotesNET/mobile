@@ -48,7 +48,6 @@ function NexoroCard() {
         setNexoroDomain(data.nexoroDomain ?? "");
       } catch (e) {
         setError("Konnte Nexoro-Daten nicht laden.");
-        // nur still informieren – UI bleibt nutzbar
       } finally {
         setLoading(false);
       }
@@ -78,7 +77,6 @@ function NexoroCard() {
       if (!res.ok) throw new Error(await res.text());
 
       setSaved(true);
-      // optional: nach ein paar Sekunden wieder ausblenden
       setTimeout(() => setSaved(false), 2500);
     } catch (e) {
       setError("Speichern fehlgeschlagen.");
@@ -92,6 +90,8 @@ function NexoroCard() {
       <CardHeader
         title="Nexoro CRM"
         description="Integriere deine Notebooks vollautomatisch zu Nexoro CRM"
+        logoUrl="/images/logos/nexoro.svg"
+        logoAlt="Powerbook Logo"
       />
       <form onSubmit={onSave} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label="Nexoro - Benutzername">
@@ -138,7 +138,6 @@ function NexoroCard() {
   );
 }
 
-
 function DarleanCard() {
   const [darleanUser, setDarleanUser] = useState<string>("");
   const [darleanDomain, setDarleanDomain] = useState<string>("");
@@ -148,6 +147,8 @@ function DarleanCard() {
       <CardHeader
         title="Darlean CRM"
         description="Integriere deine Notebooks vollautomatisch zu Darlean CRM"
+        logoUrl="/images/logos/darlean.svg"
+        logoAlt="Darlean Logo"
       />
       <form
         onSubmit={(e) => e.preventDefault()}
@@ -172,19 +173,20 @@ function DarleanCard() {
           <Button type="submit" className="hover:opacity-90 cursor-pointer" disabled={!darleanDomain || !darleanUser}>
             Änderungen speichern
           </Button>
-          <MutedHint>Mit dem Speichern Ihrer Daten stimmen Sie dem Datenaustausch zwischen Powerbook und Darlean automatisch zu.</MutedHint>
+          <MutedHint>
+            Mit dem Speichern Ihrer Daten stimmen Sie dem Datenaustausch zwischen Powerbook und Darlean automatisch zu.
+          </MutedHint>
         </div>
       </form>
     </Card>
   );
 }
 
-
 /* ———————————— UI Primitives (Tailwind-only) ———————————— */
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+    <section className="relative rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
       {children}
     </section>
   );
@@ -193,12 +195,26 @@ function Card({ children }: { children: React.ReactNode }) {
 function CardHeader({
   title,
   description,
+  logoUrl,
+  logoAlt = "Logo",
 }: {
   title: string;
   description?: string;
+  logoUrl?: string;
+  logoAlt?: string;
 }) {
   return (
     <div className="mb-5">
+      {/* Logo oben rechts */}
+      {logoUrl ? (
+        <img
+          src={logoUrl}
+          alt={logoAlt}
+          className="absolute right-4 top-4 h-13 w-auto opacity-80"
+          loading="lazy"
+        />
+      ) : null}
+
       <h2 className="text-base font-semibold">{title}</h2>
       {description ? (
         <p className="text-sm text-gray-500 mt-1">{description}</p>
@@ -252,9 +268,11 @@ function Button(
       {...rest}
       disabled={disabled}
       className={`inline-flex items-center justify-center rounded-xl px-3 py-1.5 text-sm font-medium transition-colors
-      ${disabled
+      ${
+        disabled
           ? "cursor-not-allowed border border-gray-200 bg-gray-50 text-gray-400"
-          : "border border-gray-900 bg-gray-900 text-white hover:bg-black"}
+          : "border border-gray-900 bg-gray-900 text-white hover:bg-black"
+      }
       ${className ?? ""}`}
     />
   );
