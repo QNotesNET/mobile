@@ -597,7 +597,7 @@ export default function TaskBoard({ userId }: { userId: string }) {
               />
               <Button
                 onClick={addTask}
-                className="bg-black text-white hover:bg-black/80 cursor-pointer"
+                className="bg-black text-white hover:bg-black/80 cursor-pointer hidden lg:flex"
               >
                 <Plus className="mr-1 h-4 w-4 text-white" /> Hinzufügen
               </Button>
@@ -644,6 +644,12 @@ export default function TaskBoard({ userId }: { userId: string }) {
                   </PopoverContent>
                 </Popover>
               </div>
+              <Button
+                onClick={addTask}
+                className="bg-black text-white hover:bg-black/80 cursor-pointer lg:hidden"
+              >
+                <Plus className="mr-1 h-4 w-4 text-white" /> Hinzufügen
+              </Button>
             </div>
 
             <Separator className="mb-4" />
