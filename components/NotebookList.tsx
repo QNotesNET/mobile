@@ -8,7 +8,6 @@ import { useEffect, useState } from "react";
 type NotebookItem = { _id?: string; id?: string; title: string };
 type ProjectItem  = { _id?: string; id?: string; title: string };
 
-// Optional: kannst du später vom Server füttern, hier laden wir aber clientseitig selbst.
 type Props = {
   items: NotebookItem[];
   projects?: ProjectItem[];
@@ -52,7 +51,7 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
     if (res.ok) router.refresh();
   }
 
-  // ---------- Projekte (neu: echtes Laden) ----------
+  // ---------- Projekte (Clientladen) ----------
   const [projects, setProjects] = useState<ProjectItem[]>(initialProjects);
   const [projectsLoading, setProjectsLoading] = useState(false);
   const [projCreating, setProjCreating] = useState(false);
@@ -65,13 +64,12 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
       const data = (await res.json()) as Array<{ id: string; title: string }>;
       setProjects(data.map((p) => ({ id: p.id, title: p.title })));
     } catch {
-      // still show empty state, no hard error-UI
+      // ruhig bleiben – leerer Zustand reicht
     } finally {
       setProjectsLoading(false);
     }
   }
 
-  // Tab „Projekte“ das erste Mal öffnen -> laden
   useEffect(() => {
     if (tab === "projects" && projects.length === 0 && !projectsLoading) {
       void loadProjects();
@@ -88,7 +86,7 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
         body: JSON.stringify({ title }),
       });
       if (!res.ok) throw new Error("Create project failed");
-      await loadProjects(); // direkt neu laden
+      await loadProjects();
     } finally {
       setProjCreating(false);
     }
@@ -131,7 +129,7 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
         <div className="ml-auto" />
       </div>
 
-      {/* Powerbooks (unverändert) */}
+      {/* Powerbooks */}
       {tab === "books" && (
         <>
           <form
@@ -157,68 +155,71 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
             </button>
           </form>
 
-          <ul className="divide-y rounded-2xl border bg-white">
-            {items.length === 0 && <li className="p-6 text-gray-500">Noch keine Powerbooks. Leg das erste an!</li>}
+          {/* Empty-State Promo statt schnödem Text */}
+          {items.length === 0 ? (
+            <EmptyPowerbookPromo />
+          ) : (
+            <ul className="divide-y rounded-2xl border bg-white">
+              {items.map((n) => {
+                const notebookId = (n.id ?? n._id) as string;
 
-            {items.map((n) => {
-              const notebookId = (n.id ?? n._id) as string;
+                return (
+                  <li key={notebookId} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="font-medium">{n.title}</span>
 
-              return (
-                <li key={notebookId} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <span className="font-medium">{n.title}</span>
+                    <div className="flex flex-wrap gap-2 sm:justify-end">
+                      <Link
+                        href={`/notebooks/${notebookId}`}
+                        className="rounded border px-3 py-1 text-sm hover:bg-black/90 bg-black text-white"
+                      >
+                        Details
+                      </Link>
 
-                  <div className="flex flex-wrap gap-2 sm:justify-end">
-                    <Link
-                      href={`/notebooks/${notebookId}`}
-                      className="rounded border px-3 py-1 text-sm hover:bg-black/90 bg-black text-white"
-                    >
-                      Details
-                    </Link>
+                      {/* 
+                      <button
+                        onClick={async () => {
+                          const title = prompt("Neuer Titel:", n.title);
+                          if (!title) return;
+                          await renameNotebook(notebookId, title);
+                        }}
+                        className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+                      >
+                        Umbenennen
+                      </button>
 
-                    {/* 
-                    <button
-                      onClick={async () => {
-                        const title = prompt("Neuer Titel:", n.title);
-                        if (!title) return;
-                        await renameNotebook(notebookId, title);
-                      }}
-                      className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
-                    >
-                      Umbenennen
-                    </button>
+                      <button
+                        onClick={async () => {
+                          if (!confirm("Notebook löschen?")) return;
+                          await deleteNotebook(notebookId);
+                        }}
+                        className="rounded bg-black px-3 py-1 text-sm text-white hover:bg-black/90"
+                      >
+                        Löschen
+                      </button>
+                      */}
 
-                    <button
-                      onClick={async () => {
-                        if (!confirm("Notebook löschen?")) return;
-                        await deleteNotebook(notebookId);
-                      }}
-                      className="rounded bg-black px-3 py-1 text-sm text-white hover:bg-black/90"
-                    >
-                      Löschen
-                    </button>
-                    */}
-
-                    <button
-                      onClick={async () => {
-                        const from = Number(prompt("Seiten von:", "1") || "1");
-                        const to = Number(prompt("…bis:", "10") || "10");
-                        if (!from || !to) return;
-                        const res = await fetch(`/api/notebooks/${notebookId}/pages/batch`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ from, to }),
-                        });
-                        if (res.ok) alert("Seiten erzeugt. QR-Token sind bereit (Route /s/<token>).");
-                      }}
-                      className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
-                    >
-                      Seiten erzeugen
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+                      <button
+                        onClick={async () => {
+                          const from = Number(prompt("Seiten von:", "1") || "1");
+                          const to = Number(prompt("…bis:", "10") || "10");
+                          if (!from || !to) return;
+                          const res = await fetch(`/api/notebooks/${notebookId}/pages/batch`, {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ from, to }),
+                          });
+                          if (res.ok) alert("Seiten erzeugt. QR-Token sind bereit (Route /s/<token>).");
+                        }}
+                        className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+                      >
+                        Seiten erzeugen
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </>
       )}
 
@@ -270,12 +271,12 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
                   <div className="flex flex-wrap gap-2 sm:justify-end">
                     <Link
                       href={`/projects/${projectId}`}
-                      className="rounded border px-3 py-1 text-sm hover:bg-black/90 bg-black text-white"
+                      className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
                     >
                       Details
                     </Link>
 
-                    {/* <button
+                    <button
                       onClick={async () => {
                         const title = prompt("Neuer Projekttitel:", p.title);
                         if (!title) return;
@@ -284,9 +285,9 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
                       className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
                     >
                       Umbenennen
-                    </button> */}
+                    </button>
 
-                    {/* <button
+                    <button
                       onClick={async () => {
                         if (!confirm("Projekt löschen?")) return;
                         await deleteProject(projectId);
@@ -294,7 +295,7 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
                       className="rounded bg-black px-3 py-1 text-sm text-white hover:bg-black/90"
                     >
                       Löschen
-                    </button> */}
+                    </button>
                   </div>
                 </li>
               );
@@ -303,5 +304,71 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
         </>
       )}
     </div>
+  );
+}
+
+/* ---------------- Empty-State Promo für Powerbooks ---------------- */
+
+function EmptyPowerbookPromo() {
+  const checkoutUrl = process.env.NEXT_PUBLIC_POWERBOOK_CHECKOUT_URL || "/pricing";
+
+  return (
+    <section className="rounded-2xl border bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-6 md:flex-row md:items-center">
+        {/* Bild / Illustration */}
+        <div className="mx-auto w-full max-w-sm overflow-hidden rounded-xl border bg-gray-50">
+          <img
+            src="/images/promo-2.png"
+            alt="Powerbook"
+            className="h-full w-full object-cover"
+          />
+        </div>
+
+        {/* Text + CTA */}
+        <div className="flex-1">
+          <h3 className="text-lg font-semibold">Hol dir dein Powerbook</h3>
+          <p className="mt-2 text-sm text-gray-600">
+            Scanne Seiten blitzschnell, verknüpfe Notizen mit Projekten und arbeite
+            digital weiter. Mit dem Powerbook schaltest du die komplette Experience frei –
+            inklusive digitaler Ansicht, automatischer Seitenerkennung und Export.
+          </p>
+
+          <ul className="mt-4 grid gap-2 text-sm text-gray-700">
+            <li className="flex items-center gap-2">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-black" />
+              Digitale Ansicht & Seitenfortschritt
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-black" />
+              Automatische Seitenerkennung beim Scannen
+            </li>
+            <li className="flex items-center gap-2">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-black" />
+              Export als PDF/JPG/PNG
+            </li>
+          </ul>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3">
+            <a
+              href={checkoutUrl}
+              className="inline-flex items-center rounded-xl bg-black px-4 py-2 text-sm font-medium text-white hover:bg-black/90"
+            >
+              Powerbook jetzt holen
+            </a>
+            <a
+              href="/demo"
+              className="inline-flex items-center rounded-xl border px-4 py-2 text-sm hover:bg-gray-50"
+            >
+              Mehr erfahren
+            </a>
+          </div>
+
+          <p className="mt-2 text-xs text-gray-400">
+            link muass nu geändert werdn zum kafm
+            (env: <code>NEXT_PUBLIC_POWERBOOK_CHECKOUT_URL</code>).
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
