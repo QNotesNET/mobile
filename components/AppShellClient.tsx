@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Fragment, type ComponentType, type SVGProps } from "react";
+import { useState, useEffect, Fragment, type ComponentType, type SVGProps } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
@@ -14,7 +14,7 @@ import {
   XMarkIcon,
   BookOpenIcon,
   AdjustmentsHorizontalIcon,
-  BoltIcon as Bolt
+  BoltIcon as Bolt,
 } from "@heroicons/react/24/outline";
 
 function classNames(...classes: Array<string | false | null | undefined>) {
@@ -34,59 +34,124 @@ function prettyFromEmail(email?: string | null) {
 type IconCmp = ComponentType<SVGProps<SVGSVGElement>>;
 type NavItem = { name: string; href: string; icon: IconCmp; current?: boolean };
 
-
 export default function AppShellClient({
   email,
   displayName,
   children,
-  currentPlan = "Starter", // später aus dem Backend setzen
-  role
+  currentPlan = "Starter",
+  role,
+  avatarUrl, // initial (vom Server/Layout)
 }: {
   email: string | null;
   displayName?: string | null;
   children: React.ReactNode;
   currentPlan?: "Starter" | "Pro" | "Team" | string;
   role: string;
+  avatarUrl?: string | null;
 }) {
+  const DEFAULT_AVATAR = "/images/avatar-fallback.png";
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const name = displayName || prettyFromEmail(email);
 
-  let NAV: NavItem[]
+  // —— Avatar live halten
+  const [avatar, setAvatar] = useState<string>(avatarUrl || DEFAULT_AVATAR);
 
+  // falls Prop später neu reinkommt (SSR/Navigation), übernehmen
+  useEffect(() => {
+    setAvatar(avatarUrl || DEFAULT_AVATAR);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [avatarUrl]);
+
+  // Erst-Laden + Listener für Sofort-Update
+  useEffect(() => {
+    const ctrl = new AbortController();
+
+    async function refresh() {
+      try {
+        const res = await fetch("/api/settings/profile", { method: "GET", signal: ctrl.signal });
+        if (!res.ok) return;
+        const data = await res.json();
+        const url = (data?.avatarUrl as string | undefined) || DEFAULT_AVATAR;
+        setAvatar(url);
+      } catch {
+        /* ignore */
+      }
+    }
+
+    // Beim Mount einmal holen
+    refresh();
+
+    // Sofort-Update: reagiert auf Event aus den Settings
+    const onAvatarUpdated = (e: Event) => {
+      const url = (e as CustomEvent<string>).detail;
+      if (typeof url === "string" && url.length) setAvatar(url);
+    };
+    window.addEventListener("pb:avatar-updated", onAvatarUpdated as EventListener);
+
+    // Mehrere Tabs synchron halten (optional, safe to keep)
+    let bc: BroadcastChannel | null = null;
+    try {
+      bc = new BroadcastChannel("pb");
+      bc.onmessage = (msg) => {
+        if (msg?.data?.type === "avatar-updated" && typeof msg.data.url === "string") {
+          setAvatar(msg.data.url);
+        }
+      };
+    } catch {
+      // BroadcastChannel nicht verfügbar (Safari <16.4 oder SSR) – ignorieren
+    }
+
+    // Beim Tab-Fokus aktualisieren
+    const onVis = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      ctrl.abort();
+      window.removeEventListener("pb:avatar-updated", onAvatarUpdated as EventListener);
+      document.removeEventListener("visibilitychange", onVis);
+      try { bc?.close(); } catch {}
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  let NAV: NavItem[];
   if (role === "admin") {
     NAV = [
       { name: "Dashboard", href: "/", icon: HomeIcon },
       { name: "Powerbooks", href: "/notebooks", icon: BookOpenIcon },
-      { name: "Aufgaben", href: "/todos", icon: CheckIcon }, // neu als reguläres Nav-Item
-      { name: "Kalendar", href: "/calendar", icon: CalendarIcon }, // neu als reguläres Nav-Item
-      { name: "Integrationen", href: "/integrations", icon: AdjustmentsHorizontalIcon }, // neu als reguläres Nav-Item
+      { name: "Aufgaben", href: "/todos", icon: CheckIcon },
+      { name: "Kalendar", href: "/calendar", icon: CalendarIcon },
+      { name: "Integrationen", href: "/integrations", icon: AdjustmentsHorizontalIcon },
       { name: "Einstellungen", href: "/settings", icon: Cog6ToothIcon },
-      { name: "Hilfe & Kontakt", href: "mailto:info@powerbook.net", icon: EnvelopeIcon }, // neu als reguläres Nav-Item
-      { name: "Admin", href: "/admin", icon: Bolt }, // neu als reguläres Nav-Item
+      { name: "Hilfe & Kontakt", href: "mailto:info@powerbook.net", icon: EnvelopeIcon },
+      { name: "Admin", href: "/admin", icon: Bolt },
     ];
   } else {
     NAV = [
       { name: "Dashboard", href: "/", icon: HomeIcon },
       { name: "Powerbooks", href: "/notebooks", icon: BookOpenIcon },
-      { name: "Aufgaben", href: "/todos", icon: CheckIcon }, // neu als reguläres Nav-Item
-      { name: "Kalendar", href: "/calendar", icon: CalendarIcon }, // neu als reguläres Nav-Item
-      { name: "Integrationen", href: "/integrations", icon: AdjustmentsHorizontalIcon }, // neu als reguläres Nav-Item
+      { name: "Aufgaben", href: "/todos", icon: CheckIcon },
+      { name: "Kalendar", href: "/calendar", icon: CalendarIcon },
+      { name: "Integrationen", href: "/integrations", icon: AdjustmentsHorizontalIcon },
       { name: "Einstellungen", href: "/settings", icon: Cog6ToothIcon },
-      { name: "Hilfe & Kontakt", href: "mailto:info@powerbook.net", icon: EnvelopeIcon }, // neu als reguläres Nav-Item
+      { name: "Hilfe & Kontakt", href: "mailto:info@powerbook.net", icon: EnvelopeIcon },
     ];
   }
 
   const navWithActive = NAV.map((n) => ({
     ...n,
-    current:
-      n.href.startsWith("mailto:")
-        ? false
-        : n.href === "/" ? pathname === "/" : pathname === n.href || pathname.startsWith(n.href + "/"),
+    current: n.href.startsWith("mailto:")
+      ? false
+      : n.href === "/"
+      ? pathname === "/"
+      : pathname === n.href || pathname.startsWith(n.href + "/"),
   }));
 
-  const isAdmin = pathname.includes("/admin")
+  const isAdmin = pathname.includes("/admin");
 
   return (
     <div className="min-h-dvh bg-white">
@@ -154,10 +219,9 @@ export default function AppShellClient({
                   ))}
                 </ul>
 
-                {/* Spacer, damit der Tarif-Streifen unten sitzt */}
                 <div className="flex-1" />
 
-                {/* PLAN-STREIFEN (MOBILE) – kurz vor Nutzerbereich */}
+                {/* PLAN-STREIFEN (MOBILE) */}
                 <div className="mt-4">
                   <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                     <div className="text-[10px] uppercase tracking-wider text-gray-300">Dein Tarif</div>
@@ -174,13 +238,28 @@ export default function AppShellClient({
                   </div>
                 </div>
 
-                {/* User / Logout */}
+                {/* User / Logout (MOBILE) */}
                 <div className="mt-3 border-t border-white/10 pt-4">
                   {email ? (
                     <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-white">{name}</div>
-                        <div className="truncate text-xs text-gray-400">{email}</div>
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="size-9 overflow-hidden rounded-full ring-1 ring-white/10 bg-white/10">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={avatar || DEFAULT_AVATAR}
+                            alt="Avatar"
+                            className="size-full object-cover"
+                            onError={(e) => { (e.currentTarget.src = DEFAULT_AVATAR); }}
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold text-white">
+                            {(name || "").split(" ")[0]}
+                          </div>
+                          <div className="truncate text-xs text-gray-400">
+                            {(name || "").split(" ").slice(1).join(" ")}
+                          </div>
+                        </div>
                       </div>
 
                       <form action="/api/auth/logout" method="POST">
@@ -207,7 +286,6 @@ export default function AppShellClient({
       {/* Static sidebar (desktop) */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-40 lg:flex lg:w-72 lg:flex-col lg:bg-black lg:ring-1 lg:ring-white/10">
         <div className="flex grow flex-col gap-y-6 overflow-y-auto px-6 py-6">
-          {/* Logo */}
           <div className="flex h-12 shrink-0 items-center">
             <Link href="/" className="flex items-center">
               <Image src="/images/logos/logo-white.svg" alt="Powerbook" width={120} height={36} priority className="h-15 w-auto" />
@@ -244,10 +322,9 @@ export default function AppShellClient({
               ))}
             </ul>
 
-            {/* Spacer, damit der Tarif-Streifen unten sitzt */}
             <div className="flex-1" />
 
-            {/* PLAN-STREIFEN (DESKTOP) – direkt oberhalb der Trennlinie/Nutzerinfo */}
+            {/* PLAN-STREIFEN (DESKTOP) */}
             <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3">
               <div className="text-[10px] uppercase tracking-wider text-gray-300">Dein Tarif</div>
               <div className="mt-0.5 flex items-center justify-between">
@@ -261,13 +338,28 @@ export default function AppShellClient({
               </div>
             </div>
 
-            {/* User / Logout */}
+            {/* User / Logout (DESKTOP) */}
             <div className="mt-3 border-t border-white/10 pt-4">
               {email ? (
                 <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-semibold text-white">{name}</div>
-                    <div className="truncate text-xs text-gray-400">{email}</div>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="size-9 overflow-hidden rounded-full ring-1 ring-white/10 bg-white/10">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={avatar || DEFAULT_AVATAR}
+                        alt="Avatar"
+                        className="size-full object-cover"
+                        onError={(e) => { (e.currentTarget.src = DEFAULT_AVATAR); }}
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-semibold text-white">
+                        {(name || "").split(" ")[0]}
+                      </div>
+                      <div className="truncate text-xs text-gray-400">
+                        {(name || "").split(" ").slice(1).join(" ")}
+                      </div>
+                    </div>
                   </div>
 
                   <form action="/api/auth/logout" method="POST">

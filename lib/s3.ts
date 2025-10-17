@@ -1,5 +1,5 @@
 // lib/s3.ts
-import { S3Client } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 
 /** wirft eine klare Fehlermeldung, wenn eine ENV fehlt */
 function required(name: string, value: string | undefined): string {
@@ -9,15 +9,12 @@ function required(name: string, value: string | undefined): string {
   return value;
 }
 
-/** Liesst alle relevanten S3-ENV-Variablen */
+/** Liest alle relevanten S3-ENV-Variablen */
 export function s3Env() {
   const region = required("S3_REGION", process.env.S3_REGION);
   const bucket = required("S3_BUCKET", process.env.S3_BUCKET);
   const accessKeyId = required("S3_ACCESS_KEY_ID", process.env.S3_ACCESS_KEY_ID);
-  const secretAccessKey = required(
-    "S3_SECRET_ACCESS_KEY",
-    process.env.S3_SECRET_ACCESS_KEY
-  );
+  const secretAccessKey = required("S3_SECRET_ACCESS_KEY", process.env.S3_SECRET_ACCESS_KEY);
 
   // Optional: eigener CDN/Domain-Basis-Pfad (sonst Standard S3-URL)
   const publicBase =
@@ -35,6 +32,12 @@ export function s3Client() {
   });
 }
 
+/** Öffentliche URL zum Objekt (nützlich für Anzeige/Download nach Upload) */
+export function s3PublicUrl(key: string) {
+  const { publicBase } = s3Env();
+  return `${publicBase}/${key}`;
+}
+
 /** Erzeugt einen stabilen S3-Key für Seitenbilder */
 export function s3KeyForPageImage(pageId: string, fileName: string) {
   const safe = (fileName || "").replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -42,8 +45,35 @@ export function s3KeyForPageImage(pageId: string, fileName: string) {
   return `pages/${pageId}/${Date.now()}_${safe}`;
 }
 
-/** Öffentliche URL zum Objekt (nützlich für Anzeige/Download nach Upload) */
-export function s3PublicUrl(key: string) {
-  const { publicBase } = s3Env();
-  return `${publicBase}/${key}`;
+/** Key-Generator für Avatare */
+export function s3KeyForAvatar(userId: string, fileName: string) {
+  const safe = (fileName || "").replace(/[^a-zA-Z0-9._-]/g, "_");
+  return `avatars/${userId}/${Date.now()}_${safe}`;
+}
+
+/** Default-Avatar */
+export const DEFAULT_AVATAR_KEY = "avatars/default.png";
+export function defaultAvatarUrl() {
+  return s3PublicUrl(DEFAULT_AVATAR_KEY);
+}
+
+/** Einfacher Put-Helper */
+export async function s3PutObject(
+  key: string,
+  body: Buffer | Uint8Array | Blob | string,
+  contentType: string,
+  cacheControl = "public, max-age=31536000, immutable"
+) {
+  const { bucket } = s3Env();
+  const client = s3Client();
+  await client.send(
+  new PutObjectCommand({
+    Bucket: bucket,
+    Key: key,
+    Body: body,
+    ContentType: contentType,
+    CacheControl: cacheControl,
+  })
+);
+  return s3PublicUrl(key);
 }

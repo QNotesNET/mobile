@@ -1,20 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, isValidElement, cloneElement } from "react";
 import Link from "next/link";
-import { isValidElement, cloneElement } from "react";
+
+/* ===================== Settings Page ===================== */
 
 export default function SettingsPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <header className="mb-8">
         <h1 className="text-2xl font-semibold tracking-tight">Einstellungen</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="mt-1 text-sm text-gray-500">
           Verwalte dein Profil, Account-Daten und Sicherheit.
         </p>
       </header>
 
       <div className="space-y-6">
+        <AvatarCard />
         <ProfileCard />
         <AccountCard />
         <SecurityCard />
@@ -23,7 +25,106 @@ export default function SettingsPage() {
   );
 }
 
-/* ———————————— Profile ———————————— */
+/* ===================== Avatar ===================== */
+
+function AvatarCard() {
+  const [url, setUrl] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/settings/profile", { method: "GET" });
+        if (!res.ok) return;
+        const data = await res.json();
+        setUrl(data.avatarUrl || "");
+      } catch {}
+    })();
+  }, []);
+
+  async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError("");
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      setUploading(true);
+      const res = await fetch("/api/settings/avatar", { method: "POST", body: fd });
+      if (!res.ok) throw new Error(await res.text());
+      const data: { url: string } = await res.json();
+
+      setUrl(data.url);
+
+      // Sidebar sofort aktualisieren (aktueller Tab)
+      window.dispatchEvent(new CustomEvent("pb:avatar-updated", { detail: data.url }));
+      // Optional: andere Tabs syncen
+      try {
+        const bc = new BroadcastChannel("pb");
+        bc.postMessage({ type: "avatar-updated", url: data.url });
+        bc.close();
+      } catch {}
+    } catch {
+      setError("Upload fehlgeschlagen.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
+
+  async function onRemove() {
+    try {
+      setUploading(true);
+      const res = await fetch("/api/settings/avatar", { method: "DELETE" });
+      if (!res.ok) throw new Error(await res.text());
+      const data: { url: string } = await res.json();
+
+      setUrl(data.url);
+      window.dispatchEvent(new CustomEvent("pb:avatar-updated", { detail: data.url }));
+      try {
+        const bc = new BroadcastChannel("pb");
+        bc.postMessage({ type: "avatar-updated", url: data.url });
+        bc.close();
+      } catch {}
+    } catch {
+      setError("Zurücksetzen fehlgeschlagen.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader title="Profilbild" description="Dieses Bild wird in der App angezeigt." />
+      <div className="flex items-center gap-4 sm:items-start sm:gap-5">
+        <div className="size-16 overflow-hidden rounded-full border border-gray-200 bg-gray-100 shrink-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={url || "/images/avatar-fallback.png"}
+            alt="Avatar"
+            className="size-full object-cover"
+            onError={(e) => { (e.currentTarget.src = "/images/avatar-fallback.png"); }}
+          />
+        </div>
+
+        {/* Mobile: untereinander & linksbündig; ab sm: nebeneinander */}
+        <div className="flex w-full flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <label className="inline-flex cursor-pointer items-center justify-center rounded-2xl border border-gray-900 bg-gray-900 px-3.5 py-2 text-sm font-medium text-white hover:bg-black">
+            <input type="file" accept="image/*" className="hidden" onChange={onFileChange} disabled={uploading} />
+            {uploading ? "Lade hoch…" : "Neues Bild wählen"}
+          </label>
+          <Button type="button" onClick={onRemove} disabled={uploading} className="rounded-2xl">
+            Auf Standard zurücksetzen
+          </Button>
+          {error ? <MutedHint>{error}</MutedHint> : null}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+/* ===================== Profile ===================== */
 
 function ProfileCard() {
   const [firstName, setFirstName] = useState<string>("");
@@ -52,9 +153,7 @@ function ProfileCard() {
         setLoading(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
   async function onSave(e: React.FormEvent) {
@@ -116,7 +215,7 @@ function ProfileCard() {
   );
 }
 
-/* ———————————— Account ———————————— */
+/* ===================== Account ===================== */
 
 function AccountCard() {
   const [email, setEmail] = useState<string>("");
@@ -143,13 +242,10 @@ function AccountCard() {
         setLoading(false);
       }
     })();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, []);
 
   function isValidEmail(val: string) {
-    // simple RFC5322-ish
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
   }
 
@@ -179,7 +275,7 @@ function AccountCard() {
 
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
-    } catch (e) {
+    } catch {
       setError("Speichern fehlgeschlagen (E-Mail eventuell bereits vergeben?).");
     } finally {
       setSaving(false);
@@ -210,14 +306,14 @@ function AccountCard() {
             {saving ? "Speichere…" : "Änderungen speichern"}
           </Button>
           {saved ? <span className="text-xs text-emerald-600">Gespeichert.</span> : null}
-          <span className="text-xs text-red-600">{error}</span> 
+          <span className="text-xs text-red-600">{error}</span>
         </div>
       </form>
     </Card>
   );
 }
 
-/* ———————————— Security ———————————— */
+/* ===================== Security ===================== */
 
 function SecurityCard() {
   return (
@@ -243,7 +339,7 @@ function SecurityCard() {
         </div>
 
         <div className="rounded-xl border border-dashed border-gray-300 p-4">
-          <div className="font-medium mb-1">2-Faktor-Authentifizierung</div>
+          <div className="mb-1 font-medium">2-Faktor-Authentifizierung</div>
           <p className="text-sm text-gray-500">
             Optional. Erhöht die Sicherheit beim Login. (UI-Placeholder)
           </p>
@@ -256,7 +352,7 @@ function SecurityCard() {
   );
 }
 
-/* ———————————— UI Primitives (Tailwind-only) ———————————— */
+/* ===================== UI Primitives ===================== */
 
 function Card({ children }: { children: React.ReactNode }) {
   return (
@@ -266,19 +362,11 @@ function Card({ children }: { children: React.ReactNode }) {
   );
 }
 
-function CardHeader({
-  title,
-  description,
-}: {
-  title: string;
-  description?: string;
-}) {
+function CardHeader({ title, description }: { title: string; description?: string }) {
   return (
     <div className="mb-5">
       <h2 className="text-base font-semibold">{title}</h2>
-      {description ? (
-        <p className="text-sm text-gray-500 mt-1">{description}</p>
-      ) : null}
+      {description ? <p className="mt-1 text-sm text-gray-500">{description}</p> : null}
     </div>
   );
 }
@@ -303,10 +391,7 @@ function Field({
 }
 
 function Input(
-  props: React.DetailedHTMLProps<
-    React.InputHTMLAttributes<HTMLInputElement>,
-    HTMLInputElement
-  >
+  props: React.DetailedHTMLProps<React.InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>
 ) {
   return (
     <input
@@ -317,10 +402,7 @@ function Input(
 }
 
 function Button(
-  props: React.DetailedHTMLProps<
-    React.ButtonHTMLAttributes<HTMLButtonElement>,
-    HTMLButtonElement
-  >
+  props: React.DetailedHTMLProps<React.ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement>
 ) {
   const { className, disabled, ...rest } = props;
   return (
@@ -342,15 +424,14 @@ function MutedHint({ children }: { children: React.ReactNode }) {
   return <span className="text-xs text-gray-400">{children}</span>;
 }
 
-/* ———————————— tiny utils ———————————— */
+/* ===================== tiny utils ===================== */
+
 function makeId(label: string) {
   return label.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
 }
 
-// Props-Shape, das id/name erlaubt
 type WithIdName = { id?: string; name?: string };
 
-// sauber getypte Variante ohne `any`
 function cloneWithId(node: React.ReactNode, id: string): React.ReactNode {
   if (!isValidElement<WithIdName>(node)) return node;
   return cloneElement(node, { id, name: id });
