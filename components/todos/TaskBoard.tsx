@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   DndContext,
   closestCenter,
@@ -261,6 +261,25 @@ export default function TaskBoard({ userId }: { userId: string }) {
   const [renameListId, setRenameListId] = useState<string | null>(null);
   const [renameListName, setRenameListName] = useState("");
 
+  const loadTasks = useCallback(
+    async (listId: string) => {
+      setLoadingTasks(true);
+      const res = await fetch(
+        `/api/tasks?userId=${userId}&listId=${listId}&sort=order:1`,
+        { cache: "no-store" }
+      );
+      const data = await res.json();
+      const items: Task[] = data.items || [];
+      setTasksByList((p) => ({ ...p, [listId]: items }));
+      setOpenCounts((p) => ({
+        ...p,
+        [listId]: items.filter((t) => !t.completed).length,
+      }));
+      setLoadingTasks(false);
+    },
+    [userId]
+  );
+
   useEffect(() => {
     (async () => {
       setLoadingLists(true);
@@ -276,23 +295,76 @@ export default function TaskBoard({ userId }: { userId: string }) {
     })();
   }, [userId]);
 
+  // useEffect(() => {
+  //   if (!activeListId) return;
+  //   (async () => {
+  //     setLoadingTasks(true);
+  //     const res = await fetch(
+  //       `/api/tasks?userId=${userId}&listId=${activeListId}&sort=order:1`
+  //     );
+  //     const data = await res.json();
+  //     const items: Task[] = data.items || [];
+  //     setTasksByList((p) => ({ ...p, [activeListId]: items }));
+  //     setOpenCounts((p) => ({
+  //       ...p,
+  //       [activeListId]: items.filter((t) => !t.completed).length,
+  //     }));
+  //     setLoadingTasks(false);
+  //   })();
+  // }, [activeListId, userId]);
+
   useEffect(() => {
     if (!activeListId) return;
-    (async () => {
-      setLoadingTasks(true);
-      const res = await fetch(
-        `/api/tasks?userId=${userId}&listId=${activeListId}&sort=order:1`
-      );
-      const data = await res.json();
-      const items: Task[] = data.items || [];
-      setTasksByList((p) => ({ ...p, [activeListId]: items }));
-      setOpenCounts((p) => ({
-        ...p,
-        [activeListId]: items.filter((t) => !t.completed).length,
-      }));
-      setLoadingTasks(false);
-    })();
-  }, [activeListId, userId]);
+    loadTasks(activeListId);
+  }, [activeListId, loadTasks]);
+
+  // ist die aktive Liste die Google-Liste?
+  const isGoogleListActive = useMemo(() => {
+    const al = lists.find((l) => l._id === activeListId);
+    return al?.name === "Google Tasks";
+  }, [lists, activeListId]);
+
+  useEffect(() => {
+    if (!activeListId || !isGoogleListActive) return;
+
+    let cancelled = false;
+    let inFlight = false;
+
+    const doSync = async () => {
+      if (inFlight || cancelled) return;
+      inFlight = true;
+      try {
+        // Server: zieht Änderungen von Google und schreibt lokal (updatedMin-basiert)
+        await fetch("/api/integrations/google/tasks/sync", { method: "POST" });
+        if (!cancelled) {
+          // danach aktiv geladene Liste aktualisieren
+          await loadTasks(activeListId);
+        }
+      } catch {
+        // leise ignorieren
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    // sofort einmal syncen
+    doSync();
+
+    // alle 8 Sekunden
+    const intervalId = window.setInterval(doSync, 60000);
+
+    // wenn Tab wieder sichtbar wird → sofort syncen
+    const onVis = () => {
+      if (document.visibilityState === "visible") doSync();
+    };
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [activeListId, isGoogleListActive, loadTasks]);
 
   const activeList = useMemo(
     () => lists.find((l) => l._id === activeListId) ?? null,

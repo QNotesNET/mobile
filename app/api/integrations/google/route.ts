@@ -5,6 +5,10 @@ import connectToDB from "@/lib/mongoose";
 import GoogleAccount from "@/models/GoogleAccount";
 import { GOOGLE_TOKEN_URL } from "@/lib/google-oauth";
 import { getCurrentUser } from "@/lib/session"; // du hast das bereits
+import {
+  ensureLocalGoogleTaskList,
+  importOpenGoogleTasksOnce,
+} from "@/lib/google-tasks";
 
 export const runtime = "nodejs";
 
@@ -23,7 +27,13 @@ export async function GET(req: Request) {
   const storedState = c.get("google_oauth_state")?.value;
   const codeVerifier = c.get("google_code_verifier")?.value;
 
-  if (!code || !state || !storedState || state !== storedState || !codeVerifier) {
+  if (
+    !code ||
+    !state ||
+    !storedState ||
+    state !== storedState ||
+    !codeVerifier
+  ) {
     return NextResponse.json({ error: "Invalid OAuth state" }, { status: 400 });
   }
 
@@ -54,19 +64,14 @@ export async function GET(req: Request) {
   }
 
   const tokenJson = await tokenRes.json();
-  const {
-    access_token,
-    refresh_token,
-    expires_in,
-    id_token,
-    scope,
-  } = tokenJson as {
-    access_token: string;
-    refresh_token?: string;
-    expires_in: number;
-    id_token?: string;
-    scope?: string;
-  };
+  const { access_token, refresh_token, expires_in, id_token, scope } =
+    tokenJson as {
+      access_token: string;
+      refresh_token?: string;
+      expires_in: number;
+      id_token?: string;
+      scope?: string;
+    };
 
   // id_token dekodieren für Email + Sub (keine Verifikation notwendig here, nur Lesen)
   let sub = "";
@@ -104,10 +109,19 @@ export async function GET(req: Request) {
       },
       { upsert: true, new: true }
     );
+
+    try {
+      const localList = await ensureLocalGoogleTaskList(me.id);
+      await importOpenGoogleTasksOnce(me.id, String(localList._id));
+    } catch (e) {
+      console.error("Google Tasks initial import failed:", e);
+    }
   } catch (e) {
     console.error("Failed to save Google account:", e);
   }
 
   // Zum Testen: E-Mail in Query anzeigen
-  return NextResponse.redirect(`${origin}/integrations?google=ok&email=${encodeURIComponent(email || "")}`);
+  return NextResponse.redirect(
+    `${origin}/integrations?google=ok&email=${encodeURIComponent(email || "")}`
+  );
 }

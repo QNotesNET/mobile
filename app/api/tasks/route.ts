@@ -4,6 +4,11 @@ import { connectToDB } from "@/lib/mongoose";
 import { Task } from "@/models/Task";
 import { TaskList } from "@/models/TaskList";
 import { Types } from "mongoose";
+import { googleFetch } from "@/lib/google-api";
+import {
+  getPrimaryGoogleListId,
+  mapLocalToGoogleBody,
+} from "@/lib/google-tasks-helpers";
 
 export async function GET(req: Request) {
   await connectToDB();
@@ -70,5 +75,32 @@ export async function POST(req: Request) {
     createdAt: now,
     updatedAt: now,
   });
+  const created = doc.toObject();
+  // Falls die Task in die "Google Tasks" Liste geschrieben wurde, versuche sie auch bei Google anzulegen
+  try {
+    const localList = await TaskList.findById(listId).lean();
+    // @ts-expect-error --- gibts scho
+    if (localList && localList.name === "Google Tasks") {
+      const { id: primaryId } = await getPrimaryGoogleListId(userId);
+      const gTask = await googleFetch(
+        userId,
+        `https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(
+          primaryId
+        )}/tasks`,
+        { method: "POST", body: JSON.stringify(mapLocalToGoogleBody(created)) }
+      );
+
+      // Mapping anreichern
+      await Task.findByIdAndUpdate(created._id, {
+        source: "google",
+        sourceId: gTask.id,
+        sourceListId: primaryId,
+        sourceEtag: gTask.etag || null,
+        sourceUpdatedAt: gTask.updated ? new Date(gTask.updated) : new Date(),
+      });
+    }
+  } catch (e) {
+    console.warn("Mirroring to Google Tasks failed (non-fatal):", e);
+  }
   return NextResponse.json(doc.toObject(), { status: 201 });
 }

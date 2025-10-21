@@ -23,6 +23,17 @@ const TaskSchema = new Schema(
       index: true,
     },
 
+    source: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
+      index: true,
+    },
+    sourceId: { type: String, default: null, index: true }, // Google task id
+    sourceListId: { type: String, default: null }, // Google list id
+    sourceEtag: { type: String, default: null },
+    sourceUpdatedAt: { type: Date, default: null }, // Zeitpunkt in Google
+
     createdAt: { type: Date, default: Date.now, index: true },
     updatedAt: { type: Date, default: Date.now },
   },
