@@ -18,6 +18,7 @@ export default function SettingsPage() {
       <div className="space-y-6">
         <NexoroCard />
         <DarleanCard />
+        <GoogleCard />
       </div>
     </div>
   );
@@ -175,6 +176,58 @@ function DarleanCard() {
           </Button>
           <MutedHint>
             Mit dem Speichern Ihrer Daten stimmen Sie dem Datenaustausch zwischen Powerbook und Darlean automatisch zu.
+          </MutedHint>
+        </div>
+      </form>
+    </Card>
+  );
+}
+
+
+function GoogleCard() {
+  const [googleUser, setGoogleUser] = useState<string>("");
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/integrations/google/status", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.connected && json.email) {
+          setGoogleUser(json.email);
+        } else {
+          setGoogleUser("");
+        }
+      } catch {}
+    })();
+  }, []);
+
+  const handleConnect = () => {
+    // Start OAuth flow
+    window.location.href = "/api/integrations/google/login";
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title="Google Konto"
+        description="Verbinde dein Google Konto für den Import von Kalenderereignissen und Todos"
+        logoUrl="/images/logos/darlean.svg"
+        logoAlt="Google Logo"
+      />
+
+      <form onSubmit={(e) => e.preventDefault()} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="sm:col-span-2 flex flex-col items-center gap-3 pt-2">
+          <Button
+            type="button"
+            onClick={handleConnect}
+            className="hover:opacity-90 cursor-pointer"
+            disabled={!!googleUser}
+          >
+            {googleUser ? `Verbunden: ${googleUser}` : "Mit Google Konto verbinden"}
+          </Button>
+          <MutedHint>
+            Mit dem Verbinden Ihres Google Kontos stimmen Sie dem Datenaustausch zwischen Powerbook und Google automatisch zu.
           </MutedHint>
         </div>
       </form>
