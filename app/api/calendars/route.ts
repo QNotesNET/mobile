@@ -3,6 +3,7 @@ import { Types } from "mongoose";
 import { connectToDB } from "@/lib/mongoose";
 import { Calendar } from "@/models/Calendar";
 
+
 export async function GET(req: Request) {
   await connectToDB();
   const { searchParams } = new URL(req.url);

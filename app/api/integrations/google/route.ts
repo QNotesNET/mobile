@@ -9,6 +9,10 @@ import {
   ensureLocalGoogleTaskList,
   importOpenGoogleTasksOnce,
 } from "@/lib/google-tasks";
+import {
+  ensureLocalGoogleCalendar,
+  initialImportGoogleEvents,
+} from "@/lib/google-calendar";
 
 export const runtime = "nodejs";
 
@@ -115,6 +119,12 @@ export async function GET(req: Request) {
       await importOpenGoogleTasksOnce(me.id, String(localList._id));
     } catch (e) {
       console.error("Google Tasks initial import failed:", e);
+    }
+    try {
+      const localCal = await ensureLocalGoogleCalendar(me.id);
+      await initialImportGoogleEvents(me.id, String(localCal._id));
+    } catch (e) {
+      console.error("Google Calendar initial import failed:", e);
     }
   } catch (e) {
     console.error("Failed to save Google account:", e);

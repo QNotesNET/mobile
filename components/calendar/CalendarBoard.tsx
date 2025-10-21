@@ -354,21 +354,70 @@ export default function CalendarBoard({
   const [calModalOpen, setCalModalOpen] = useState(false);
   const [calEditing, setCalEditing] = useState<Cal | null>(null);
 
+  const loadEventsForCurrentRange = React.useCallback(async () => {
+  const [min, max] = rangeForView(anchor, view);
+  const qs = new URLSearchParams({
+    userId,
+    timeMin: min.toISOString(),
+    timeMax: max.toISOString(),
+  });
+  selectedCalIds.forEach((id) => qs.append("calendarId", id));
+  const r = await fetch(`/api/events?${qs}`, { cache: "no-store" });
+  const d = await r.json();
+  setEvents(d.items || []);
+}, [anchor, view, userId, selectedCalIds]);
+
+
   const gridRef = useRef<HTMLDivElement | null>(null);
 
   /* ---------- Data fetch ---------- */
-  useEffect(() => {
-    const [min, max] = rangeForView(anchor, view);
-    const qs = new URLSearchParams({
-      userId,
-      timeMin: min.toISOString(),
-      timeMax: max.toISOString(),
-    });
-    selectedCalIds.forEach((id) => qs.append("calendarId", id));
-    fetch(`/api/events?${qs}`)
-      .then((r) => r.json())
-      .then((d) => setEvents(d.items || []));
-  }, [anchor, view, userId, selectedCalIds]);
+useEffect(() => {
+  loadEventsForCurrentRange();
+}, [loadEventsForCurrentRange]);
+
+const isGoogleCalendarVisible = useMemo(() => {
+  const googleCal = calendars.find((c) => c.name === "Google Kalender");
+  return !!(googleCal && selectedCalIds.includes(googleCal._id));
+}, [calendars, selectedCalIds]);
+
+useEffect(() => {
+  if (!isGoogleCalendarVisible) return;
+
+  let cancelled = false;
+  let inFlight = false;
+
+  const doSync = async () => {
+    if (inFlight || cancelled) return;
+    inFlight = true;
+    try {
+      await fetch("/api/integrations/google/calendar/sync", { method: "POST" });
+      if (!cancelled) {
+        await loadEventsForCurrentRange();
+      }
+    } catch {
+      // leise ignorieren
+    } finally {
+      inFlight = false;
+    }
+  };
+
+  // sofort + Intervall
+  doSync();
+  const id = window.setInterval(doSync, 60000);
+
+  // wenn Tab wieder sichtbar wird → sofort syncen
+  const onVis = () => {
+    if (document.visibilityState === "visible") doSync();
+  };
+  document.addEventListener("visibilitychange", onVis);
+
+  return () => {
+    cancelled = true;
+    window.clearInterval(id);
+    document.removeEventListener("visibilitychange", onVis);
+  };
+}, [isGoogleCalendarVisible, loadEventsForCurrentRange]);
+
 
   /* ---------- Helpers ---------- */
   function rangeForView(base: Date, v: View): [Date, Date] {

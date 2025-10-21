@@ -17,6 +17,17 @@ const CalendarEventSchema = new Schema(
     userId: { type: Types.ObjectId, ref: "User", required: true, index: true },
     createdAt: { type: Date, default: Date.now, index: true },
     updatedAt: { type: Date, default: Date.now },
+
+    source: {
+      type: String,
+      enum: ["local", "google"],
+      default: "local",
+      index: true,
+    },
+    sourceId: { type: String, default: null, index: true }, // Google event id
+    sourceCalendarId: { type: String, default: null }, // "primary" o.ä.
+    sourceEtag: { type: String, default: null },
+    sourceUpdatedAt: { type: Date, default: null },
   },
   { versionKey: false }
 );
