@@ -186,25 +186,41 @@ function DarleanCard() {
 
 function GoogleCard() {
   const [googleUser, setGoogleUser] = useState<string>("");
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  async function refreshStatus() {
+    try {
+      const res = await fetch("/api/integrations/google/status", { cache: "no-store" });
+      if (!res.ok) return setGoogleUser("");
+      const json = await res.json();
+      setGoogleUser(json.connected && json.email ? json.email : "");
+    } catch {
+      setGoogleUser("");
+    }
+  }
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/integrations/google/status", { cache: "no-store" });
-        if (!res.ok) return;
-        const json = await res.json();
-        if (json.connected && json.email) {
-          setGoogleUser(json.email);
-        } else {
-          setGoogleUser("");
-        }
-      } catch {}
-    })();
+    refreshStatus();
   }, []);
 
   const handleConnect = () => {
-    // Start OAuth flow
     window.location.href = "/api/integrations/google/login";
+  };
+
+  const handleDisconnect = async () => {
+    if (!googleUser || disconnecting) return;
+    try {
+      setDisconnecting(true);
+      const res = await fetch("/api/integrations/google/disconnect", { method: "POST" });
+      if (!res.ok) {
+        console.error(await res.text());
+        return;
+      }
+      // UI zurücksetzen
+      await refreshStatus();
+    } finally {
+      setDisconnecting(false);
+    }
   };
 
   return (
@@ -222,10 +238,24 @@ function GoogleCard() {
             type="button"
             onClick={handleConnect}
             className="hover:opacity-90 cursor-pointer"
-            disabled={!!googleUser}
+            disabled={!!googleUser || disconnecting}
           >
             {googleUser ? `Verbunden: ${googleUser}` : "Mit Google Konto verbinden"}
           </Button>
+
+          {googleUser ? (
+            <button
+              type="button"
+              onClick={handleDisconnect}
+              disabled={disconnecting}
+              className="text-xs underline text-gray-950 hover:text-black disabled:opacity-50 cursor-pointer"
+            >
+              {disconnecting ? "Trenne Verbindung…" : "Verbindung trennen"}
+            </button>
+          ) : (
+            <p className="text-xs text-gray-400"></p>
+          )}
+
           <MutedHint>
             Mit dem Verbinden Ihres Google Kontos stimmen Sie dem Datenaustausch zwischen Powerbook und Google automatisch zu.
           </MutedHint>
@@ -234,6 +264,7 @@ function GoogleCard() {
     </Card>
   );
 }
+
 
 /* ———————————— UI Primitives (Tailwind-only) ———————————— */
 
