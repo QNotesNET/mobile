@@ -9,7 +9,7 @@ import connectToDB from "@/lib/mongoose";
 
 export async function ensureLocalGoogleCalendar(userId: string) {
   await connectToDB();
-  let cal = await Calendar.findOne({ userId, name: "Google Kalender" }).lean();
+  const cal = await Calendar.findOne({ userId, name: "Google Kalender" }).lean();
   if (cal) return cal;
   const now = new Date();
   const doc = await Calendar.create({
