@@ -11,11 +11,10 @@ export default function Page() {
   const [streamError, setStreamError] = useState<string | null>(null);
   const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  let sent = false;
 
   const r = useRouter();
   const sp = useSearchParams();
-  const notebookId = sp.get("notebookId") || ""; // <- wir erwarten notebookId in der URL
+  const notebookId = sp.get("notebookId") || "";
 
   // Kamera starten
   useEffect(() => {
@@ -47,8 +46,14 @@ export default function Page() {
     }
 
     startCamera();
+
+    // Shutter vom AppShell-FAB
+    const onShutter = () => capture();
+    window.addEventListener("pb:scan-shutter", onShutter);
+
     return () => {
       if (currentStream) currentStream.getTracks().forEach((t) => t.stop());
+      window.removeEventListener("pb:scan-shutter", onShutter);
     };
   }, []);
 
@@ -81,7 +86,7 @@ export default function Page() {
     setPhotoBlob(null);
   }
 
-  // Helper: Blob -> DataURL
+  // Blob -> DataURL
   function blobToDataUrl(b: Blob): Promise<string> {
     return new Promise((resolve) => {
       const fr = new FileReader();
@@ -90,13 +95,11 @@ export default function Page() {
     });
   }
 
-  // Schritt 1: Seitennummer wie in NotebookDetailClient erkennen
-  sent = true;
+  // 1) Seitennummer erkennen (wie NotebookDetailClient)
   async function recognizePageNumber(image: Blob): Promise<{ pageIndex: number; pageToken: string }> {
     if (!notebookId) throw new Error("notebookId fehlt. Rufe die Seite z.B. als /scan?notebookId=... auf.");
 
     const fd = new FormData();
-    // Feldname muss "image" heißen – wie im bestehenden Code
     fd.append("image", new File([image], "scan.jpg", { type: "image/jpeg" }));
 
     const resp = await fetch(`/api/scan/recognize-page?notebookId=${encodeURIComponent(notebookId)}`, {
@@ -113,7 +116,7 @@ export default function Page() {
     return { pageIndex, pageToken };
   }
 
-  // Schritt 2: uploadMedia-Kette anstarten (indirekt per sessionStorage + Redirect)
+  // 2) uploadMedia-Flow anstoßen (SessionStorage + Redirect)
   async function submit() {
     if (!photoBlob) return;
     if (!notebookId) {
@@ -123,17 +126,12 @@ export default function Page() {
 
     setIsSubmitting(true);
     try {
-      // 1) Seitennummer erkennen
       const { pageIndex, pageToken } = await recognizePageNumber(photoBlob);
-
-      // 2) Bild als DataURL für den Auto-Upload im UploadForm vorbereiten
       const dataUrl = await blobToDataUrl(photoBlob);
 
-      // 3) Payload in SessionStorage legen – exakt wie dein NotebookDetailClient
       const payload = { notebookId, pageToken, pageIndex, imageDataUrl: dataUrl };
       sessionStorage.setItem("scan:pending", JSON.stringify(payload));
 
-      // 4) Zur richtigen Seite navigieren – dort übernimmt UploadForm den Rest
       r.push(`/s/${pageToken}`);
     } catch (e: any) {
       alert(e?.message || "Fehler beim Absenden.");
@@ -160,37 +158,37 @@ export default function Page() {
           // eslint-disable-next-line @next/next/no-img-element
           <img src={URL.createObjectURL(photoBlob)} alt="Vorschau" className="h-full w-full object-cover" />
         )}
+
+        {/* Overlay: Absenden, nur wenn Foto vorhanden */}
+        {photoBlob && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0">
+            {/* leichter Gradient fürs Lesen */}
+            <div className="h-24 bg-gradient-to-t from-black/60 to-transparent" />
+            <div className="pointer-events-auto absolute inset-x-3 bottom-3">
+              <button
+                onClick={submit}
+                disabled={isSubmitting}
+                className={`w-full rounded-xl px-4 py-3 text-white font-medium transition active:scale-95
+                ${isSubmitting ? "bg-gray-400 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-700"}`}
+              >
+                {isSubmitting ? "Sende…" : "Absenden"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {streamError && <p className="mt-3 text-sm text-red-600">{streamError}</p>}
 
+      {/* Nur „Neu aufnehmen“ unten – der Auslöser kommt über den grünen FAB in der AppShell */}
       <div className="mt-4 flex items-center justify-between gap-3">
-        {!photoBlob ? (
-          <button
-            onClick={capture}
-            className="flex-1 rounded-lg bg-black px-4 py-3 text-white hover:bg-black/90 active:scale-95 transition"
-          >
-            Foto aufnehmen
-          </button>
-        ) : (
-          <button
-            onClick={retake}
-            className="flex-1 rounded-lg border px-4 py-3 hover:bg-gray-50 active:scale-95 transition"
-          >
-            Neu aufnehmen
-          </button>
-        )}
-
         <button
-          onClick={submit}
-          disabled={!photoBlob || isSubmitting || sent}
-          className={`flex-1 rounded-lg px-4 py-3 transition active:scale-95 ${
-            !photoBlob || isSubmitting || sent
-              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-              : "bg-emerald-600 text-white hover:bg-emerald-700"
-          }`}
+          onClick={retake}
+          disabled={!photoBlob}
+          className={`flex-1 rounded-lg border px-4 py-3 transition active:scale-95
+          ${!photoBlob ? "cursor-not-allowed text-gray-400" : "hover:bg-gray-50"}`}
         >
-          {isSubmitting ? "Sende…" : "Absenden"}
+          Neu aufnehmen
         </button>
       </div>
 
