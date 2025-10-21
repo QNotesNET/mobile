@@ -16,6 +16,7 @@ import {
   AdjustmentsHorizontalIcon,
   BoltIcon as Bolt,
 } from "@heroicons/react/24/outline";
+import { BookOpen, Settings, Scan, Camera } from "lucide-react"; // 🔹 NEU
 
 function classNames(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -400,6 +401,32 @@ export default function AppShellClient({
           <div className="px-4 py-8 sm:px-6 lg:px-8">{children}</div>
         </main>
       )}
+
+      {/* 🔻 Mobile Bottom Navigation (nur Mobile) */}
+      <nav className="lg:hidden fixed inset-x-0 bottom-0 z-40 flex justify-center pointer-events-none">
+        <div className="relative w-full">
+          {/* Leiste */}
+          <div className="pointer-events-auto h-20 bg-black border-t shadow-lg ring-1 ring-white/10 flex items-center justify-between px-16 text-gray-200">
+            <Link href="/notebooks" className="inline-flex items-center justify-center size-10 rounded-full hover:bg-white/10 active:scale-95 transition">
+              <BookOpen className="size-6" />
+              <span className="sr-only">Powerbooks</span>
+            </Link>
+            <Link href="/settings" className="inline-flex items-center justify-center size-10 rounded-full hover:bg-white/10 active:scale-95 transition">
+              <Settings className="size-6" />
+              <span className="sr-only">Einstellungen</span>
+            </Link>
+          </div>
+
+          {/* Center FAB */}
+          <Link
+            href="/scan"
+            className="pointer-events-auto absolute left-1/2 -translate-x-1/2 -top-6 inline-flex items-center justify-center size-16 rounded-full bg-green-600 ring-4 ring-white shadow-3xl active:scale-95 transition"
+            aria-label="Seite scannen"
+          >
+            <Camera className="size-7 text-white" />
+          </Link>
+        </div>
+      </nav>
     </div>
   );
 }

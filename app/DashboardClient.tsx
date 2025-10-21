@@ -61,8 +61,8 @@ export default function DashboardClient({
 
         {/* Top Row */}
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard icon={BookOpenIcon} title="Powerbooks" value={String(notebookCount)} />
-          <MetricCard icon={FileText} title="Erfasste Seiten" value={String(pagesTotal)} />
+          <MetricCard icon={BookOpenIcon} title="Powerbooks" value={String(notebookCount)} link="/notebooks"/>
+          <MetricCard icon={FileText} title="Erfasste Seiten" value={String(pagesTotal)} link="/notebooks" />
           <ActionCard icon={Camera} title="Seite scannen" href="/scan" hint="Schnell starten" />
           <ActionCard icon={Clock} title="Zuletzt bearbeitet" href="/notebooks?sort=recent" hint="Schnell starten" />
         </div>
@@ -175,9 +175,10 @@ export default function DashboardClient({
 }
 
 /* ——— kompaktere, größere Cards ——— */
-function MetricCard({ icon: Icon, title, value }: { icon: LucideIcon; title: string; value: string }) {
+function MetricCard({ icon: Icon, title, value, link }: { icon: LucideIcon; title: string; value: string, link: string }) {
   return (
     <Card className="shadow-sm">
+      <Link href={link}>
       <CardContent className="flex flex-col items-center justify-center gap-2 p-4 text-center">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl border">
           <Icon className="h-6 w-6 text-muted-foreground" />
@@ -185,6 +186,7 @@ function MetricCard({ icon: Icon, title, value }: { icon: LucideIcon; title: str
         <div className="text-base text-muted-foreground">{title}</div>
         <div className="text-3xl font-bold leading-tight">{value}</div>
       </CardContent>
+      </Link> 
     </Card>
   );
 }

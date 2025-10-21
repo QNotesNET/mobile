@@ -34,11 +34,11 @@ export default function RootLayout({
         {children}
 
         {/* Nixera Widget einbinden */}
-        <Script
+        {/* <Script
           src="https://widget.nixera.net/widget.js"
           data-organization-id="org_33LWlztfZOmd8G0iyxLZU1trI4x"
           strategy="afterInteractive"
-        />
+        /> */}
       </body>
     </html>
   );
