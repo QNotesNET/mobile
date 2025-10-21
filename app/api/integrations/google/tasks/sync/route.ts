@@ -37,7 +37,7 @@ export async function POST() {
   // Hinweis: tasks.list kann pageToken zurückgeben
   // Wir laufen, bis nichts mehr kommt
   // (Wenn du viel Volumen erwartest, begrenze Durchläufe)
-  // @ts-ignore
+  // @expect-error --- ignorierts
   for (;;) {
     const res: any = await googleFetch(me.id, url);
     const items: any[] = res.items || [];
