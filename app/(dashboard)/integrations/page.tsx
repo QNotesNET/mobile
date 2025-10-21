@@ -212,7 +212,7 @@ function GoogleCard() {
       <CardHeader
         title="Google Konto"
         description="Verbinde dein Google Konto für den Import von Kalenderereignissen und Todos"
-        logoUrl="/images/logos/darlean.svg"
+        logoUrl="/images/logos/google.svg"
         logoAlt="Google Logo"
       />
 
