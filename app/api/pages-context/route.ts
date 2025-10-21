@@ -227,3 +227,49 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
+
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const pageId = searchParams.get("pageId");
+
+    if (!pageId || !Types.ObjectId.isValid(pageId)) {
+      return NextResponse.json(
+        { error: "Missing or invalid pageId" },
+        { status: 400 }
+      );
+    }
+
+    await connectToDB();
+
+    const doc = await PagesContext.findOne({
+      page: new Types.ObjectId(pageId),
+    })
+      .select({
+        _id: 1,
+        page: 1,
+        notebookId: 1,
+        imageUrl: 1,
+        text: 1,
+        wa: 1,
+        cal: 1,
+        todo: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      })
+      .sort({ createdAt: -1 }) // falls mehrere Einträge existieren, nimm den neuesten
+      .lean();
+
+    if (!doc) {
+      return NextResponse.json(
+        { error: "No pages-context found for given pageId" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ ok: true, data: { ...doc, id: String(doc._id) } });
+  } catch (err) {
+    console.error("[pages-context GET] error:", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+}

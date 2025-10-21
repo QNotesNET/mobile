@@ -16,7 +16,11 @@ type ActionItem = {
 };
 
 // Utils: Bild clientseitig verkleinern & als File zurückgeben
-async function downscaleImage(file: File, maxSide = 1600, quality = 0.75): Promise<File> {
+async function downscaleImage(
+  file: File,
+  maxSide = 1600,
+  quality = 0.75
+): Promise<File> {
   const dataUrl = await new Promise<string>((res, rej) => {
     const r = new FileReader();
     r.onload = () => res(String(r.result));
@@ -45,7 +49,9 @@ async function downscaleImage(file: File, maxSide = 1600, quality = 0.75): Promi
     canvas.toBlob((b) => res(b as Blob), "image/jpeg", quality)
   );
 
-  return new File([blob], (file.name || "image") + ".jpg", { type: "image/jpeg" });
+  return new File([blob], (file.name || "image") + ".jpg", {
+    type: "image/jpeg",
+  });
 }
 
 function parseOcrText(ocrText: string) {
@@ -118,30 +124,76 @@ export default function UploadForm({
   const [scanError, setScanError] = useState<string | null>(null);
   const [items, setItems] = useState<ActionItem[]>([]);
 
+  const [pagesContext, setPagesContext] = useState<any | null>(null);
+
   const r = useRouter();
+  useEffect(() => {
+    if (!pageId) {
+      setPagesContext?.(null);
+      return;
+    }
+
+    const ac = new AbortController();
+
+    (async () => {
+      try {
+        const res = await fetch(`/api/pages-context?pageId=${pageId}`, {
+          signal: ac.signal,
+          cache: "no-store",
+        });
+
+        if (!res.ok) {
+          // 404 = kein Eintrag vorhanden → false
+          if (res.status === 404) {
+            // setHasPagesContext(false);
+            setPagesContext?.(null);
+            return;
+          }
+          throw new Error(`Fetch failed: ${res.status}`);
+        }
+
+        const json = await res.json();
+        const data = json?.data;
+
+        setPagesContext?.(data ?? null);
+        console.log(data);
+      } catch (err) {
+        if (!ac.signal.aborted) {
+          console.error("failed to load existing pages-context", err);
+          setPagesContext?.(null);
+        }
+      }
+    })();
+
+    return () => ac.abort();
+  }, []);
 
   // ---- Scan-Queue: Helper ----
   // @ts-expect-error ---
   function buildItemsFromJob(job): ActionItem[] {
     const next: ActionItem[] = [
-      ...(Array.isArray(job.cal) ? job.cal : []).map((c: string, i: number) => ({
-        id: `cal-${i}`,
-        type: "CAL" as const,
-        content: c,
-        status: "pending",
-      })),
+      ...(Array.isArray(job.cal) ? job.cal : []).map(
+        (c: string, i: number) => ({
+          id: `cal-${i}`,
+          type: "CAL" as const,
+          content: c,
+          status: "pending",
+        })
+      ),
       ...(Array.isArray(job.wa) ? job.wa : []).map((c: string, i: number) => ({
         id: `wa-${i}`,
         type: "WA" as const,
         content: c,
         status: "pending",
       })),
-      ...(Array.isArray(job.todo) ? job.todo : []).map((c: string, i: number) => ({
-        id: `todo-${i}`,
-        type: "TODO" as const,
-        content: c,
-        status: "pending",
-      })),
+      ...(Array.isArray(job.todo) ? job.todo : []).map(
+        (c: string, i: number) => ({
+          id: `todo-${i}`,
+          type: "TODO" as const,
+          content: c,
+          status: "pending",
+        })
+      ),
     ];
     return next;
   }
@@ -240,7 +292,8 @@ export default function UploadForm({
           let uploadFile = file;
           if (
             uploadFile.size > 1_000_000 ||
-            (uploadFile.type.startsWith("image/") && /jpeg|png|heic|heif/i.test(uploadFile.type))
+            (uploadFile.type.startsWith("image/") &&
+              /jpeg|png|heic|heif/i.test(uploadFile.type))
           ) {
             uploadFile = await downscaleImage(uploadFile, 1600, 0.75);
           }
@@ -264,7 +317,9 @@ export default function UploadForm({
           // 2) Upload
           const putRes = await fetch(uploadUrl, {
             method: "PUT",
-            headers: { "Content-Type": uploadFile.type || "application/octet-stream" },
+            headers: {
+              "Content-Type": uploadFile.type || "application/octet-stream",
+            },
             body: uploadFile,
           });
           if (!putRes.ok) throw new Error("Upload zu S3 fehlgeschlagen.");
@@ -277,7 +332,9 @@ export default function UploadForm({
           });
           if (!saveRes.ok) {
             const err = await saveRes.json().catch(() => ({}));
-            throw new Error(err?.error || "Speichern des Bildes fehlgeschlagen.");
+            throw new Error(
+              err?.error || "Speichern des Bildes fehlgeschlagen."
+            );
           }
 
           // Bild anzeigen
@@ -288,7 +345,9 @@ export default function UploadForm({
           pollScanJob();
         } catch (e) {
           console.error("auto upload failed", e);
-          setScanError((e as Error)?.message || "Fehler beim automatischen Upload.");
+          setScanError(
+            (e as Error)?.message || "Fehler beim automatischen Upload."
+          );
         } finally {
           setBusy(false);
           r.refresh();
@@ -375,7 +434,9 @@ export default function UploadForm({
   }
 
   function updateItemStatus(id: string, status: ItemStatus) {
-    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, status } : it)));
+    setItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, status } : it))
+    );
   }
 
   function toggleEdit(id: string) {
@@ -393,7 +454,9 @@ export default function UploadForm({
   }
 
   function updateEditValue(id: string, value: string) {
-    setItems((prev) => (prev.map((it) => (it.id === id ? { ...it, editValue: value } : it))));
+    setItems((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, editValue: value } : it))
+    );
   }
 
   // per-Card speichern: nur lokal übernehmen
@@ -416,7 +479,9 @@ export default function UploadForm({
     setSubmitting(true);
 
     const accepted = items.filter((x) => x.status === "accepted");
-    const todo = accepted.filter((x) => x.type === "TODO").map((x) => x.content);
+    const todo = accepted
+      .filter((x) => x.type === "TODO")
+      .map((x) => x.content);
     const cal = accepted.filter((x) => x.type === "CAL").map((x) => x.content);
     const wa = accepted.filter((x) => x.type === "WA").map((x) => x.content);
 
@@ -460,7 +525,8 @@ export default function UploadForm({
           </div>
           <h2 className="text-2xl font-semibold">Erfolgreich abgesendet</h2>
           <p className="text-gray-600 mt-1">
-            Deine Einträge wurden gespeichert und stehen ab sofort im Dashboard bereit.
+            Deine Einträge wurden gespeichert und stehen ab sofort im Dashboard
+            bereit.
           </p>
 
           <button
@@ -500,7 +566,7 @@ export default function UploadForm({
           />
 
           {/* Aktion-Cards */}
-          {!!items.length && (
+          {!!items.length && !pagesContext && (
             <div className="mt-3 grid gap-3">
               {items.map((it) => (
                 <div
@@ -515,60 +581,64 @@ export default function UploadForm({
                       <div className="text-sm mt-1">{it.content}</div>
 
                       {/* Status-Badge */}
-                      <div className="mt-2">
-                        {it.status === "pending" && (
-                          <span className="text-xs px-2 py-0.5 rounded bg-gray-200">
-                            ausstehend
-                          </span>
-                        )}
-                        {it.status === "accepted" && (
-                          <span className="text-xs px-2 py-0.5 rounded bg-emerald-200">
-                            bestätigt
-                          </span>
-                        )}
-                        {it.status === "rejected" && (
-                          <span className="text-xs px-2 py-0.5 rounded bg-red-200">
-                            abgelehnt
-                          </span>
-                        )}
-                        {it.status === "editing" && (
-                          <span className="text-xs px-2 py-0.5 rounded bg-amber-200">
-                            zur Bearbeitung
-                          </span>
-                        )}
-                      </div>
+                      {!pagesContext && (
+                        <div className="mt-2">
+                          {it.status === "pending" && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-gray-200">
+                              ausstehend
+                            </span>
+                          )}
+                          {it.status === "accepted" && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-emerald-200">
+                              bestätigt
+                            </span>
+                          )}
+                          {it.status === "rejected" && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-red-200">
+                              abgelehnt
+                            </span>
+                          )}
+                          {it.status === "editing" && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-amber-200">
+                              zur Bearbeitung
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Controls */}
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        type="button"
-                        title="Bestätigen"
-                        className="rounded-lg border px-2 py-1 hover:bg-white disabled:opacity-50"
-                        disabled={submitting}
-                        onClick={() => updateItemStatus(it.id, "accepted")}
-                      >
-                        ✓
-                      </button>
-                      <button
-                        type="button"
-                        title="Ablehnen"
-                        className="rounded-lg border px-2 py-1 hover:bg-white disabled:opacity-50"
-                        disabled={submitting}
-                        onClick={() => updateItemStatus(it.id, "rejected")}
-                      >
-                        ✗
-                      </button>
-                      <button
-                        type="button"
-                        title="Bearbeiten"
-                        className="rounded-lg border px-2 py-1 hover:bg-white disabled:opacity-50"
-                        disabled={submitting}
-                        onClick={() => toggleEdit(it.id)}
-                      >
-                        ✎
-                      </button>
-                    </div>
+                    {pagesContext == null && (
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          type="button"
+                          title="Bestätigen"
+                          className="rounded-lg border px-2 py-1 hover:bg-white disabled:opacity-50"
+                          disabled={submitting}
+                          onClick={() => updateItemStatus(it.id, "accepted")}
+                        >
+                          ✓
+                        </button>
+                        <button
+                          type="button"
+                          title="Ablehnen"
+                          className="rounded-lg border px-2 py-1 hover:bg-white disabled:opacity-50"
+                          disabled={submitting}
+                          onClick={() => updateItemStatus(it.id, "rejected")}
+                        >
+                          ✗
+                        </button>
+                        <button
+                          type="button"
+                          title="Bearbeiten"
+                          className="rounded-lg border px-2 py-1 hover:bg-white disabled:opacity-50"
+                          disabled={submitting}
+                          onClick={() => toggleEdit(it.id)}
+                        >
+                          ✎
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Edit-Feld + lokales Speichern */}
@@ -598,6 +668,59 @@ export default function UploadForm({
             </div>
           )}
 
+          {pagesContext && (
+            <div className="mt-3 grid gap-3">
+              {/* @ts-expect-error --- ctx defined */}
+              {pagesContext.cal.map((ctx) => (
+                <div
+                  key={ctx.id}
+                  className={`rounded-xl border p-3 ${typeStyles("CAL")}`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="pr-3">
+                      <div className="text-sm font-semibold">
+                        {typeLabel("CAL")}
+                      </div>
+                      <div className="text-sm mt-1">{ctx}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {/* @ts-expect-error --- ctx defined */}
+              {pagesContext.todo.map((ctx) => (
+                <div
+                  key={ctx.id}
+                  className={`rounded-xl border p-3 ${typeStyles("TODO")}`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="pr-3">
+                      <div className="text-sm font-semibold">
+                        {typeLabel("TODO")}
+                      </div>
+                      <div className="text-sm mt-1">{ctx}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {/* @ts-expect-error --- ctx defined */}
+              {pagesContext.wa.map((ctx) => (
+                <div
+                  key={ctx.id}
+                  className={`rounded-xl border p-3 ${typeStyles("WA")}`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="pr-3">
+                      <div className="text-sm font-semibold">
+                        {typeLabel("WA")}
+                      </div>
+                      <div className="text-sm mt-1">{ctx}</div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Status / Fehler / Gesamter Text */}
           <div className="mt-3 text-sm text-gray-700">
             {scanning && (
@@ -620,14 +743,20 @@ export default function UploadForm({
           {/* Globaler Speichern/Bestätigen-Button */}
           {!!items.length && (
             <div className="mt-4">
-              <button
-                type="button"
-                className="bg-black text-white rounded px-3 py-2 disabled:opacity-50"
-                disabled={submitting}
-                onClick={saveAll}
-              >
-                {submitting ? "Sende…" : "Bestätigen"}
-              </button>
+              {pagesContext != null ? (
+                <span className="text-sm text-gray-600">
+                  Deine Einträge wurden bereits gespeichert.
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="bg-black text-white rounded px-3 py-2 disabled:opacity-50"
+                  disabled={submitting}
+                  onClick={saveAll}
+                >
+                  {submitting ? "Sende…" : "Bestätigen"}
+                </button>
+              )}
             </div>
           )}
         </div>
