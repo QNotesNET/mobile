@@ -124,7 +124,7 @@ export default function UploadForm({
   const [scanError, setScanError] = useState<string | null>(null);
   const [items, setItems] = useState<ActionItem[]>([]);
 
-  const [pagesContext, setPagesContext] = useState<Object | null>(null);
+  const [pagesContext, setPagesContext] = useState<object | null>(null);
 
   const r = useRouter();
   useEffect(() => {
