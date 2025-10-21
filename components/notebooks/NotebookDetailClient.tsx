@@ -1,19 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useState, useRef } from "react";
+import { Suspense, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Loader from "@/components/Loader";
 import { useRouter } from "next/navigation";
 import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
-import { Button, Input } from "@headlessui/react";
 
 const DigitalNotebook = dynamic(() => import("./DigitalNotebook"), { ssr: false });
+const TextNotebook = dynamic(() => import("./TextNotebook"), { ssr: false });
 
 type LitePage = {
   pageIndex: number | string;
   pageToken: string;
   images?: { url: string }[];
+  id?: string;
+  _id?: string;
 };
 
 export default function NotebookDetailClient({
@@ -25,9 +27,9 @@ export default function NotebookDetailClient({
   pages: LitePage[];
   totalPages: number;
 }) {
-  const [view, setView] = useState<"list" | "digital">("list");
+  const [view, setView] = useState<"list" | "digital" | "text">("list");
 
-  // --- NEU: Scan-Modal ---
+  // --- Scan-Modal ---
   const [scanOpen, setScanOpen] = useState(false);
   const [scanBusy, setScanBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -50,7 +52,6 @@ export default function NotebookDetailClient({
 
       const { width, height } = img;
       if (!width || !height) {
-        // Fallback: gib Original zurück
         const buf = await file.arrayBuffer();
         const blob = new Blob([buf], { type: "image/jpeg" });
         const dataUrlFallback = await new Promise<string>((res) => {
@@ -61,7 +62,6 @@ export default function NotebookDetailClient({
         return { blob, dataUrl: dataUrlFallback };
       }
 
-      // Zielgröße berechnen
       let targetW = width;
       let targetH = height;
       if (Math.max(width, height) > maxDim) {
@@ -116,19 +116,13 @@ export default function NotebookDetailClient({
     if (!file) return;
     try {
       setScanBusy(true);
-
-      // ↓↓↓ WICHTIG: Runterskalieren (mobile Quota-Fix)
       const { blob, dataUrl } = await downscaleImageToJpeg(file, 1600, 0.7);
 
-      // 2) an Erkennungs-API: pageIndex + pageToken bestimmen (mit komprimiertem Bild)
       const form = new FormData();
       form.append("image", new File([blob], "scan.jpg", { type: "image/jpeg" }));
       const resp = await fetch(
         `/api/scan/recognize-page?notebookId=${encodeURIComponent(notebookId)}`,
-        {
-          method: "POST",
-          body: form,
-        }
+        { method: "POST", body: form }
       );
       if (!resp.ok) {
         const msg = await resp.text().catch(() => "");
@@ -139,11 +133,8 @@ export default function NotebookDetailClient({
         pageToken: string;
       };
 
-      // 3) Payload in Session legen – UploadForm liest das dann aus (komprimierte DataURL!)
       const payload = { notebookId, pageToken, pageIndex, imageDataUrl: dataUrl };
       sessionStorage.setItem("scan:pending", JSON.stringify(payload));
-
-      // 4) Redirect direkt zur Scan-Seite
       r.push(`/s/${pageToken}`);
       setScanOpen(false);
     } catch (err) {
@@ -153,6 +144,12 @@ export default function NotebookDetailClient({
       setScanBusy(false);
       if (fileRef.current) fileRef.current.value = "";
     }
+  }
+
+  // --- Resolver für Textdarstellung: pageIndex -> pageToken ---
+  function getPageTokenByIndex(n: number): string | null {
+    const p = pages.find((x) => Number(x.pageIndex) === Number(n));
+    return p?.pageToken ?? null;
   }
 
   return (
@@ -170,8 +167,13 @@ export default function NotebookDetailClient({
         >
           Digital
         </button>
+        <button
+          onClick={() => setView("text")}
+          className={`px-3 py-1.5 rounded-xl border ${view === "text" ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"}`}
+        >
+          Textdarstellung
+        </button>
 
-        {/* NEU: Seite scannen (statt QR-Bogen PDF) */}
         <button
           onClick={() => setScanOpen(true)}
           className="ml-auto inline-flex items-center rounded-xl border px-3 py-1.5 hover:bg-gray-50"
@@ -261,22 +263,13 @@ export default function NotebookDetailClient({
                       </td>
                       <td className="px-4 py-3 flex justify-end">
                         <div className="flex flex-wrap items-center gap-2">
-                          {/* <Link
-                            href={`/notebooks/${notebookId}/page/${p.pageIndex}`}
-                            className="rounded border px-3 py-1 hover:bg-gray-50"
-                          >
-                            Öffnen
-                          </Link> */}
-
                           {scanned && (
-                            <>
-                              <a
-                                href={`/api/pages/${pageIdForExport}/export?format=png`}
-                                className="rounded border px-3 py-1 hover:bg-gray-50 md:hidden"
-                              >
-                                <ArrowDownTrayIcon className="h-4 w-4 text-gray-800" />
-                              </a>
-                            </>
+                            <a
+                              href={`/api/pages/${pageIdForExport}/export?format=png`}
+                              className="rounded border px-3 py-1 hover:bg-gray-50 md:hidden"
+                            >
+                              <ArrowDownTrayIcon className="h-4 w-4 text-gray-800" />
+                            </a>
                           )}
 
                           <Link
@@ -285,14 +278,6 @@ export default function NotebookDetailClient({
                           >
                             Öffnen
                           </Link>
-
-                          {/* <Link
-                            href={`/notebooks/${notebookId}/page/${p.pageIndex}/qr`}
-                            className="rounded border px-3 py-1 hover:bg-gray-50"
-                            title="QR-Detailseite"
-                          >
-                            QR
-                          </Link> */}
 
                           {scanned ? (
                             <div className="hidden md:flex gap-x-2">
@@ -317,13 +302,13 @@ export default function NotebookDetailClient({
                             </div>
                           ) : (
                             <div className="hidden md:flex gap-x-2">
-                              <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled aria-disabled title="Noch keine gescannte Seite vorhanden">
+                              <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled>
                                 PDF
                               </button>
-                              <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled aria-disabled title="Noch keine gescannte Seite vorhanden">
+                              <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled>
                                 JPG
                               </button>
-                              <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled aria-disabled title="Noch keine gescannte Seite vorhanden">
+                              <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled>
                                 PNG
                               </button>
                             </div>
@@ -337,7 +322,7 @@ export default function NotebookDetailClient({
             </tbody>
           </table>
         </div>
-      ) : (
+      ) : view === "digital" ? (
         <Suspense fallback={<Loader small label="Digital-Ansicht lädt…" />}>
           <DigitalNotebook
             totalPages={totalPages}
@@ -345,6 +330,14 @@ export default function NotebookDetailClient({
               const p = pages.find((x) => Number(x.pageIndex) === Number(n));
               return p?.images?.[0]?.url ?? null;
             }}
+          />
+        </Suspense>
+      ) : (
+        <Suspense fallback={<Loader small label="Textdarstellung lädt…" />}>
+          <TextNotebook
+            totalPages={totalPages}
+            notebookId={notebookId}
+            getPageToken={(n) => getPageTokenByIndex(n)}
           />
         </Suspense>
       )}

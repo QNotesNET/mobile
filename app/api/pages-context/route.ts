@@ -8,35 +8,24 @@ import { TaskList } from "@/models/TaskList";
 import Notebook from "@/models/Notebook";
 import { Calendar as CalendarModel } from "@/models/Calendar";
 import { CalendarEvent } from "@/models/CalendarEvent";
+import Page from "@/models/PageModel";
 
-/** helpers */
-function snapMinute15(m: number) {
-  const r = Math.round(m / 15) * 15;
-  return r >= 60 ? 45 : r;
-}
-function makeUTC(y: number, m: number, d: number, hh = 0, mm = 0) {
-  return new Date(Date.UTC(y, m - 1, d, hh, mm, 0, 0));
-}
-function endOfDayUTC(y: number, m: number, d: number) {
-  return new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
-}
 
-/** robust de-Parser: 14.12.2025 17:00, 14.12.25, 14.12., 17:00-18:15, ganztägig etc. */
-function parseCalLine(
-  input: string
-): { title: string; start: Date; end: Date; allDay: boolean } | null {
+/** helpers ... (deine bestehenden Helfer lasse ich unverändert) */
+function snapMinute15(m: number) { const r = Math.round(m / 15) * 15; return r >= 60 ? 45 : r; }
+function makeUTC(y: number, m: number, d: number, hh = 0, mm = 0) { return new Date(Date.UTC(y, m - 1, d, hh, mm, 0, 0)); }
+function endOfDayUTC(y: number, m: number, d: number) { return new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999)); }
+
+/** robust de-Parser ... (unverändert) */
+function parseCalLine(input: string): { title: string; start: Date; end: Date; allDay: boolean } | null {
   const str = String(input || "").trim();
   if (!str) return null;
-
   const dateRe = /\b([0-3]?\d)[.\-/]([01]?\d)(?:[.\-/]((?:20)?\d{2}))?\b/;
-  const timeRangeRe =
-    /\b((?:[01]?\d|2[0-3])[:.][0-5]\d)\s*[-–]\s*((?:[01]?\d|2[0-3])[:.][0-5]\d)\b/;
+  const timeRangeRe = /\b((?:[01]?\d|2[0-3])[:.][0-5]\d)\s*[-–]\s*((?:[01]?\d|2[0-3])[:.][0-5]\d)\b/;
   const timeRe = /\b((?:[01]?\d|2[0-3])[:.][0-5]\d)\b/;
   const allDayKw = /\bganzt(ägig|ag)\b/i;
-
   const dm = str.match(dateRe);
   if (!dm) return null;
-
   const day = Number(dm[1]);
   const month = Number(dm[2]);
   let year = dm[3] ? Number(dm[3]) : NaN;
@@ -44,15 +33,12 @@ function parseCalLine(
     const nowY = new Date().getUTCFullYear();
     year = !isNaN(year) ? (year < 100 ? year + 2000 : year) : nowY;
   }
-
   let title = str
     .replace(dm[0], " ")
     .replace(/\bum\b|\bam\b|\bvon\b|\bbis\b|\buhr\b/gi, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
-
   const isAllDay = allDayKw.test(str);
-
   const tr = str.match(timeRangeRe);
   if (tr && !isAllDay) {
     const [h1, m1] = tr[1].replace(".", ":").split(":").map(Number);
@@ -60,27 +46,17 @@ function parseCalLine(
     const s = makeUTC(year, month, day, h1, snapMinute15(m1));
     let e = makeUTC(year, month, day, h2, snapMinute15(m2));
     if (e <= s) e = makeUTC(year, month, day, h1, snapMinute15(m1 + 60));
-    title =
-      title
-        .replace(tr[0], " ")
-        .replace(/\s{2,}/g, " ")
-        .trim() || `${day}.${month}.${year}`;
+    title = title.replace(tr[0], " ").replace(/\s{2,}/g, " ").trim() || `${day}.${month}.${year}`;
     return { title, start: s, end: e, allDay: false };
   }
-
   const t1 = str.match(timeRe);
   if (t1 && !isAllDay) {
     const [hh, mm] = t1[1].replace(".", ":").split(":").map(Number);
     const s = makeUTC(year, month, day, hh, snapMinute15(mm));
     const e = makeUTC(year, month, day, hh, snapMinute15(mm + 60));
-    title =
-      title
-        .replace(t1[0], " ")
-        .replace(/\s{2,}/g, " ")
-        .trim() || `${day}.${month}.${year}`;
+    title = title.replace(t1[0], " ").replace(/\s{2,}/g, " ").trim() || `${day}.${month}.${year}`;
     return { title, start: s, end: e, allDay: false };
   }
-
   const s = makeUTC(year, month, day, 0, 0);
   const e = endOfDayUTC(year, month, day);
   title = title || `${day}.${month}.${year}`;
@@ -227,24 +203,55 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
-
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
+
+    // Neuer Modus: notebookId + pageToken (empfohlen)
+    const notebookId = searchParams.get("notebookId");
+    const pageToken = searchParams.get("pageToken");
+
+    // Alter Modus: pageId direkt
     const pageId = searchParams.get("pageId");
 
-    if (!pageId || !Types.ObjectId.isValid(pageId)) {
+    await connectToDB();
+
+    let pageObjectId: Types.ObjectId | null = null;
+
+    if (pageId && Types.ObjectId.isValid(pageId)) {
+      pageObjectId = new Types.ObjectId(pageId);
+    } else if (notebookId && pageToken) {
+      // resolve pageToken -> Page._id innerhalb des Notebooks
+      if (!Types.ObjectId.isValid(notebookId)) {
+        return NextResponse.json({ error: "Invalid notebookId" }, { status: 400 });
+      }
+
+      const pageDoc = await (Page as any)
+        .findOne({ notebookId: new Types.ObjectId(notebookId), pageToken })
+        .select({ _id: 1 })
+        .lean();
+
+      if (!pageDoc?._id) {
+        return NextResponse.json(
+          { error: "Page not found for given notebookId + pageToken" },
+          { status: 404 }
+        );
+      }
+      pageObjectId = new Types.ObjectId(String(pageDoc._id));
+    } else {
       return NextResponse.json(
-        { error: "Missing or invalid pageId" },
+        { error: "Missing query. Provide either pageId OR (notebookId + pageToken)." },
         { status: 400 }
       );
     }
 
-    await connectToDB();
+    // Hole den neuesten PagesContext zu dieser Seite (optional zusätzlich nach notebookId filtern)
+    const filter: any = { page: pageObjectId };
+    if (notebookId && Types.ObjectId.isValid(notebookId)) {
+      filter.notebookId = notebookId; // in PagesContext ist es als String gespeichert
+    }
 
-    const doc = await PagesContext.findOne({
-      page: new Types.ObjectId(pageId),
-    })
+    const doc = await PagesContext.findOne(filter)
       .select({
         _id: 1,
         page: 1,
@@ -257,12 +264,12 @@ export async function GET(req: Request) {
         createdAt: 1,
         updatedAt: 1,
       })
-      .sort({ createdAt: -1 }) // falls mehrere Einträge existieren, nimm den neuesten
+      .sort({ createdAt: -1 })
       .lean();
 
     if (!doc) {
       return NextResponse.json(
-        { error: "No pages-context found for given pageId" },
+        { error: "No pages-context found for given criteria" },
         { status: 404 }
       );
     }
