@@ -117,6 +117,13 @@ export async function GET(req: Request) {
     try {
       const localList = await ensureLocalGoogleTaskList(me.id);
       await importOpenGoogleTasksOnce(me.id, String(localList._id));
+
+      // setze den Sync-Zeitpunkt, damit der erste Poll nicht die gesamte Historie zieht
+      const accDoc = await GoogleAccount.findOne({ userId: me.id });
+      if (accDoc) {
+        accDoc.set("lastTasksSyncAt", new Date());
+        await accDoc.save();
+      }
     } catch (e) {
       console.error("Google Tasks initial import failed:", e);
     }

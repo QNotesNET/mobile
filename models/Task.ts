@@ -43,6 +43,10 @@ const TaskSchema = new Schema(
 TaskSchema.index({ listId: 1, order: 1 });
 TaskSchema.index({ listId: 1, completed: 1 });
 TaskSchema.index({ title: "text", note: "text" });
+TaskSchema.index(
+  { userId: 1, source: 1, sourceId: 1 },
+  { unique: true, partialFilterExpression: { source: { $eq: "google" }, sourceId: { $type: "string" } } }
+);
 
 // >>> wichtiger Teil: altes Model aus dem Cache entfernen (nur in Dev nötig)
 try {
