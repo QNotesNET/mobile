@@ -8,7 +8,7 @@ import connectToDB from "@/lib/mongoose";
 
 export async function ensureLocalGoogleTaskList(userId: string) {
   await connectToDB();
-  let list = await TaskList.findOne({ userId, name: "Google Tasks" }).lean();
+  const list = await TaskList.findOne({ userId, name: "Google Tasks" }).lean();
   if (list) return list;
 
   const now = new Date();
