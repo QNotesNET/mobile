@@ -560,223 +560,225 @@ export default function UploadForm({
           >
             {busy ? "Hochladen…" : "Hochladen"}
           </button>
-          <p className="text-sm text-gray-600">Drücke den Grünen Knopf in der Mitte um mit dem Scannen zu beginnen.</p>
+          <p className="text-sm text-gray-600 lg:hidden">
+            Drücke den Grünen Knopf in der Mitte um mit dem Scannen zu beginnen.
+          </p>
         </>
       )}
 
       {scanning && (
         <>
-        <div className="flex items-center gap-2 text-md text-gray-600">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span>Foto wird gerade verarbeitet...</span>
-        </div>
-        <span className="text-xs text-gray-500">Bitte habe einen Moment Geduld, du kannst dieses Fenster schließen.</span>
+          <div className="flex items-center gap-2 text-md text-gray-600">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>Foto wird gerade verarbeitet...</span>
+          </div>
+          <span className="text-xs text-gray-500">
+            Bitte habe einen Moment Geduld, du kannst dieses Fenster schließen.
+          </span>
         </>
       )}
 
       {/* Vorschau & Ergebnisse */}
       {imageUrl && (
-        <div className="mt-2">
+        <div className="mt-2 w-full flex flex-col lg:flex-row lg:space-x-4">
           <img
             src={imageUrl}
             alt="Upload preview"
-            className="max-h-96 rounded border"
+            className="rounded border lg:w-1/2 w-full"
           />
 
           {/* Aktion-Cards */}
-          {!!items.length && !pagesContext && (
-            <div className="mt-3 grid gap-3">
-              {items.map((it) => (
-                <div
-                  key={it.id}
-                  className={`rounded-xl border p-3 ${typeStyles(it.type)}`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="pr-3">
-                      <div className="text-sm font-semibold">
-                        {typeLabel(it.type)}
-                      </div>
-                      <div className="text-sm mt-1">{it.content}</div>
+          <div className="flex flex-col lg:w-1/2 w-full">
+            {!!items.length && !pagesContext && (
+              <div className="mt-3 grid gap-3">
+                <p className="lg:text-lg font-semibold text-sm text-center lg:text-left my-4 lg:my-0">Bitte bestätige deine Automatisch erkannten Eingaben:</p>
+                {items.map((it) => (
+                  <div
+                    key={it.id}
+                    className={`rounded-xl border p-3 ${typeStyles(it.type)}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="pr-3">
+                        <div className="text-sm font-semibold">
+                          {typeLabel(it.type)}
+                        </div>
+                        <div className="text-sm mt-1">{it.content}</div>
 
-                      {/* Status-Badge */}
-                      {!pagesContext && (
-                        <div className="mt-2">
-                          {it.status === "pending" && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-gray-200">
-                              ausstehend
-                            </span>
-                          )}
-                          {it.status === "accepted" && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-emerald-200">
-                              bestätigt
-                            </span>
-                          )}
-                          {it.status === "rejected" && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-red-200">
-                              abgelehnt
-                            </span>
-                          )}
-                          {it.status === "editing" && (
-                            <span className="text-xs px-2 py-0.5 rounded bg-amber-200">
-                              zur Bearbeitung
-                            </span>
-                          )}
+                        {/* Status-Badge */}
+                        {!pagesContext && (
+                          <div className="mt-2">
+                            {it.status === "pending" && (
+                              <span className="text-xs px-2 py-0.5 rounded bg-gray-200">
+                                ausstehend
+                              </span>
+                            )}
+                            {it.status === "accepted" && (
+                              <span className="text-xs px-2 py-0.5 rounded bg-emerald-200">
+                                bestätigt
+                              </span>
+                            )}
+                            {it.status === "rejected" && (
+                              <span className="text-xs px-2 py-0.5 rounded bg-red-200">
+                                abgelehnt
+                              </span>
+                            )}
+                            {it.status === "editing" && (
+                              <span className="text-xs px-2 py-0.5 rounded bg-amber-200">
+                                zur Bearbeitung
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Controls */}
+                      {pagesContext == null && (
+                        <div className="flex gap-2 shrink-0">
+                          <button
+                            type="button"
+                            title="Bestätigen"
+                            className="rounded-lg border px-2 py-1 hover:bg-white disabled:opacity-50"
+                            disabled={submitting}
+                            onClick={() => updateItemStatus(it.id, "accepted")}
+                          >
+                            ✓
+                          </button>
+                          <button
+                            type="button"
+                            title="Ablehnen"
+                            className="rounded-lg border px-2 py-1 hover:bg-white disabled:opacity-50"
+                            disabled={submitting}
+                            onClick={() => updateItemStatus(it.id, "rejected")}
+                          >
+                            ✗
+                          </button>
+                          <button
+                            type="button"
+                            title="Bearbeiten"
+                            className="rounded-lg border px-2 py-1 hover:bg-white disabled:opacity-50"
+                            disabled={submitting}
+                            onClick={() => toggleEdit(it.id)}
+                          >
+                            ✎
+                          </button>
                         </div>
                       )}
                     </div>
 
-                    {/* Controls */}
-                    {pagesContext == null && (
-                      <div className="flex gap-2 shrink-0">
-                        <button
-                          type="button"
-                          title="Bestätigen"
-                          className="rounded-lg border px-2 py-1 hover:bg-white disabled:opacity-50"
+                    {/* Edit-Feld + lokales Speichern */}
+                    {it.status === "editing" && (
+                      <div className="mt-3">
+                        <textarea
+                          className="w-full rounded-lg border p-2 text-sm disabled:bg-gray-100"
+                          rows={3}
+                          value={it.editValue ?? ""}
+                          onChange={(e) =>
+                            updateEditValue(it.id, e.target.value)
+                          }
                           disabled={submitting}
-                          onClick={() => updateItemStatus(it.id, "accepted")}
-                        >
-                          ✓
-                        </button>
-                        <button
-                          type="button"
-                          title="Ablehnen"
-                          className="rounded-lg border px-2 py-1 hover:bg-white disabled:opacity-50"
-                          disabled={submitting}
-                          onClick={() => updateItemStatus(it.id, "rejected")}
-                        >
-                          ✗
-                        </button>
-                        <button
-                          type="button"
-                          title="Bearbeiten"
-                          className="rounded-lg border px-2 py-1 hover:bg-white disabled:opacity-50"
-                          disabled={submitting}
-                          onClick={() => toggleEdit(it.id)}
-                        >
-                          ✎
-                        </button>
+                        />
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            className="bg-black text-white rounded px-3 py-2 disabled:opacity-50"
+                            disabled={submitting}
+                            onClick={() => applyItemEdit(it.id)}
+                          >
+                            Speichern
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
-
-                  {/* Edit-Feld + lokales Speichern */}
-                  {it.status === "editing" && (
-                    <div className="mt-3">
-                      <textarea
-                        className="w-full rounded-lg border p-2 text-sm disabled:bg-gray-100"
-                        rows={3}
-                        value={it.editValue ?? ""}
-                        onChange={(e) => updateEditValue(it.id, e.target.value)}
-                        disabled={submitting}
-                      />
-                      <div className="mt-2">
-                        <button
-                          type="button"
-                          className="bg-black text-white rounded px-3 py-2 disabled:opacity-50"
-                          disabled={submitting}
-                          onClick={() => applyItemEdit(it.id)}
-                        >
-                          Speichern
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {pagesContext && (
-            <div className="mt-3 grid gap-3">
-              {/* @ts-expect-error --- ctx defined */}
-              {pagesContext.cal.map((ctx) => (
-                <div
-                  key={ctx.id}
-                  className={`rounded-xl border p-3 ${typeStyles("CAL")}`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="pr-3">
-                      <div className="text-sm font-semibold">
-                        {typeLabel("CAL")}
-                      </div>
-                      <div className="text-sm mt-1">{ctx}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {/* @ts-expect-error --- ctx defined */}
-              {pagesContext.todo.map((ctx) => (
-                <div
-                  key={ctx.id}
-                  className={`rounded-xl border p-3 ${typeStyles("TODO")}`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="pr-3">
-                      <div className="text-sm font-semibold">
-                        {typeLabel("TODO")}
-                      </div>
-                      <div className="text-sm mt-1">{ctx}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {/* @ts-expect-error --- ctx defined */}
-              {pagesContext.wa.map((ctx) => (
-                <div
-                  key={ctx.id}
-                  className={`rounded-xl border p-3 ${typeStyles("WA")}`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="pr-3">
-                      <div className="text-sm font-semibold">
-                        {typeLabel("WA")}
-                      </div>
-                      <div className="text-sm mt-1">{ctx}</div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Status / Fehler / Gesamter Text */}
-          <div className="mt-3 text-sm text-gray-700">
-            {scanning && (
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                <span>Foto wird analysiert…</span>
+                ))}
               </div>
             )}
-            {!scanning && !text && scanError && (
-              <span className="text-red-600">{scanError}</span>
-            )}
-            {!scanning && text && (
-              <>
-                <div className="font-semibold mb-1">Erkannter Text:</div>
-                <pre className="whitespace-pre-wrap break-words">{text}</pre>
-              </>
-            )}
-          </div>
 
-          {/* Globaler Speichern/Bestätigen-Button */}
-          {!!items.length && (
-            <div className="mt-4">
-              {pagesContext != null ? (
-                <span className="text-sm text-gray-600">
-                  Deine Einträge wurden bereits gespeichert.
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  className="bg-black text-white rounded px-3 py-2 disabled:opacity-50"
-                  disabled={submitting}
-                  onClick={saveAll}
-                >
-                  {submitting ? "Sende…" : "Bestätigen"}
-                </button>
+            {pagesContext && (
+              <div className="mt-3 grid gap-3">
+                {/* @ts-expect-error --- ctx defined */}
+                {pagesContext.cal.map((ctx) => (
+                  <div
+                    key={ctx.id}
+                    className={`rounded-xl border p-3 ${typeStyles("CAL")}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="pr-3">
+                        <div className="text-sm font-semibold">
+                          {typeLabel("CAL")}
+                        </div>
+                        <div className="text-sm mt-1">{ctx}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {/* @ts-expect-error --- ctx defined */}
+                {pagesContext.todo.map((ctx) => (
+                  <div
+                    key={ctx.id}
+                    className={`rounded-xl border p-3 ${typeStyles("TODO")}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="pr-3">
+                        <div className="text-sm font-semibold">
+                          {typeLabel("TODO")}
+                        </div>
+                        <div className="text-sm mt-1">{ctx}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {/* @ts-expect-error --- ctx defined */}
+                {pagesContext.wa.map((ctx) => (
+                  <div
+                    key={ctx.id}
+                    className={`rounded-xl border p-3 ${typeStyles("WA")}`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="pr-3">
+                        <div className="text-sm font-semibold">
+                          {typeLabel("WA")}
+                        </div>
+                        <div className="text-sm mt-1">{ctx}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Status / Fehler / Gesamter Text */}
+            <div className="mt-3 text-sm text-gray-700 border-gray-500">
+              {!scanning && !text && scanError && (
+                <span className="text-red-600">{scanError}</span>
+              )}
+              {!scanning && text && (
+                <div>
+                  <div className="font-semibold mb-1">Erkannter Text:</div>
+                  <pre className="whitespace-pre-wrap break-words">{text}</pre>
+                </div>
               )}
             </div>
-          )}
+            {/* Globaler Speichern/Bestätigen-Button */}
+            {!!items.length && (
+              <div className="mt-4 mb-16">
+                {pagesContext != null ? (
+                  <span className="text-sm text-gray-600">
+                    Deine Einträge wurden bereits gespeichert.
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="bg-black text-white rounded px-3 py-2 disabled:opacity-50 w-full"
+                    disabled={submitting}
+                    onClick={saveAll}
+                  >
+                    {submitting ? "Eingaben werden gespeichert..." : "Eingaben Bestätigen"}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </form>
