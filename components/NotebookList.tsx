@@ -171,25 +171,21 @@ export default function NotebookList({
                 const notebookId = (n.id ?? n._id) as string;
 
                 return (
-                  <li
-                    key={notebookId}
-                    className="flex gap-3 p-4 sm:flex-row lg:items-center lg:justify-between w-full"
-                  >
-                    <Link href={`/notebooks/${notebookId}`}>
+                  <Link href={`/notebooks/${notebookId}`} key={notebookId}>
+                    <li className="flex gap-3 p-4 sm:flex-row lg:items-center lg:justify-between w-full">
                       <span className="font-medium w-full lg:w-min">
                         {n.title}
                       </span>
-                    </Link>
 
-                    <div className="flex gap-2 sm:justify-end items-center justify-between lg:justify-end">
-                      <Link
-                        href={`/notebooks/${notebookId}`}
-                        className="rounded border px-3 py-1 text-sm hover:bg-black/90 bg-black text-white hidden lg:inline-block"
-                      >
-                        Details
-                      </Link>
+                      <div className="flex gap-2 sm:justify-end items-center justify-between lg:justify-end">
+                        <Link
+                          href={`/notebooks/${notebookId}`}
+                          className="rounded border px-3 py-1 text-sm hover:bg-black/90 bg-black text-white hidden lg:inline-block"
+                        >
+                          Details
+                        </Link>
 
-                      {/* 
+                        {/* 
                       <button
                         onClick={async () => {
                           const title = prompt("Neuer Titel:", n.title);
@@ -212,7 +208,7 @@ export default function NotebookList({
                       </button>
                       */}
 
-                      {/* <button
+                        {/* <button
                         onClick={async () => {
                           const from = Number(prompt("Seiten von:", "1") || "1");
                           const to = Number(prompt("…bis:", "10") || "10");
@@ -228,8 +224,9 @@ export default function NotebookList({
                       >
                         Seiten erzeugen
                       </button> */}
-                    </div>
-                  </li>
+                      </div>
+                    </li>
+                  </Link>
                 );
               })}
             </ul>

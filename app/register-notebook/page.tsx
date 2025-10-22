@@ -1,11 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 
 type ClaimOk = { ok: true };
 type ClaimErr = { ok: false; error?: string };
-import Image from "next/image";
 
 export default function RegisterNotebookPage() {
   const router = useRouter();
@@ -14,14 +15,13 @@ export default function RegisterNotebookPage() {
   const notebookId = params.get("notebookId") ?? "";
   const token = params.get("token") ?? "";
 
-  const [status, setStatus] = useState<"idle" | "working" | "done" | "error">(
-    "idle"
-  );
+  const [status, setStatus] = useState<"idle" | "working" | "done" | "error">("idle");
   const [message, setMessage] = useState<string>("");
+  const [title, setTitle] = useState<string>(""); // ⇦ NEU (Titel vom Input)
 
   useEffect(() => {
     if (params.get("auto") === "1" && (notebookId || token)) {
-      void handleClaim();
+      void handleClaim(); // auto-claim (Titel bleibt optional)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -37,14 +37,15 @@ export default function RegisterNotebookPage() {
         body: JSON.stringify({
           notebookId: notebookId || undefined,
           claimToken: token || undefined,
+          // ⇩ nur mitsenden, wenn nicht leer
+          title: title && title.trim().length ? title.trim() : undefined,
         }),
       });
 
       const data: ClaimOk | ClaimErr = await res.json();
 
       if (!res.ok || !("ok" in data) || data.ok !== true) {
-        const reason =
-          "error" in data && data.error ? data.error : `HTTP_${res.status}`;
+        const reason = "error" in data && data.error ? data.error : `HTTP_${res.status}`;
         throw new Error(reason);
       }
 
@@ -60,9 +61,10 @@ export default function RegisterNotebookPage() {
   }
 
   const disabled = status === "working";
+
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
-      {/* Linke Hälfte: Formular, vertikal zentriert */}
+      {/* Linke Hälfte */}
       <div className="flex items-center justify-center px-6 py-12 lg:px-20">
         <div className="w-full max-w-sm flex flex-col justify-center items-center lg:items-start">
           <Image
@@ -79,9 +81,16 @@ export default function RegisterNotebookPage() {
           <p className="mt-2 text-sm text-gray-600 text-center lg:text-left">
             Dieses Powerbook wird deinem Account zugeordnet.
           </p>
-          {/* <div>
-            <span className="font-medium">Claim Token:</span> {token || "—"}
-          </div> */}
+
+          {/* ⇩ kontrolliertes Textfeld – wird beim Claim mitgesendet */}
+          <input
+            name="title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Benenne dein Powerbook"
+            className="border rounded px-3 py-2 w-full mt-4"
+          />
+
           <button
             onClick={handleClaim}
             disabled={disabled || (!notebookId && !token)}
@@ -106,7 +115,7 @@ export default function RegisterNotebookPage() {
         </div>
       </div>
 
-      {/* Rechte Hälfte: Bild (50%) */}
+      {/* Rechte Hälfte: Bild */}
       <div className="relative hidden lg:block">
         <Image
           alt=""

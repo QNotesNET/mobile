@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 
 export async function POST(req: Request) {
   try {
-    const { notebookId, claimToken } = await req.json();
+    const { notebookId, claimToken, title } = await req.json();
 
     const session = await getSessionUserFromRequest(req);
     if (!session?.userId) {
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     if (!db) throw new Error("MongoDB connection is not ready");
     const col = db.collection("notebooks");
 
-    // Basisfilter
+    // Basisfilter: nur ownerlose Bücher claimbar
     const filter: Record<string, unknown> = { ownerId: { $exists: false } };
 
     // $or-Bedingungen robust aufbauen
@@ -35,9 +35,7 @@ export async function POST(req: Request) {
       if (m) {
         try {
           ors.push({ _id: new ObjectId(m[1]) });
-        } catch {
-          /* ignore */
-        }
+        } catch { /* ignore */ }
       }
     }
 
@@ -51,11 +49,23 @@ export async function POST(req: Request) {
 
     if (ors.length) (filter as Record<string, unknown>).$or = ors;
 
+    // Update dynamisch aufbauen
+    const setDoc: Record<string, unknown> = {
+      ownerId: new ObjectId(String(session.userId)),
+      claimedAt: new Date(),
+    };
+
+    // ⇩ Titel nur setzen, wenn sinnvoller String mitkommt
+    if (typeof title === "string") {
+      const t = title.trim();
+      if (t.length > 0) {
+        // optional: soft-limit auf 200 Zeichen
+        setDoc.title = t.slice(0, 200);
+      }
+    }
+
     const update = {
-      $set: {
-        ownerId: new ObjectId(String(session.userId)),
-        claimedAt: new Date(),
-      },
+      $set: setDoc,
       $unset: { claimToken: "" },
     };
 
