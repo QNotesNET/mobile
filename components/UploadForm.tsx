@@ -59,7 +59,8 @@ function parseOcrText(ocrText: string) {
   const lines = (ocrText || "").split(/\r?\n/);
   const items: ActionItem[] = [];
   const cleanedLines: string[] = [];
-  const re = /^\s*--kw\s+(CAL|WA|TODO)\s*:?\s*(.*)$/i;
+  // NEU: akzeptiert --kwTODO, --kw TODO, --kw: TODO, --kw:CAL usw.
+  const re = /^\s*--\s*kw\s*:?\s*(CAL|WA|TODO)\s*:?\s*(.*)$/i;
 
   lines.forEach((raw, i) => {
     const m = raw.match(re);
@@ -591,7 +592,9 @@ export default function UploadForm({
           <div className="flex flex-col lg:w-1/2 w-full">
             {!!items.length && !pagesContext && (
               <div className="mt-3 grid gap-3">
-                <p className="lg:text-lg font-semibold text-sm text-center lg:text-left my-4 lg:my-0">Bitte bestätige deine Automatisch erkannten Eingaben:</p>
+                <p className="lg:text-lg font-semibold text-sm text-center lg:text-left my-4 lg:my-0">
+                  Bitte bestätige deine Automatisch erkannten Eingaben:
+                </p>
                 {items.map((it) => (
                   <div
                     key={it.id}
@@ -773,7 +776,9 @@ export default function UploadForm({
                     disabled={submitting}
                     onClick={saveAll}
                   >
-                    {submitting ? "Eingaben werden gespeichert..." : "Eingaben Bestätigen"}
+                    {submitting
+                      ? "Eingaben werden gespeichert..."
+                      : "Eingaben Bestätigen"}
                   </button>
                 )}
               </div>
