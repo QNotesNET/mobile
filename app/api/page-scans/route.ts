@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import { connectToDB } from "@/lib/mongoose";
 import PageScan from "@/models/PageScan";
@@ -36,36 +37,65 @@ export async function POST(req: Request) {
       { new: true, upsert: true }
     ).lean();
 
-    // Verarbeitung "detacht" starten (keine Antwort blockieren)
+    // Verarbeitung getrennt starten (Antwort blockiert nicht)
     queueMicrotask(async () => {
       try {
         await PageScan.updateOne({ _id: job!._id }, { $set: { status: "processing" } });
 
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const apiKey = process.env.OPENROUTER_API_KEY;
+        if (!apiKey) {
+          throw new Error("Missing OPENROUTER_API_KEY");
+        }
 
-        const resp = await openai.responses.create({
-          model: "gpt-5",
-          input: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "input_text",
-                  text:
-                    "Give me the text provided based on this image. " +
-                    "Can be German or English – write the response in the language which was provided originally. " +
-                    "The user can also write keywords like 'CAL', 'TODO', 'WA' - ONLY if they are surrounded by a circle. " +
-                    "Return it exactly as written, one line per item. " +
-                    "Everytime you extracted a keyword put a '--kw' in front of it. " +
-                    "Return only the extracted text (preserve line breaks).",
+        // OpenRouter-Client (nutzt OpenAI SDK, aber mit baseURL von OpenRouter)
+        const client = new OpenAI({
+          apiKey,
+          baseURL: "https://openrouter.ai/api/v1",
+          // optional empfohlen:
+          defaultHeaders: {
+            "HTTP-Referer": "https://app.powerbook.at",
+            "X-Title": "Powerbook Scan OCR",
+          },
+        } as any);
+
+        // Prompt unverändert übernommen, aber als Chat + Vision
+        const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text:
+                  "Give me the text provided based on this image. " +
+                  "Can be German or English – write the response in the language which was provided originally. " +
+                  "The user can also write keywords like 'CAL', 'TODO', 'WA' - ONLY if they are surrounded by a circle. " +
+                  "Return it exactly as written, one line per item. " +
+                  "Everytime you extracted a keyword put a '--kw' in front of it. " +
+                  "Return only the extracted text (preserve line breaks).",
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: imageUrl,
+                  detail: "low", // gleiches Detail wie vorher
                 },
-                { type: "input_image", image_url: imageUrl, detail: "low" },
-              ],
-            },
-          ],
+              },
+            ],
+          },
+        ];
+
+        // Modellwahl: nimm dasselbe Mini-/4o-Modell via OpenRouter-Namespace
+        // Wenn du ein anderes Modell willst, in der DB/Settings pflegen.
+        const model = "openai/gpt-4o-mini";
+
+        const resp = await client.chat.completions.create({
+          model,
+          messages,
+          temperature: 0,
+          max_tokens: 4000, // großzügig, wie bisher Responses API es implizit zuließ
         });
 
-        const ocrText = (resp).output_text as string || "";
+        const ocrText = resp.choices?.[0]?.message?.content ?? "";
         const { cleanedText, wa, cal, todo } = parseKwText(ocrText);
 
         await PageScan.updateOne(
