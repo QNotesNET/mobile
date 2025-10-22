@@ -88,7 +88,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Missing title" }, { status: 400 });
   }
 
-  let doc: { title: string; ownerId?: unknown } = { title };
+  const doc: { title: string; ownerId?: unknown } = { title };
   if (!createWithoutOwner) {
     const uidStr = String(user.id);
     let ownerId: unknown = uidStr;
