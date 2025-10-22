@@ -125,6 +125,7 @@ export default function UploadForm({
   const [scanning, setScanning] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [items, setItems] = useState<ActionItem[]>([]);
+  const [autoSaved, setAutoSaved] = useState(false);
 
   const [pagesContext, setPagesContext] = useState<object | null>(null);
 
@@ -516,6 +517,31 @@ export default function UploadForm({
       setSubmitting(false);
     }
   }
+
+  // Auto-Save: wenn Text da ist, keine Items erkannt wurden und noch nichts gespeichert wurde
+  useEffect(() => {
+    if (
+      !scanning &&
+      text &&
+      items.length === 0 &&
+      pagesContext == null &&
+      !submitted &&
+      !submitting &&
+      !autoSaved
+    ) {
+      setAutoSaved(true);
+      // sofort ohne Benutzer-Interaktion speichern
+      void saveAll();
+    }
+  }, [
+    scanning,
+    text,
+    items.length,
+    pagesContext,
+    submitted,
+    submitting,
+    autoSaved,
+  ]);
 
   // Success-Screen
   if (submitted) {
