@@ -1,6 +1,7 @@
 // app/notebooks/page.tsx
 import { headers as nextHeaders, cookies as nextCookies } from "next/headers";
 import ClientScan from "./ClientScan";
+import { redirect } from "next/navigation";
 
 type NotebookItem = { _id?: string; id?: string; title: string };
 
@@ -29,16 +30,22 @@ async function loadNotebooks(): Promise<NotebookItem[]> {
 export default async function NotebooksPage() {
   const items = await loadNotebooks();
 
+  if (items.length === 1) {
+    const id = items[0]._id || items[0].id;
+    if (id) {
+      redirect(`/scan/${id}?notebookId=${id}`);
+    }
+  }
+
   return (
     <>
       <div className="flex flex-col items-start justify-between">
         <h1 className="text-2xl font-semibold">Powerbooks</h1>
         <p className="text-gray-500 text-sm mt-2">Wähle dein Powerbook aus um mit dem Scannen zu beginnen.</p>
       </div>
-
       <div className="mt-6">
         <ClientScan items={items} />
       </div>
-      </>
+    </>
   );
 }
