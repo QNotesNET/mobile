@@ -334,7 +334,7 @@ function EmptyPowerbookPromo() {
     process.env.NEXT_PUBLIC_POWERBOOK_CHECKOUT_URL || "/pricing";
 
   return (
-    <section className="rounded-2xl border bg-white p-5 shadow-sm">
+    <section className="rounded-2xl border bg-white p-5 shadow-sm mb-16">
       <div className="flex flex-col gap-6 md:flex-row md:items-center">
         {/* Bild / Illustration */}
         <div className="mx-auto w-full max-w-sm overflow-hidden rounded-xl border bg-gray-50">

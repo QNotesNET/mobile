@@ -119,7 +119,7 @@ export default function AppShellClient({
       { name: "Kalendar", href: "/calendar", icon: CalendarIcon },
       { name: "Integrationen", href: "/integrations", icon: AdjustmentsHorizontalIcon },
       { name: "Einstellungen", href: "/settings", icon: Cog6ToothIcon },
-      { name: "Hilfe & Kontakt", href: "mailto:info@powerbook.net", icon: EnvelopeIcon },
+      { name: "Hilfe & Kontakt", href: "/support", icon: EnvelopeIcon },
       { name: "Admin", href: "/admin", icon: Bolt },
     ];
   } else {
@@ -130,7 +130,7 @@ export default function AppShellClient({
       { name: "Kalendar", href: "/calendar", icon: CalendarIcon },
       { name: "Integrationen", href: "/integrations", icon: AdjustmentsHorizontalIcon },
       { name: "Einstellungen", href: "/settings", icon: Cog6ToothIcon },
-      { name: "Hilfe & Kontakt", href: "mailto:info@powerbook.net", icon: EnvelopeIcon },
+      { name: "Hilfe & Kontakt", href: "/support", icon: EnvelopeIcon },
     ];
   }
 
