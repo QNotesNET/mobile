@@ -33,7 +33,7 @@ export default async function NotebooksPage() {
   return (
     <AppShell>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Powerbooks</h1>
+        <h1 className="text-2xl font-semibold">Deine Powerbooks</h1>
       </div>
 
       <div className="mt-6">

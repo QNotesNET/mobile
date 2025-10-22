@@ -1,19 +1,23 @@
 // components/NotebookList.tsx
 "use client";
 
+import { BookOpen } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 type NotebookItem = { _id?: string; id?: string; title: string };
-type ProjectItem  = { _id?: string; id?: string; title: string };
+type ProjectItem = { _id?: string; id?: string; title: string };
 
 type Props = {
   items: NotebookItem[];
   projects?: ProjectItem[];
 };
 
-export default function NotebookList({ items, projects: initialProjects = [] }: Props) {
+export default function NotebookList({
+  items,
+  projects: initialProjects = [],
+}: Props) {
   const router = useRouter();
 
   // Tabs
@@ -59,7 +63,10 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
   async function loadProjects() {
     try {
       setProjectsLoading(true);
-      const res = await fetch("/api/projects", { method: "GET", cache: "no-store" });
+      const res = await fetch("/api/projects", {
+        method: "GET",
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error(await res.text());
       const data = (await res.json()) as Array<{ id: string; title: string }>;
       setProjects(data.map((p) => ({ id: p.id, title: p.title })));
@@ -109,7 +116,7 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
   return (
     <div className="space-y-4">
       {/* Tabs */}
-      <div className="flex items-center gap-2">
+      {/* <div className="flex items-center gap-2">
         <button
           onClick={() => setTab("books")}
           className={`rounded-xl border px-3 py-1.5 text-sm transition ${
@@ -127,12 +134,12 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
           Projekte
         </button>
         <div className="ml-auto" />
-      </div>
+      </div> */}
 
       {/* Powerbooks */}
       {tab === "books" && (
         <>
-          <form
+          {/* <form
             className="flex gap-2"
             onSubmit={async (e) => {
               e.preventDefault();
@@ -153,7 +160,7 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
             <button className="bg-black text-white rounded px-3 py-2 disabled:opacity-50" disabled={creating}>
               {creating ? "Erstelle" : "Erstellen"}
             </button>
-          </form>
+          </form> */}
 
           {/* Empty-State Promo statt schnödem Text */}
           {items.length === 0 ? (
@@ -164,13 +171,20 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
                 const notebookId = (n.id ?? n._id) as string;
 
                 return (
-                  <li key={notebookId} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <span className="font-medium">{n.title}</span>
+                  <li
+                    key={notebookId}
+                    className="flex gap-3 p-4 sm:flex-row lg:items-center lg:justify-between w-full"
+                  >
+                    <Link href={`/notebooks/${notebookId}`}>
+                      <span className="font-medium w-full lg:w-min">
+                        {n.title}
+                      </span>
+                    </Link>
 
-                    <div className="flex flex-wrap gap-2 sm:justify-end">
+                    <div className="flex gap-2 sm:justify-end items-center justify-between lg:justify-end">
                       <Link
                         href={`/notebooks/${notebookId}`}
-                        className="rounded border px-3 py-1 text-sm hover:bg-black/90 bg-black text-white"
+                        className="rounded border px-3 py-1 text-sm hover:bg-black/90 bg-black text-white hidden lg:inline-block"
                       >
                         Details
                       </Link>
@@ -198,7 +212,7 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
                       </button>
                       */}
 
-                      <button
+                      {/* <button
                         onClick={async () => {
                           const from = Number(prompt("Seiten von:", "1") || "1");
                           const to = Number(prompt("…bis:", "10") || "10");
@@ -213,7 +227,7 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
                         className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
                       >
                         Seiten erzeugen
-                      </button>
+                      </button> */}
                     </div>
                   </li>
                 );
@@ -231,10 +245,14 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
             onSubmit={async (e) => {
               e.preventDefault();
               const form = e.currentTarget as HTMLFormElement;
-              const title = (new FormData(form).get("project_title") || "").toString().trim();
+              const title = (new FormData(form).get("project_title") || "")
+                .toString()
+                .trim();
               if (!title) return;
               await createProject(title);
-              (form.elements.namedItem("project_title") as HTMLInputElement).value = "";
+              (
+                form.elements.namedItem("project_title") as HTMLInputElement
+              ).value = "";
             }}
           >
             <input
@@ -258,14 +276,19 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
             )}
 
             {!projectsLoading && projects.length === 0 && (
-              <li className="p-6 text-gray-500">Noch keine Projekte. Lege dein erstes an!</li>
+              <li className="p-6 text-gray-500">
+                Noch keine Projekte. Lege dein erstes an!
+              </li>
             )}
 
             {projects.map((p) => {
               const projectId = (p.id ?? p._id) as string;
 
               return (
-                <li key={projectId} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+                <li
+                  key={projectId}
+                  className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
                   <span className="font-medium">{p.title}</span>
 
                   <div className="flex flex-wrap gap-2 sm:justify-end">
@@ -310,7 +333,8 @@ export default function NotebookList({ items, projects: initialProjects = [] }: 
 /* ---------------- Empty-State Promo für Powerbooks ---------------- */
 
 function EmptyPowerbookPromo() {
-  const checkoutUrl = process.env.NEXT_PUBLIC_POWERBOOK_CHECKOUT_URL || "/pricing";
+  const checkoutUrl =
+    process.env.NEXT_PUBLIC_POWERBOOK_CHECKOUT_URL || "/pricing";
 
   return (
     <section className="rounded-2xl border bg-white p-5 shadow-sm">
@@ -328,9 +352,10 @@ function EmptyPowerbookPromo() {
         <div className="flex-1">
           <h3 className="text-lg font-semibold">Hol dir dein Powerbook</h3>
           <p className="mt-2 text-sm text-gray-600">
-            Scanne Seiten blitzschnell, verknüpfe Notizen mit Projekten und arbeite
-            digital weiter. Mit dem Powerbook schaltest du die komplette Experience frei –
-            inklusive digitaler Ansicht, automatischer Seitenerkennung und Export.
+            Scanne Seiten blitzschnell, verknüpfe Notizen mit Projekten und
+            arbeite digital weiter. Mit dem Powerbook schaltest du die komplette
+            Experience frei – inklusive digitaler Ansicht, automatischer
+            Seitenerkennung und Export.
           </p>
 
           <ul className="mt-4 grid gap-2 text-sm text-gray-700">
@@ -364,8 +389,8 @@ function EmptyPowerbookPromo() {
           </div>
 
           <p className="mt-2 text-xs text-gray-400">
-            link muass nu geändert werdn zum kafm
-            (env: <code>NEXT_PUBLIC_POWERBOOK_CHECKOUT_URL</code>).
+            link muass nu geändert werdn zum kafm (env:{" "}
+            <code>NEXT_PUBLIC_POWERBOOK_CHECKOUT_URL</code>).
           </p>
         </div>
       </div>
