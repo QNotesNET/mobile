@@ -16,17 +16,7 @@ export const dynamic = "force-dynamic";
 function toDataUrl(buf: Buffer, mime = "image/jpeg") {
   return `data:${mime};base64,${buf.toString("base64")}`;
 }
-function extractInt(text: string): number | null {
-  // nimm die auffälligste Zahl (1–999), bevorzugt allein/„Seite X“
-  const first = [...text.matchAll(/\b(?:Seite\s*)?([1-9][0-9]{0,2})\b/gi)].map(
-    (m) => Number(m[1])
-  )[0];
-  if (first != null) return first;
-  const any = text.match(/\b[1-9][0-9]{0,2}\b/);
-  return any ? Number(any[0]) : null;
-}
 function normalizeModelName(name?: string) {
-  // Für OpenRouter korrekten Namespace verwenden (default: openai/gpt-4o-mini)
   if (!name) return "openai/gpt-4o-mini";
   if (!name.includes("/")) return `openai/${name}`;
   return name;
@@ -39,25 +29,23 @@ async function makeFastCrops(input: Buffer): Promise<string[]> {
   const W = Math.max(1, meta.width ?? 1);
   const H = Math.max(1, meta.height ?? 1);
 
-  // typische Zonen (relativ)
+  // Reihenfolge ist wichtig: index 0 = bottom center (höchste Priorität)
   const zones = [
-    { x: 0.3, y: 0.86, ww: 0.4, hh: 0.12 },  // bottom center
-    { x: 0.0, y: 0.86, ww: 0.25, hh: 0.14 }, // bottom left
-    { x: 0.75, y: 0.86, ww: 0.25, hh: 0.14 },// bottom right
-    { x: 0.35, y: 0.00, ww: 0.3, hh: 0.12 }, // top center
+    { x: 0.30, y: 0.86, ww: 0.40, hh: 0.12 }, // [0] bottom center
+    { x: 0.00, y: 0.86, ww: 0.25, hh: 0.14 }, // [1] bottom left
+    { x: 0.75, y: 0.86, ww: 0.25, hh: 0.14 }, // [2] bottom right
+    { x: 0.35, y: 0.00, ww: 0.30, hh: 0.12 }, // [3] top center
   ];
 
   const dataUrls: string[] = [];
-  const MIN_PX = 8; // minimale Kantenlänge nach dem Clamp
+  const MIN_PX = 8;
 
   for (const z of zones) {
-    // gewünschte Region
     let left = Math.floor(W * z.x);
     let top = Math.floor(H * z.y);
     let width = Math.floor(W * z.ww);
     let height = Math.floor(H * z.hh);
 
-    // clamp innerhalb des Bildes
     if (left < 0) left = 0;
     if (top < 0) top = 0;
     if (width < MIN_PX) width = MIN_PX;
@@ -66,29 +54,26 @@ async function makeFastCrops(input: Buffer): Promise<string[]> {
     if (left + width > W) width = W - left;
     if (top + height > H) height = H - top;
 
-    // Falls nach Clamp etwas schief ist, skippen
     if (width < MIN_PX || height < MIN_PX) continue;
 
     try {
       const buf = await base
         .extract({ left, top, width, height })
-        .resize({ width: 600 }) // klein & schnell
+        .resize({ width: 600 })
         .grayscale()
-        .threshold(180) // Ziffern hervorheben
+        .threshold(180)
         .jpeg({ quality: 72, mozjpeg: true })
         .toBuffer();
 
       dataUrls.push(toDataUrl(buf, "image/jpeg"));
     } catch {
-      // einzelner Crop fehlgeschlagen → überspringen
       continue;
     }
   }
 
-  // Fallback: kein gültiger Crop → 1 kleines Vollbild (sehr schnell)
   if (dataUrls.length === 0) {
     const tiny = await base
-      .resize({ width: 900 }) // klein halten
+      .resize({ width: 900 })
       .grayscale()
       .threshold(180)
       .jpeg({ quality: 72, mozjpeg: true })
@@ -101,16 +86,61 @@ async function makeFastCrops(input: Buffer): Promise<string[]> {
 
 const keepAliveAgent = new https.Agent({ keepAlive: true, maxSockets: 50 });
 
-// Build Chat-Vision messages für OpenRouter
-function buildMessages(prompt: string, dataUrls: string[], detail: "low" | "high" | "auto" = "low") {
-  const content: any[] = [{ type: "text", text: prompt }];
-  for (const u of dataUrls) {
-    content.push({
-      type: "image_url",
-      image_url: { url: u, detail },
+// Ein Crop -> JSON-only Abfrage: {"n": 12} oder {"n": null}
+async function detectFromCrop(
+  client: OpenAI,
+  model: string,
+  cropUrl: string,
+  timeoutMs = 800
+): Promise<number | null> {
+  const messages: any = [
+    {
+      role: "user",
+      content: [
+        {
+          type: "text",
+          text:
+            "Look ONLY at this single crop of a page margin.\n" +
+            "If you clearly SEE a page number (1-999), return JSON exactly as {\"n\": <digits>}.\n" +
+            "If no page number is visible, return {\"n\": null}.\n" +
+            "Do NOT guess. Digits only. No other fields.",
+        },
+        {
+          type: "image_url",
+          image_url: { url: cropUrl, detail: "low" },
+        },
+      ],
+    },
+  ];
+
+  const ac = new AbortController();
+  const to = setTimeout(() => ac.abort(), timeoutMs);
+
+  try {
+    const resp = await client.chat.completions.create({
+      model,
+      messages,
+      temperature: 0,
+      max_tokens: 20,
+      response_format: { type: "json_object" },
+      // @ts-expect-error ---
+      signal: ac.signal,
     });
+    const txt = resp.choices?.[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(txt);
+    const n = parsed?.n;
+    if (typeof n === "number" && Number.isFinite(n) && n >= 1 && n <= 999) {
+      return Math.trunc(n);
+    }
+    if (n === null) return null;
+    // Fallback-Parser, falls response_format ignoriert wurde:
+    const m = String(txt).match(/\b([1-9][0-9]{0,2})\b/);
+    return m ? Number(m[1]) : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(to);
   }
-  return [{ role: "user", content }] as any;
 }
 
 export async function POST(req: Request) {
@@ -118,126 +148,79 @@ export async function POST(req: Request) {
     const { searchParams } = new URL(req.url);
     const notebookIdRaw = (searchParams.get("notebookId") || "").trim();
     if (!notebookIdRaw) {
-      return NextResponse.json(
-        { error: "Missing notebookId" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing notebookId" }, { status: 400 });
     }
     if (!Types.ObjectId.isValid(notebookIdRaw)) {
-      return NextResponse.json(
-        { error: "Invalid notebookId" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid notebookId" }, { status: 400 });
     }
     const notebookId = new Types.ObjectId(notebookIdRaw);
 
-    // 1) Bild aus multipart
+    // Bild
     const form = await req.formData();
     const file = form.get("image") as File | null;
     if (!file) {
-      return NextResponse.json(
-        { error: "No image file 'image' provided" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "No image file 'image' provided" }, { status: 400 });
     }
     const buf = Buffer.from(await file.arrayBuffer());
 
-    // 2) Settings (wir zielen auf nur die Zahl → eigener Prompt, unabhängig vom Fallback-Setting)
+    // Settings/Model
     const settings = (await getSettings().catch(() => null)) as any;
-    const model = normalizeModelName(
-      settings?.pageDetect?.model || "openai/gpt-4o-mini"
-    );
+    const model = normalizeModelName(settings?.pageDetect?.model || "openai/gpt-4o-mini");
 
-    // 3) Crops bauen (nur relevante Regionen → winzige Payload)
+    // Crops
     const dataUrls = await makeFastCrops(buf);
-    if (dataUrls.length === 0) {
-      return NextResponse.json(
-        { error: "Failed to crop image" },
-        { status: 422 }
-      );
-    }
 
-    // 4) OpenRouter Client
+    // OpenRouter
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
-        { error: "Missing OPENROUTER_API_KEY" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Missing OPENROUTER_API_KEY" }, { status: 500 });
     }
     const client = new OpenAI({
       apiKey,
       baseURL: "https://openrouter.ai/api/v1",
       httpAgent: keepAliveAgent,
-      // optional, aber von OpenRouter empfohlen:
       defaultHeaders: {
         "HTTP-Referer": "https://app.powerbook.at",
         "X-Title": "Powerbook Page Detect",
       },
     } as any);
 
-    // 5) Superschneller Prompt – NUR Zahl (1–999)
-    const prompt =
-      "You are a page-number detector. The images are crops of the page corners/edges. " +
-      "Return ONLY the page number (1-999). If you see variants like 'Seite 12', output just 12. " +
-      "If uncertain, guess the most plausible. Return digits only.";
+    // Parallel pro Crop (sehr schnell, keine Rates)
+    // Priorität: index 0 (bottom center) > übrige
+    const perCrop = await Promise.all(
+      dataUrls.map((u, i) => detectFromCrop(client, model, u, i === 0 ? 900 : 800))
+    );
 
-    // 6) Erster Call (kurze Deadline)
-    const messages = buildMessages(prompt, dataUrls, "low");
-
-    const ac = new AbortController();
-    const timeout = setTimeout(() => ac.abort(), 1200); // 1.2s hartes Limit
-
-    let out = "";
-    try {
-      const resp = await client.chat.completions.create({
-        model,
-        messages,
-        temperature: 0,
-        max_tokens: 12,
-        // @ts-expect-error ---
-        signal: ac.signal,
-      });
-      out = resp.choices?.[0]?.message?.content ?? "";
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    let pageIndex = extractInt(out);
-
-    // Minimaler Fallback: wenn nichts kam, probiere nur Bottom-Center zuerst (höchste Priorität)
-    if (pageIndex == null && dataUrls[0]) {
-      const messages2 = buildMessages(
-        "Return ONLY the page number (1-999) as digits.",
-        [dataUrls[0]],
-        "low"
-      );
-      const ac2 = new AbortController();
-      const timeout2 = setTimeout(() => ac2.abort(), 900);
-      try {
-        const resp2 = await client.chat.completions.create({
-          model,
-          messages: messages2,
-          temperature: 0,
-          max_tokens: 8,
-          // @ts-expect-error ---
-          signal: ac2.signal,
-        });
-        out = resp2.choices?.[0]?.message?.content ?? out;
-        pageIndex = extractInt(out);
-      } finally {
-        clearTimeout(timeout2);
+    // Mehrheitsentscheid: gleiche Zahl in >=2 Crops
+    const counts = new Map<number, number>();
+    for (const n of perCrop) {
+      if (typeof n === "number") {
+        counts.set(n, (counts.get(n) ?? 0) + 1);
       }
     }
-
-    if (pageIndex == null) {
-      return NextResponse.json(
-        { error: "Page number not detected" },
-        { status: 422 }
-      );
+    let decided: number | null = null;
+    for (const [n, c] of counts.entries()) {
+      if (c >= 2) {
+        decided = n; break;
+      }
+    }
+    // sonst: nimm bottom-center, wenn dort was erkannt wurde
+    if (decided == null && typeof perCrop[0] === "number") {
+      decided = perCrop[0] as number;
+    }
+    // sonst: wenn genau EINE Zahl overall erkannt wurde, nimm diese
+    if (decided == null) {
+      const only = [...counts.entries()].filter(([, c]) => c >= 1);
+      if (only.length === 1) decided = only[0][0];
     }
 
-    // 7) DB lookup (pageToken)
+    if (decided == null) {
+      return NextResponse.json({ error: "Page number not detected" }, { status: 422 });
+    }
+
+    const pageIndex = decided;
+
+    // DB lookup (pageToken)
     await connectToDB();
     const page = await Page.findOne({ notebookId, pageIndex })
       .select({ pageToken: 1 })
@@ -245,9 +228,7 @@ export async function POST(req: Request) {
 
     if (!page) {
       return NextResponse.json(
-        {
-          error: `No page for notebookId=${notebookIdRaw} and pageIndex=${pageIndex}`,
-        },
+        { error: `No page for notebookId=${notebookIdRaw} and pageIndex=${pageIndex}` },
         { status: 404 }
       );
     }
@@ -256,7 +237,8 @@ export async function POST(req: Request) {
       pageIndex,
       pageToken: page.pageToken,
       model,
-      crops: dataUrls.length, // debug/info
+      crops: dataUrls.length,
+      votes: Object.fromEntries([...counts.entries()]), // debug
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Server error";
