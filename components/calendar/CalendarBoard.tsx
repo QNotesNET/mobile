@@ -51,8 +51,10 @@ import {
   EllipsisVertical,
   Plus,
   Trash2,
-  Palette,
   Pencil,
+  Check,
+  ListFilter,
+  Clock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -61,7 +63,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import {Clock } from "lucide-react";
 
 /* ---------- Types ---------- */
 type Cal = {
@@ -89,6 +90,19 @@ const MINUTES_PER_SLOT = 15;
 const SLOT_PX = 18;
 const PX_PER_MINUTE = SLOT_PX / MINUTES_PER_SLOT;
 const DAY_HEIGHT_PX = 24 * 60 * PX_PER_MINUTE;
+
+/* ---------- Responsive helper ---------- */
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState<boolean>(
+    typeof window === "undefined" ? false : window.innerWidth < breakpoint
+  );
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < breakpoint);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [breakpoint]);
+  return isMobile;
+}
 
 /* ---------- Calendar Modal ---------- */
 function CalendarModal({
@@ -121,7 +135,6 @@ function CalendarModal({
         </DialogHeader>
 
         <div className="space-y-3">
-          {/* schöne Farbauswahl */}
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -221,9 +234,7 @@ function DateTimePicker({
           >
             <CalendarIcon className="h-4 w-4" />
             {valueISO ? (
-              <>
-                {format(new Date(valueISO), "dd.MM.yyyy HH:mm", { locale: de })}
-              </>
+              <>{format(new Date(valueISO), "dd.MM.yyyy HH:mm", { locale: de })}</>
             ) : (
               <span>Datum &amp; Zeit wählen</span>
             )}
@@ -331,6 +342,66 @@ function DateTimePicker({
   );
 }
 
+/* ---------- Mobile Multi-Select (shadcn style via Popover + Checkbox) ---------- */
+function MobileCalendarMultiSelect({
+  calendars,
+  selectedIds,
+  onToggle,
+}: {
+  calendars: Cal[];
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = calendars.filter((c) => selectedIds.includes(c._id));
+  const label =
+    selected.length === 0
+      ? "Kalender wählen"
+      : selected.length === 1
+      ? selected[0].name
+      : `${selected.length} Kalender`;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className="w-full justify-between">
+          <div className="flex items-center gap-2">
+            <ListFilter className="h-4 w-4" />
+            <span className="truncate">{label}</span>
+          </div>
+          <span className="text-xs text-neutral-500">ändern</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[280px] p-0">
+        <ScrollArea className="max-h-72">
+          <div className="p-1">
+            {calendars.map((c) => {
+              const checked = selectedIds.includes(c._id);
+              return (
+                <button
+                  key={c._id}
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg px-2 py-2 text-left hover:bg-neutral-50",
+                  )}
+                  onClick={() => onToggle(c._id)}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="h-3.5 w-3.5 rounded ring-1 ring-black/10 shrink-0"
+                      style={{ backgroundColor: c.color }}
+                    />
+                    <span className="truncate text-sm">{c.name}</span>
+                  </div>
+                  {checked && <Check className="h-4 w-4 text-neutral-700" />}
+                </button>
+              );
+            })}
+          </div>
+        </ScrollArea>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 /* ---------- Component ---------- */
 export default function CalendarBoard({
@@ -340,6 +411,7 @@ export default function CalendarBoard({
   userId: string;
   initialCalendars: Cal[];
 }) {
+  const isMobile = useIsMobile(); // < md
   const [calendars, setCalendars] = useState<Cal[]>(initialCalendars);
   const [selectedCalIds, setSelectedCalIds] = useState<string[]>(
     initialCalendars.map((c) => c._id)
@@ -354,70 +426,70 @@ export default function CalendarBoard({
   const [calModalOpen, setCalModalOpen] = useState(false);
   const [calEditing, setCalEditing] = useState<Cal | null>(null);
 
-  const loadEventsForCurrentRange = React.useCallback(async () => {
-  const [min, max] = rangeForView(anchor, view);
-  const qs = new URLSearchParams({
-    userId,
-    timeMin: min.toISOString(),
-    timeMax: max.toISOString(),
-  });
-  selectedCalIds.forEach((id) => qs.append("calendarId", id));
-  const r = await fetch(`/api/events?${qs}`, { cache: "no-store" });
-  const d = await r.json();
-  setEvents(d.items || []);
-}, [anchor, view, userId, selectedCalIds]);
+  // Force day view on mobile
+  useEffect(() => {
+    if (isMobile && view !== "day") setView("day");
+  }, [isMobile, view]);
 
+  const loadEventsForCurrentRange = React.useCallback(async () => {
+    const [min, max] = rangeForView(anchor, isMobile ? "day" : view);
+    const qs = new URLSearchParams({
+      userId,
+      timeMin: min.toISOString(),
+      timeMax: max.toISOString(),
+    });
+    selectedCalIds.forEach((id) => qs.append("calendarId", id));
+    const r = await fetch(`/api/events?${qs}`, { cache: "no-store" });
+    const d = await r.json();
+    setEvents(d.items || []);
+  }, [anchor, view, userId, selectedCalIds, isMobile]);
 
   const gridRef = useRef<HTMLDivElement | null>(null);
 
   /* ---------- Data fetch ---------- */
-useEffect(() => {
-  loadEventsForCurrentRange();
-}, [loadEventsForCurrentRange]);
+  useEffect(() => {
+    loadEventsForCurrentRange();
+  }, [loadEventsForCurrentRange]);
 
-const isGoogleCalendarVisible = useMemo(() => {
-  const googleCal = calendars.find((c) => c.name === "Google Kalender");
-  return !!(googleCal && selectedCalIds.includes(googleCal._id));
-}, [calendars, selectedCalIds]);
+  const isGoogleCalendarVisible = useMemo(() => {
+    const googleCal = calendars.find((c) => c.name === "Google Kalender");
+    return !!(googleCal && selectedCalIds.includes(googleCal._id));
+  }, [calendars, selectedCalIds]);
 
-useEffect(() => {
-  if (!isGoogleCalendarVisible) return;
+  useEffect(() => {
+    if (!isGoogleCalendarVisible) return;
 
-  let cancelled = false;
-  let inFlight = false;
+    let cancelled = false;
+    let inFlight = false;
 
-  const doSync = async () => {
-    if (inFlight || cancelled) return;
-    inFlight = true;
-    try {
-      await fetch("/api/integrations/google/calendar/sync", { method: "POST" });
-      if (!cancelled) {
-        await loadEventsForCurrentRange();
+    const doSync = async () => {
+      if (inFlight || cancelled) return;
+      inFlight = true;
+      try {
+        await fetch("/api/integrations/google/calendar/sync", { method: "POST" });
+        if (!cancelled) {
+          await loadEventsForCurrentRange();
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        inFlight = false;
       }
-    } catch {
-      // leise ignorieren
-    } finally {
-      inFlight = false;
-    }
-  };
+    };
 
-  // sofort + Intervall
-  doSync();
-  const id = window.setInterval(doSync, 60000);
+    doSync();
+    const id = window.setInterval(doSync, 60000);
+    const onVis = () => {
+      if (document.visibilityState === "visible") doSync();
+    };
+    document.addEventListener("visibilitychange", onVis);
 
-  // wenn Tab wieder sichtbar wird → sofort syncen
-  const onVis = () => {
-    if (document.visibilityState === "visible") doSync();
-  };
-  document.addEventListener("visibilitychange", onVis);
-
-  return () => {
-    cancelled = true;
-    window.clearInterval(id);
-    document.removeEventListener("visibilitychange", onVis);
-  };
-}, [isGoogleCalendarVisible, loadEventsForCurrentRange]);
-
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [isGoogleCalendarVisible, loadEventsForCurrentRange]);
 
   /* ---------- Helpers ---------- */
   function rangeForView(base: Date, v: View): [Date, Date] {
@@ -516,7 +588,7 @@ useEffect(() => {
     setEditOpen(false);
   }
 
-  /* ---------- Drag / Resize (inkl. Tag-Verschub) ---------- */
+  /* ---------- Drag / Resize ---------- */
   function startDrag(
     ev: Ev,
     e: React.MouseEvent,
@@ -532,7 +604,7 @@ useEffect(() => {
     const startEnd = new Date(ev.end);
 
     const container = gridRef.current;
-    const cols = view === "day" ? 1 : 7;
+    const cols = (isMobile ? "day" : view) === "day" ? 1 : 7;
     const colWidth = container?.getBoundingClientRect().width
       ? container.getBoundingClientRect().width / cols
       : 0;
@@ -543,7 +615,7 @@ useEffect(() => {
       const deltaMin = steps * MINUTES_PER_SLOT;
 
       let dayDelta = 0;
-      if (view !== "month" && colWidth > 0 && type === "move") {
+      if ((isMobile ? "day" : view) !== "month" && colWidth > 0 && type === "move") {
         const dx = me.clientX - startPosX;
         dayDelta = Math.round(dx / colWidth);
       }
@@ -590,88 +662,76 @@ useEffect(() => {
   }
 
   /* ---------- Render timed block ---------- */
-function EventBlock({ ev }: { ev: Ev }) {
-  const start = new Date(ev.start);
-  const end = new Date(ev.end);
-  const durM = (end.getTime() - start.getTime()) / 60000;
-  const minutesFromMidnight = start.getHours() * 60 + start.getMinutes();
-  const topPx = minutesFromMidnight * PX_PER_MINUTE;
-  const heightPx = Math.max(durM * PX_PER_MINUTE, SLOT_PX);
+  function EventBlock({ ev }: { ev: Ev }) {
+    const start = new Date(ev.start);
+    const end = new Date(ev.end);
+    const durM = (end.getTime() - start.getTime()) / 60000;
+    const minutesFromMidnight = start.getHours() * 60 + start.getMinutes();
+    const topPx = minutesFromMidnight * PX_PER_MINUTE;
+    const heightPx = Math.max(durM * PX_PER_MINUTE, SLOT_PX);
 
-  return (
-    <div
-      className="absolute left-1 right-1 rounded-md text-xs shadow-sm"
-      style={{
-        top: `${topPx}px`,
-        height: `${heightPx}px`,
-        background: bgFor(ev.calendarId),
-        borderLeft: `4px solid ${borderFor(ev.calendarId)}`,
-      }}
-      onDoubleClick={(e) => {
-        e.stopPropagation(); // 👈 verhindert „Neuen Termin anlegen“
-        setEditing(ev);
-        setEditOpen(true);
-      }}
-    >
+    return (
       <div
-        className="flex h-full w-full flex-col overflow-hidden rounded-md text-white"
-        onDoubleClick={() => {
+        className="absolute left-1 right-1 rounded-md text-xs shadow-sm"
+        style={{
+          top: `${topPx}px`,
+          height: `${heightPx}px`,
+          background: bgFor(ev.calendarId),
+          borderLeft: `4px solid ${borderFor(ev.calendarId)}`,
+        }}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
           setEditing(ev);
           setEditOpen(true);
         }}
       >
-        {/* top resize handle */}
-        <div
-          className="relative z-10 h-[6px] w-full cursor-ns-resize rounded-t-md bg-black/25"
-          onMouseDown={(e) => startDrag(ev, e, "resize-start")}
-          title="Oben ziehen, um die Startzeit zu ändern"
-        />
-
-        {/* header (drag-move) */}
-        <div
-          className="flex cursor-move items-center justify-between px-2 pt-1"
-          onMouseDown={(e) => startDrag(ev, e, "move")}
-        >
-          <span className="truncate font-medium">{ev.title}</span>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="rounded p-1 hover:bg-white/20">
-                <EllipsisVertical className="h-4 w-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => {
-                  setEditing(ev);
-                  setEditOpen(true);
-                }}
-              >
-                Bearbeiten
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                className="text-red-600"
-                onClick={() => deleteEvent(ev._id)}
-              >
-                Löschen
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        <div className="flex h-full w-full flex-col overflow-hidden rounded-md text-white">
+          <div
+            className="relative z-10 h-[6px] w-full cursor-ns-resize rounded-t-md bg-black/25"
+            onMouseDown={(e) => startDrag(ev, e, "resize-start")}
+            title="Oben ziehen, um die Startzeit zu ändern"
+          />
+          <div
+            className="flex cursor-move items-center justify-between px-2 pt-1"
+            onMouseDown={(e) => startDrag(ev, e, "move")}
+          >
+            <span className="truncate font-medium">{ev.title}</span>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="rounded p-1 hover:bg-white/20">
+                  <EllipsisVertical className="h-4 w-4" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => {
+                    setEditing(ev);
+                    setEditOpen(true);
+                  }}
+                >
+                  Bearbeiten
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-red-600"
+                  onClick={() => deleteEvent(ev._id)}
+                >
+                  Löschen
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div className="px-2 pb-1 opacity-90">
+            {format(start, "HH:mm")}–{format(end, "HH:mm")}
+          </div>
+          <div
+            className="relative z-10 mt-auto h-[6px] w-full cursor-ns-resize rounded-b-md bg-black/25"
+            onMouseDown={(e) => startDrag(ev, e, "resize-end")}
+            title="Unten ziehen, um die Endzeit zu ändern"
+          />
         </div>
-
-        <div className="px-2 pb-1 opacity-90">
-          {format(start, "HH:mm")}–{format(end, "HH:mm")}
-        </div>
-
-        {/* bottom resize handle */}
-        <div
-          className="relative z-10 mt-auto h-[6px] w-full cursor-ns-resize rounded-b-md bg-black/25"
-          onMouseDown={(e) => startDrag(ev, e, "resize-end")}
-          title="Unten ziehen, um die Endzeit zu ändern"
-        />
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   /* ---------- All-day (Day/Week) ---------- */
   function AllDayRow({ day }: { day: Date }) {
@@ -694,7 +754,7 @@ function EventBlock({ ev }: { ev: Ev }) {
               style={{ borderLeft: `4px solid ${borderFor(ev.calendarId)}` }}
               onMouseDown={(e) => startDrag(ev, e, "move")}
               onDoubleClick={(e) => {
-                e.stopPropagation(); // 👈 wichtig
+                e.stopPropagation();
                 setEditing(ev);
                 setEditOpen(true);
               }}
@@ -707,7 +767,7 @@ function EventBlock({ ev }: { ev: Ev }) {
     );
   }
 
-  /* ---------- Month multi-day spans ---------- */
+  /* ---------- Month grid (desktop only) ---------- */
   function MonthGrid() {
     const gridStart = startOfWeek(startOfMonth(anchor), { locale: de });
     const cells = [...Array(42)].map((_, i) => addDays(gridStart, i));
@@ -878,8 +938,8 @@ function EventBlock({ ev }: { ev: Ev }) {
   /* ---------- UI ---------- */
   return (
     <div className="flex min-h-[calc(100vh-2rem)] gap-4">
-      {/* Sticky Sidebar */}
-      <div className="md:sticky md:top-4 md:self-start md:h-[calc(100vh-2rem)] md:w-[280px]">
+      {/* Sidebar: Desktop sichtbar, Mobile ausgeblendet */}
+      <div className="hidden md:block md:sticky md:top-4 md:self-start md:h-[calc(100vh-2rem)] md:w-[280px]">
         <Card className="h-full p-3">
           <div className="mb-3 flex items-center justify-between">
             <div className="text-sm font-semibold">Kalender</div>
@@ -958,43 +1018,57 @@ function EventBlock({ ev }: { ev: Ev }) {
 
       {/* Main */}
       <div className="relative flex-1 overflow-auto">
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={() => setAnchor(new Date())}>
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            Heute
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() =>
-              setAnchor(
-                addDays(
-                  anchor,
-                  view === "day" ? -1 : view === "week" ? -7 : -30
-                )
-              )
-            }
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() =>
-              setAnchor(
-                addDays(
-                  anchor,
-                  view === "day" ? +1 : view === "week" ? +7 : +30
-                )
-              )
-            }
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-          <div className="ml-2 text-lg font-semibold">
-            {view === "month"
-              ? format(anchor, "LLLL yyyy", { locale: de })
-              : format(anchor, "PPPP", { locale: de })}
+        {/* Toolbar */}
+        <div className="mb-3 grid grid-cols-1 gap-2 md:flex md:flex-wrap md:items-center md:gap-2">
+          {/* Mobile: Kalender-Multi-Select oben */}
+          <div className="md:hidden">
+            <MobileCalendarMultiSelect
+              calendars={calendars}
+              selectedIds={selectedCalIds}
+              onToggle={toggleCal}
+            />
           </div>
-          <div className="ml-auto">
+
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setAnchor(new Date())}>
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              Heute
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() =>
+                setAnchor(
+                  addDays(
+                    anchor,
+                    (isMobile ? "day" : view) === "day" ? -1 : (isMobile ? "day" : view) === "week" ? -7 : -30
+                  )
+                )
+              }
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() =>
+                setAnchor(
+                  addDays(
+                    anchor,
+                    (isMobile ? "day" : view) === "day" ? +1 : (isMobile ? "day" : view) === "week" ? +7 : +30
+                  )
+                )
+              }
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <div className="ml-0 md:ml-2 md:text-lg text-md font-semibold">
+              {(isMobile ? "day" : view) === "month"
+                ? format(anchor, "LLLL yyyy", { locale: de })
+                : format(anchor, "PPPP", { locale: de })}
+            </div>
+          </div>
+
+          {/* Desktop: View-Select; Mobile: ausgeblendet (immer Tag) */}
+          <div className="ml-auto hidden md:block">
             <Select value={view} onValueChange={(v: View) => setView(v)}>
               <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="Ansicht" />
@@ -1006,23 +1080,24 @@ function EventBlock({ ev }: { ev: Ev }) {
               </SelectContent>
             </Select>
           </div>
+
           <Button
-            className="bg-black text-white"
+            className="bg-black text-white md:ml-0"
             onClick={() => openNewAt(new Date())}
           >
             <Plus className="mr-2 h-4 w-4" /> Termin
           </Button>
         </div>
 
-        {/* Day/Week */}
-        {view !== "month" ? (
-          <div className="grid grid-cols-[60px_1fr] border">
+        {/* Day/Week (mobile immer Day) */}
+        {(isMobile ? "day" : view) !== "month" ? (
+          <div className="grid grid-cols-[50px_1fr] md:grid-cols-[60px_1fr] border rounded-lg overflow-hidden">
             {/* Stunden-Skala */}
-            <div className="border-r">
+            <div className="border-r bg-neutral-50/40">
               {[...Array(24)].map((_, h) => (
                 <div
                   key={h}
-                  className="h-[72px] select-none pr-2 text-right text-xs text-neutral-500"
+                  className="h-[72px] select-none pr-1 md:pr-2 text-right text-[10px] md:text-xs text-neutral-500"
                   style={{ lineHeight: `${SLOT_PX * 4}px` }}
                 >
                   {String(h).padStart(2, "0")}:00
@@ -1035,10 +1110,10 @@ function EventBlock({ ev }: { ev: Ev }) {
               ref={gridRef}
               className={cn(
                 "relative",
-                view === "day" ? "grid grid-cols-1" : "grid grid-cols-7"
+                (isMobile ? "day" : view) === "day" ? "grid grid-cols-1" : "grid grid-cols-7"
               )}
             >
-              {(view === "day" ? [anchor] : daysForWeek).map((d) => {
+              {((isMobile ? "day" : view) === "day" ? [anchor] : daysForWeek).map((d) => {
                 const dayTimed = events.filter(
                   (e) =>
                     !e.allDay &&
@@ -1054,7 +1129,7 @@ function EventBlock({ ev }: { ev: Ev }) {
                     <AllDayRow day={d} />
 
                     {/* Header */}
-                    <div className="sticky top-0 z-10 bg-white/80 p-2 text-sm font-medium">
+                    <div className="sticky top-0 z-10 bg-white/85 backdrop-blur p-2 text-sm font-medium">
                       {format(d, "EEE dd.MM.", { locale: de })}
                     </div>
 
@@ -1072,7 +1147,7 @@ function EventBlock({ ev }: { ev: Ev }) {
                         openNewAt(addMinutes(startOfDay(d), minutes));
                       }}
                     >
-                      {/* Grid Lines (15min) */}
+                      {/* Grid Lines */}
                       {[...Array(24 * (60 / MINUTES_PER_SLOT))].map((_, i) => {
                         const isHour = i % (60 / MINUTES_PER_SLOT) === 0;
                         return (
@@ -1138,7 +1213,6 @@ function EventBlock({ ev }: { ev: Ev }) {
                 onChange={(iso) =>
                   setEditing((p) => {
                     const next = { ...p, start: iso ?? p.start };
-                    // falls Ende vor Start -> Ende nachziehen (1h)
                     if (
                       next.start &&
                       next.end &&
@@ -1159,7 +1233,6 @@ function EventBlock({ ev }: { ev: Ev }) {
                 onChange={(iso) =>
                   setEditing((p) => {
                     const next = { ...p, end: iso ?? p.end };
-                    // falls Ende vor Start -> Start vorziehen
                     if (
                       next.start &&
                       next.end &&
@@ -1176,29 +1249,6 @@ function EventBlock({ ev }: { ev: Ev }) {
               />
             </div>
 
-            {/* Label „Kalender“ + Dropdown (wie zuletzt gewünscht) */}
-            {/* <div className="space-y-1">
-              <label className="text-xs font-medium text-neutral-600">
-                Kalender
-              </label>
-              <Select
-                value={editing.calendarId}
-                onValueChange={(v) =>
-                  setEditing((p) => ({ ...p, calendarId: v }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Kalender wählen" />
-                </SelectTrigger>
-                <SelectContent>
-                  {calendars.map((c) => (
-                    <SelectItem key={c._id} value={c._id}>
-                      {c.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div> */}
             <div className="flex items-center gap-2">
               <Checkbox
                 checked={!!editing.allDay}
@@ -1221,6 +1271,7 @@ function EventBlock({ ev }: { ev: Ev }) {
               />
               <span className="text-sm">Ganztägig</span>
             </div>
+
             <div className="space-y-1 flex items-center space-x-4">
               <label className="text-xs font-medium text-neutral-600">
                 Kalender
@@ -1243,6 +1294,7 @@ function EventBlock({ ev }: { ev: Ev }) {
                 </SelectContent>
               </Select>
             </div>
+
             <div className="flex justify-between">
               {editing._id ? (
                 <Button
