@@ -136,7 +136,6 @@ export async function POST(req: Request) {
         temperature: 0,
         // Optional schön: Provider-Header (OpenRouter empfiehlt Referer/Title)
         // extra_headers: { "HTTP-Referer": "https://app.powerbook.at", "X-Title": "Powerbook Page Detect" }
-        // @ts-ignore (SDK akzeptiert das Feld)
         signal: ac.signal,
       } as any);
       out = resp.output_text || "";
@@ -160,7 +159,6 @@ export async function POST(req: Request) {
           input: [{ role: "user", content: content2 }],
           max_output_tokens: 8,
           temperature: 0,
-          // @ts-ignore
           signal: ac2.signal,
         } as any);
         pageIndex = extractInt(resp2.output_text || "");
