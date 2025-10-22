@@ -4,6 +4,9 @@ import Page from "@/models/PageModel";
 import UploadForm from "@/components/UploadForm";
 import { Types } from "mongoose";
 import Image from "next/image";
+import AppShell from "@/components/AppShell";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 type LeanScanPage = {
   _id: Types.ObjectId;
@@ -27,28 +30,18 @@ export default async function ScanPage(
   }
 
   return (
-    <main className="p-6 max-w-xl mx-auto">
-      <h1 className="text-xl font-semibold">Seite {page.pageIndex}</h1>
-      <p className="text-gray-600 mb-4">Notebook: {String(page.notebookId)}</p>
+    <AppShell>
+    <main className="p-6 mx-auto">
+      <Link href={`/notebooks/${page.notebookId}`} className="text-gray-600 text-sm mb-4 inline-block hover:underline">
+      <ArrowLeft className="inline-block mr-1 h-4 w-4" />
+      Zurück zur Übersicht
+      </Link>
+      <h1 className="text-xl font-semibold mb-4">Seite {page.pageIndex}</h1>
+      {/* <p className="text-gray-600 mb-4">Notebook: {String(page.notebookId)}</p> */}
 
       {/* Client-Formular */}
       <UploadForm pageId={String(page._id)} notebookId={String(page.notebookId)} pageToken={token}/>
-
-      {/* <div className="mt-6 grid gap-3">
-        {(page.images ?? []).map((img) => (
-          <div key={img.url} className="overflow-hidden rounded border">
-            <Image
-              src={img.url}
-              alt="Scan"
-              width={1000}
-              height={1400}
-              className="h-auto w-full"
-              // Wenn deine Bild-URLs extern sind und (noch) nicht in next.config.js whitelisted:
-              unoptimized
-            />
-          </div>
-        ))}
-      </div> */}
     </main>
+    </AppShell>
   );
 }

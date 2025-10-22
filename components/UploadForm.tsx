@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Check } from "lucide-react";
+import Link from "next/link";
 
 type ItemType = "CAL" | "WA" | "TODO";
 type ItemStatus = "pending" | "accepted" | "rejected" | "editing";
@@ -546,13 +547,30 @@ export default function UploadForm({
       {/* Upload-Controls AUSBLENDEN, wenn bereits Bild vorhanden oder Scan läuft */}
       {!(imageUrl || scanning) && (
         <>
-          <input type="file" name="file" accept="image/*" required />
+          <input
+            type="file"
+            name="file"
+            accept="image/*"
+            required
+            className="hidden lg:inline"
+          />
           <button
-            className="bg-black text-white rounded px-3 py-2 disabled:opacity-50"
+            className="bg-black text-white rounded px-3 py-2 disabled:opacity-50 hidden lg:inline"
             disabled={busy || submitting}
           >
             {busy ? "Hochladen…" : "Hochladen"}
           </button>
+          <p className="text-sm text-gray-600">Drücke den Grünen Knopf in der Mitte um mit dem Scannen zu beginnen.</p>
+        </>
+      )}
+
+      {scanning && (
+        <>
+        <div className="flex items-center gap-2 text-md text-gray-600">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Foto wird gerade verarbeitet...</span>
+        </div>
+        <span className="text-xs text-gray-500">Bitte habe einen Moment Geduld, du kannst dieses Fenster schließen.</span>
         </>
       )}
 
