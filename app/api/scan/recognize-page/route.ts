@@ -195,7 +195,7 @@ export async function POST(req: Request) {
         messages,
         temperature: 0,
         max_tokens: 12,
-        // @ts-ignore
+        // @ts-expect-error ---
         signal: ac.signal,
       });
       out = resp.choices?.[0]?.message?.content ?? "";
@@ -220,7 +220,7 @@ export async function POST(req: Request) {
           messages: messages2,
           temperature: 0,
           max_tokens: 8,
-          // @ts-ignore
+          // @ts-expect-error ---
           signal: ac2.signal,
         });
         out = resp2.choices?.[0]?.message?.content ?? out;
