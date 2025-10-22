@@ -1,4 +1,3 @@
-// app/register-notebook/page.tsx
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
@@ -6,6 +5,7 @@ import { useEffect, useState } from "react";
 
 type ClaimOk = { ok: true };
 type ClaimErr = { ok: false; error?: string };
+import Image from "next/image";
 
 export default function RegisterNotebookPage() {
   const router = useRouter();
@@ -14,7 +14,9 @@ export default function RegisterNotebookPage() {
   const notebookId = params.get("notebookId") ?? "";
   const token = params.get("token") ?? "";
 
-  const [status, setStatus] = useState<"idle" | "working" | "done" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "working" | "done" | "error">(
+    "idle"
+  );
   const [message, setMessage] = useState<string>("");
 
   useEffect(() => {
@@ -41,7 +43,8 @@ export default function RegisterNotebookPage() {
       const data: ClaimOk | ClaimErr = await res.json();
 
       if (!res.ok || !("ok" in data) || data.ok !== true) {
-        const reason = "error" in data && data.error ? data.error : `HTTP_${res.status}`;
+        const reason =
+          "error" in data && data.error ? data.error : `HTTP_${res.status}`;
         throw new Error(reason);
       }
 
@@ -57,42 +60,63 @@ export default function RegisterNotebookPage() {
   }
 
   const disabled = status === "working";
-
   return (
-    <main className="mx-auto max-w-md px-4 py-10">
-      <h1 className="text-2xl font-semibold">Notizbuch zuweisen</h1>
-      <p className="text-sm text-gray-500 mt-1">Dieses Notizbuch wird deinem Account zugeordnet.</p>
-
-      <div className="mt-6 space-y-3">
-        <div className="text-sm">
-          <div>
-            <span className="font-medium">Notebook ID:</span> {notebookId || "—"}
-          </div>
-          <div>
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
+      {/* Linke Hälfte: Formular, vertikal zentriert */}
+      <div className="flex items-center justify-center px-6 py-12 lg:px-20">
+        <div className="w-full max-w-sm flex flex-col justify-center items-center lg:items-start">
+          <Image
+            alt="Powerbook"
+            src="/images/logos/logo-black.svg"
+            width={160}
+            height={80}
+            priority
+            className="h-20 w-auto"
+          />
+          <h1 className="mt-8 text-2xl text-center lg:text-left font-bold tracking-tight text-gray-900">
+            Powerbook verbinden
+          </h1>
+          <p className="mt-2 text-sm text-gray-600 text-center lg:text-left">
+            Dieses Powerbook wird deinem Account zugeordnet.
+          </p>
+          {/* <div>
             <span className="font-medium">Claim Token:</span> {token || "—"}
-          </div>
-        </div>
-
-        <button
-          onClick={handleClaim}
-          disabled={disabled || (!notebookId && !token)}
-          className={`w-full rounded-xl px-4 py-2 text-white ${disabled ? "bg-gray-400" : "bg-gray-900 hover:bg-black"}`}
-        >
-          {status === "working" ? "Wird zugewiesen …" : "Jetzt zuweisen"}
-        </button>
-
-        {message && (
-          <div
-            className={`rounded-xl border px-3 py-2 text-sm ${
-              status === "error"
-                ? "border-red-300 text-red-700 bg-red-50"
-                : "border-green-300 text-green-700 bg-green-50"
+          </div> */}
+          <button
+            onClick={handleClaim}
+            disabled={disabled || (!notebookId && !token)}
+            className={`w-full rounded-xl mt-10 px-4 py-2 text-white cursor-pointer ${
+              disabled ? "bg-gray-400" : "bg-gray-900 hover:bg-black"
             }`}
           >
-            {message}
-          </div>
-        )}
+            {status === "working" ? "Wird zugewiesen …" : "Jetzt zuweisen"}
+          </button>
+
+          {message && (
+            <div
+              className={`rounded-xl border px-3 py-2 text-sm mt-4 text-center lg:text-left ${
+                status === "error"
+                  ? "border-red-300 text-red-700 bg-red-50"
+                  : "border-green-300 text-green-700 bg-green-50"
+              }`}
+            >
+              {message}
+            </div>
+          )}
+        </div>
       </div>
-    </main>
+
+      {/* Rechte Hälfte: Bild (50%) */}
+      <div className="relative hidden lg:block">
+        <Image
+          alt=""
+          src="/images/login-image.png"
+          fill
+          sizes="(min-width:1024px) 50vw, 0vw"
+          className="object-cover"
+          priority
+        />
+      </div>
+    </div>
   );
 }
