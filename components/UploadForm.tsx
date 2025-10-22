@@ -893,7 +893,7 @@ export default function UploadForm({
                     rows={6}
                     value={text}
                     onChange={(e) => setText(e.target.value)}
-                    disabled={submitting}
+                    disabled={submitting || pagesContext != null}
                   />
                 </div>
               )}
