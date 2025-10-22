@@ -50,25 +50,119 @@ export async function GET() {
   return NextResponse.json({ items });
 }
 
+// ...oberer Teil unverändert...
+
+// app/api/notebooks/route.ts
+// ...imports unverändert...
+
 export async function POST(req: Request) {
   await connectToDB();
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = (await req.json().catch(() => ({}))) as { title?: unknown };
+  const url = new URL(req.url);
+  const noOwnerFromQuery = url.searchParams.get("noOwner") === "1" || url.searchParams.get("noOwner") === "true";
+
+  const body = (await req.json().catch(() => ({}))) as {
+    title?: unknown;
+    noOwner?: unknown;
+    pages?: unknown; // ⬅️ neu
+  };
+
   const title = typeof body.title === "string" ? body.title.trim() : "";
+  const noOwnerFromBody =
+    body?.noOwner === true || body?.noOwner === "1" || body?.noOwner === "true";
+  const createWithoutOwner = Boolean(noOwnerFromQuery || noOwnerFromBody);
+
+  // Seitenanzahl robust lesen (0 = keine Seitenerstellung)
+  let pages =
+    typeof body.pages === "number"
+      ? Math.floor(body.pages)
+      : typeof body.pages === "string"
+      ? Math.floor(Number(body.pages))
+      : 0;
+  if (!Number.isFinite(pages) || pages < 0) pages = 0;
+  if (pages > 2000) pages = 2000;
+
   if (!title) {
     return NextResponse.json({ error: "Missing title" }, { status: 400 });
   }
 
-  const uidStr = String(user.id);
-  let ownerId: unknown = uidStr;
-  try {
-    ownerId = new Types.ObjectId(uidStr);
-  } catch {
-    // Fallback auf String, falls nötig
+  let doc: { title: string; ownerId?: unknown } = { title };
+  if (!createWithoutOwner) {
+    const uidStr = String(user.id);
+    let ownerId: unknown = uidStr;
+    try { ownerId = new Types.ObjectId(uidStr); } catch {}
+    doc.ownerId = ownerId;
   }
 
-  const nb = await Notebook.create({ title, ownerId });
-  return NextResponse.json({ item: { id: String(nb._id), title: nb.title } }, { status: 201 });
+  // 1) Notebook anlegen
+  const nb = await Notebook.create(doc);
+
+  // Mit Owner: sofort zurück (ohne Seiten & QR)
+  if (!createWithoutOwner) {
+    return NextResponse.json(
+      { item: { id: String(nb._id), title: nb.title } },
+      { status: 201 }
+    );
+  }
+
+  // Für ownerlose Books: Seiten batchen + QR erzeugen
+  const proto = req.headers.get("x-forwarded-proto") || "http";
+  const host  = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  const origin = host ? `${proto}://${host}` : new URL(req.url).origin;
+  const cookie = req.headers.get("cookie") ?? "";
+
+  // 2) Seiten erzeugen (falls pages > 0)
+  if (pages > 0) {
+    try {
+      const pgRes = await fetch(
+        `${origin}/api/notebooks/${encodeURIComponent(String(nb._id))}/pages/batch?internal=1`, // ⬅️ Flag
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            accept: "application/json",
+            cookie,                // Session mitgeben (falls nötig)
+            "x-internal": "1",     // ⬅️ zusätzliches internes Signal
+          },
+          body: JSON.stringify({ from: 1, to: pages }),
+          cache: "no-store",
+        }
+      );
+      if (!pgRes.ok) {
+        const peek = await pgRes.text().catch(() => "");
+        console.error("[POST /api/notebooks] pages/batch failed:", pgRes.status, peek.slice(0, 200));
+      }
+    } catch (e) {
+      console.error("[POST /api/notebooks] pages/batch error:", e);
+    }
+  }
+
+  // 3) QR-Code erzeugen
+  let qr: { token?: string; url?: string } | null = null;
+  try {
+    const qrRes = await fetch(
+      `${origin}/api/qr/single?notebookId=${encodeURIComponent(String(nb._id))}`,
+      {
+        method: "GET",
+        headers: { cookie, accept: "application/json" },
+        cache: "no-store",
+      }
+    );
+    const ct = qrRes.headers.get("content-type") || "";
+    if (qrRes.ok && ct.includes("application/json")) {
+      qr = (await qrRes.json()) as { token?: string; url?: string };
+    } else {
+      const peek = await qrRes.text().catch(() => "");
+      console.error("[POST /api/notebooks] QR non-JSON:", qrRes.status, ct, peek.slice(0, 200));
+    }
+  } catch (e) {
+    console.error("[POST /api/notebooks] QR call error:", e);
+  }
+
+  return NextResponse.json(
+    { item: { id: String(nb._id), title: nb.title }, qr },
+    { status: 201 }
+  );
 }

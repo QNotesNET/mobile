@@ -16,6 +16,15 @@ import {
   PencilIcon,
   InformationCircleIcon,
 } from "@heroicons/react/24/outline";
+import { Button } from "@/components/ui/button";
+import {
+  Select as DropDown,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { useRouter } from "next/navigation";
 
 type SettingsState = {
   vision: { model: string; resolution: string; prompt: string };
@@ -61,14 +70,26 @@ function Select({
               <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
             </span>
           </Listbox.Button>
-          <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
+          <Transition
+            as={Fragment}
+            leave="transition ease-in duration-100"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
             <Listbox.Options className="absolute z-50 mt-2 w-full rounded-xl bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none">
               {options.map((opt) => (
                 <Listbox.Option key={opt} value={opt}>
                   {({ selected, active }) => (
-                    <div className={cx("flex cursor-pointer items-center justify-between px-3 py-2", active && "bg-gray-50")}>
+                    <div
+                      className={cx(
+                        "flex cursor-pointer items-center justify-between px-3 py-2",
+                        active && "bg-gray-50"
+                      )}
+                    >
                       <span>{opt}</span>
-                      {selected ? <CheckIcon className="h-5 w-5 text-gray-600" /> : null}
+                      {selected ? (
+                        <CheckIcon className="h-5 w-5 text-gray-600" />
+                      ) : null}
                     </div>
                   )}
                 </Listbox.Option>
@@ -142,7 +163,8 @@ export function PromptSettingsSection() {
     <section className="mx-auto w-full max-w-4xl px-4 py-10">
       <h1 className="text-2xl font-semibold">Prompt Einstellungen</h1>
       <p className="mt-1 text-sm text-gray-500">
-        Lege Model, Bildauflösung und Prompts für Bilderkennung und Seitennummern-Erkennung fest.
+        Lege Model, Bildauflösung und Prompts für Bilderkennung und
+        Seitennummern-Erkennung fest.
       </p>
 
       {err && (
@@ -167,18 +189,27 @@ export function PromptSettingsSection() {
         <>
           {/* Vision */}
           <div className="mt-6 rounded-2xl border bg-white p-5">
-            <div className="mb-3 text-sm font-semibold">Bilderkennung (Vision)</div>
+            <div className="mb-3 text-sm font-semibold">
+              Bilderkennung (Vision)
+            </div>
             <div className="grid gap-4 md:grid-cols-2">
               <Select
                 label="Modell"
                 value={s.vision.model}
-                onChange={(v) => setS((p) => ({ ...p, vision: { ...p.vision, model: v } }))}
+                onChange={(v) =>
+                  setS((p) => ({ ...p, vision: { ...p.vision, model: v } }))
+                }
                 options={MODEL_OPTIONS}
               />
               <Select
                 label="Auflösung"
                 value={s.vision.resolution}
-                onChange={(v) => setS((p) => ({ ...p, vision: { ...p.vision, resolution: v } }))}
+                onChange={(v) =>
+                  setS((p) => ({
+                    ...p,
+                    vision: { ...p.vision, resolution: v },
+                  }))
+                }
                 options={RES_OPTIONS}
               />
             </div>
@@ -186,7 +217,12 @@ export function PromptSettingsSection() {
               <div className="mb-1 text-sm text-gray-700">Prompt</div>
               <textarea
                 value={s.vision.prompt}
-                onChange={(e) => setS((p) => ({ ...p, vision: { ...p.vision, prompt: e.target.value } }))}
+                onChange={(e) =>
+                  setS((p) => ({
+                    ...p,
+                    vision: { ...p.vision, prompt: e.target.value },
+                  }))
+                }
                 rows={6}
                 className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-gray-400 focus:ring-2 focus:ring-gray-900/10"
                 placeholder="Beschreibe, wie die Vision den Inhalt einer Seite erkennen/extrahieren soll…"
@@ -196,18 +232,30 @@ export function PromptSettingsSection() {
 
           {/* Page detect */}
           <div className="mt-6 rounded-2xl border bg-white p-5">
-            <div className="mb-3 text-sm font-semibold">Seitennummern-Erkennung</div>
+            <div className="mb-3 text-sm font-semibold">
+              Seitennummern-Erkennung
+            </div>
             <div className="grid gap-4 md:grid-cols-2">
               <Select
                 label="Modell"
                 value={s.pageDetect.model}
-                onChange={(v) => setS((p) => ({ ...p, pageDetect: { ...p.pageDetect, model: v } }))}
+                onChange={(v) =>
+                  setS((p) => ({
+                    ...p,
+                    pageDetect: { ...p.pageDetect, model: v },
+                  }))
+                }
                 options={MODEL_OPTIONS}
               />
               <Select
                 label="Auflösung"
                 value={s.pageDetect.resolution}
-                onChange={(v) => setS((p) => ({ ...p, pageDetect: { ...p.pageDetect, resolution: v } }))}
+                onChange={(v) =>
+                  setS((p) => ({
+                    ...p,
+                    pageDetect: { ...p.pageDetect, resolution: v },
+                  }))
+                }
                 options={RES_OPTIONS}
               />
             </div>
@@ -215,7 +263,12 @@ export function PromptSettingsSection() {
               <div className="mb-1 text-sm text-gray-700">Prompt</div>
               <textarea
                 value={s.pageDetect.prompt}
-                onChange={(e) => setS((p) => ({ ...p, pageDetect: { ...p.pageDetect, prompt: e.target.value } }))}
+                onChange={(e) =>
+                  setS((p) => ({
+                    ...p,
+                    pageDetect: { ...p.pageDetect, prompt: e.target.value },
+                  }))
+                }
                 rows={6}
                 className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-gray-400 focus:ring-2 focus:ring-gray-900/10"
                 placeholder="Beschreibe, wie die Seitennummer erkannt/extrahiert werden soll…"
@@ -341,7 +394,7 @@ function UsersSection() {
       if (!res.ok) throw new Error(`HTTP_${res.status}`);
       const data = await res.json();
       // <-- FIX: akzeptiert Array ODER { users: [...] }
-      const rows: UserRow[] = Array.isArray(data) ? data : (data?.users ?? []);
+      const rows: UserRow[] = Array.isArray(data) ? data : data?.users ?? [];
       setUsers(rows);
     } catch (e) {
       setErr("Konnte Benutzer nicht laden.");
@@ -405,7 +458,9 @@ function UsersSection() {
     if (!delTarget?._id) return;
     try {
       setDeleting(true);
-      const res = await fetch(`/api/users/${delTarget._id}`, { method: "DELETE" });
+      const res = await fetch(`/api/users/${delTarget._id}`, {
+        method: "DELETE",
+      });
       if (!res.ok) throw new Error(`HTTP_${res.status}`);
       setDelOpen(false);
       setDelTarget(null);
@@ -436,32 +491,58 @@ function UsersSection() {
           placeholder="Suchen (Name, Benutzername, E-Mail)…"
           className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-900/10"
         />
-        <Listbox value={roleFilter} onChange={(v: "" | "admin" | "user") => setRoleFilter(v)}>
+        <Listbox
+          value={roleFilter}
+          onChange={(v: "" | "admin" | "user") => setRoleFilter(v)}
+        >
           <div className="relative">
             <Listbox.Button className="relative w-full rounded-xl border border-gray-300 bg-white px-3 py-2 pr-8 text-left text-sm focus:border-gray-400 focus:ring-2 focus:ring-gray-900/10">
               <span className="block truncate">
-                {roleFilter === "" ? "Alle Rollen" : roleFilter === "admin" ? "Admin" : "User"}
+                {roleFilter === ""
+                  ? "Alle Rollen"
+                  : roleFilter === "admin"
+                  ? "Admin"
+                  : "User"}
               </span>
               <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
                 <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
               </span>
             </Listbox.Button>
-            <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
+            <Transition
+              as={Fragment}
+              leave="transition ease-in duration-100"
+              leaveFrom="opacity-100"
+              leaveTo="opacity-0"
+            >
               <Listbox.Options className="absolute z-50 mt-2 w-full rounded-xl bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none">
                 <Listbox.Option value="">
                   {({ selected, active }) => (
-                    <div className={cx("flex cursor-pointer items-center justify-between px-3 py-2", active && "bg-gray-50")}>
+                    <div
+                      className={cx(
+                        "flex cursor-pointer items-center justify-between px-3 py-2",
+                        active && "bg-gray-50"
+                      )}
+                    >
                       <span>Alle Rollen</span>
-                      {selected ? <CheckIcon className="h-5 w-5 text-gray-600" /> : null}
+                      {selected ? (
+                        <CheckIcon className="h-5 w-5 text-gray-600" />
+                      ) : null}
                     </div>
                   )}
                 </Listbox.Option>
                 {roles.map((r) => (
                   <Listbox.Option key={r.id} value={r.id}>
                     {({ selected, active }) => (
-                      <div className={cx("flex cursor-pointer items-center justify-between px-3 py-2", active && "bg-gray-50")}>
+                      <div
+                        className={cx(
+                          "flex cursor-pointer items-center justify-between px-3 py-2",
+                          active && "bg-gray-50"
+                        )}
+                      >
                         <span>{r.label}</span>
-                        {selected ? <CheckIcon className="h-5 w-5 text-gray-600" /> : null}
+                        {selected ? (
+                          <CheckIcon className="h-5 w-5 text-gray-600" />
+                        ) : null}
                       </div>
                     )}
                   </Listbox.Option>
@@ -476,14 +557,19 @@ function UsersSection() {
 
       {/* Fehler */}
       {err ? (
-        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>
+        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {err}
+        </div>
       ) : null}
 
       {/* Loading */}
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-12 w-full animate-pulse rounded-xl bg-gray-100" />
+            <div
+              key={i}
+              className="h-12 w-full animate-pulse rounded-xl bg-gray-100"
+            />
           ))}
         </div>
       ) : (
@@ -504,27 +590,42 @@ function UsersSection() {
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                    <td
+                      colSpan={6}
+                      className="px-4 py-6 text-center text-gray-500"
+                    >
                       Keine Benutzer gefunden.
                     </td>
                   </tr>
                 ) : (
                   filtered.map((u) => {
-                    const name = [u.firstName, u.lastName].filter(Boolean).join(" ") || "—";
+                    const name =
+                      [u.firstName, u.lastName].filter(Boolean).join(" ") ||
+                      "—";
                     const uname = usernameFromEmail(u.email);
                     return (
                       <tr key={u._id} className="border-t">
                         <td className="truncate px-4 py-3">{name}</td>
-                        <td className="truncate px-4 py-3 font-mono text-gray-700">{uname}</td>
+                        <td className="truncate px-4 py-3 font-mono text-gray-700">
+                          {uname}
+                        </td>
                         <td className="truncate px-4 py-3">{u.email}</td>
                         <td className="px-4 py-3">
-                          <span className={cx("inline-flex items-center rounded-full px-2 py-0.5 text-xs", roleBadgeClass(u.role))}>
+                          <span
+                            className={cx(
+                              "inline-flex items-center rounded-full px-2 py-0.5 text-xs",
+                              roleBadgeClass(u.role)
+                            )}
+                          >
                             {u.role ?? "user"}
                           </span>
                         </td>
                         <td className="px-4 py-3">{formatDate(u.createdAt)}</td>
                         <td className="px-4 py-3">
-                          <Menu as="div" className="relative inline-block text-left">
+                          <Menu
+                            as="div"
+                            className="relative inline-block text-left"
+                          >
                             <Menu.Button className="rounded-md p-1 hover:bg-gray-50">
                               <EllipsisHorizontalIcon className="h-5 w-5 text-gray-600" />
                             </Menu.Button>
@@ -547,7 +648,8 @@ function UsersSection() {
                                       )}
                                       onClick={() => openEdit(u)}
                                     >
-                                      <PencilSquareIcon className="h-4 w-4" /> Umbenennen/Rolle
+                                      <PencilSquareIcon className="h-4 w-4" />{" "}
+                                      Umbenennen/Rolle
                                     </button>
                                   )}
                                 </Menu.Item>
@@ -558,9 +660,12 @@ function UsersSection() {
                                         "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left",
                                         active && "bg-gray-50"
                                       )}
-                                      onClick={() => alert("Reset-E-Mail gesendet (Demo).")}
+                                      onClick={() =>
+                                        alert("Reset-E-Mail gesendet (Demo).")
+                                      }
                                     >
-                                      <EnvelopeOpenIcon className="h-4 w-4" /> Reset-E-Mail senden
+                                      <EnvelopeOpenIcon className="h-4 w-4" />{" "}
+                                      Reset-E-Mail senden
                                     </button>
                                   )}
                                 </Menu.Item>
@@ -593,10 +698,13 @@ function UsersSection() {
           {/* Mobile Cards */}
           <div className="space-y-3 sm:hidden">
             {filtered.length === 0 ? (
-              <div className="rounded-xl border bg-white p-4 text-sm text-gray-500">Keine Benutzer gefunden.</div>
+              <div className="rounded-xl border bg-white p-4 text-sm text-gray-500">
+                Keine Benutzer gefunden.
+              </div>
             ) : (
               filtered.map((u) => {
-                const name = [u.firstName, u.lastName].filter(Boolean).join(" ") || "—";
+                const name =
+                  [u.firstName, u.lastName].filter(Boolean).join(" ") || "—";
                 const uname = usernameFromEmail(u.email);
                 return (
                   <div key={u._id} className="rounded-xl border bg-white p-4">
@@ -605,8 +713,12 @@ function UsersSection() {
                         <div className="font-medium">{name}</div>
                         <div className="mt-1 grid gap-1 text-sm text-gray-600">
                           <div>
-                            <span className="text-gray-500">Benutzername: </span>
-                            <span className="font-mono text-gray-800">{uname}</span>
+                            <span className="text-gray-500">
+                              Benutzername:{" "}
+                            </span>
+                            <span className="font-mono text-gray-800">
+                              {uname}
+                            </span>
                           </div>
                           <div>
                             <span className="text-gray-500">E-Mail: </span>
@@ -614,7 +726,12 @@ function UsersSection() {
                           </div>
                           <div>
                             <span className="text-gray-500">Rolle: </span>
-                            <span className={cx("ml-1 rounded-full px-2 py-0.5 text-xs", roleBadgeClass(u.role))}>
+                            <span
+                              className={cx(
+                                "ml-1 rounded-full px-2 py-0.5 text-xs",
+                                roleBadgeClass(u.role)
+                              )}
+                            >
                               {u.role ?? "user"}
                             </span>
                           </div>
@@ -625,7 +742,10 @@ function UsersSection() {
                         </div>
                       </div>
 
-                      <Menu as="div" className="relative -mr-2 inline-block text-left">
+                      <Menu
+                        as="div"
+                        className="relative -mr-2 inline-block text-left"
+                      >
                         <Menu.Button className="rounded-md p-1 hover:bg-gray-50">
                           <EllipsisHorizontalIcon className="h-6 w-6 text-gray-600" />
                         </Menu.Button>
@@ -641,22 +761,44 @@ function UsersSection() {
                           <Menu.Items className="absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-xl bg-white p-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none">
                             <Menu.Item>
                               {({ active }) => (
-                                <button className={cx("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left", active && "bg-gray-50")} onClick={() => openEdit(u)}>
-                                  <PencilSquareIcon className="h-4 w-4" /> Umbenennen/Rolle
+                                <button
+                                  className={cx(
+                                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left",
+                                    active && "bg-gray-50"
+                                  )}
+                                  onClick={() => openEdit(u)}
+                                >
+                                  <PencilSquareIcon className="h-4 w-4" />{" "}
+                                  Umbenennen/Rolle
                                 </button>
                               )}
                             </Menu.Item>
                             <Menu.Item>
                               {({ active }) => (
-                                <button className={cx("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left", active && "bg-gray-50")} onClick={() => alert("Reset-E-Mail gesendet (Demo).")}>
-                                  <EnvelopeOpenIcon className="h-4 w-4" /> Reset-E-Mail senden
+                                <button
+                                  className={cx(
+                                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left",
+                                    active && "bg-gray-50"
+                                  )}
+                                  onClick={() =>
+                                    alert("Reset-E-Mail gesendet (Demo).")
+                                  }
+                                >
+                                  <EnvelopeOpenIcon className="h-4 w-4" />{" "}
+                                  Reset-E-Mail senden
                                 </button>
                               )}
                             </Menu.Item>
                             <div className="my-1 h-px bg-gray-100" />
                             <Menu.Item>
                               {({ active }) => (
-                                <button className={cx("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-red-600", active && "bg-red-50")} onClick={() => openDelete(u)}>
+                                <button
+                                  className={cx(
+                                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-red-600",
+                                    active && "bg-red-50"
+                                  )}
+                                  onClick={() => openDelete(u)}
+                                >
                                   <TrashIcon className="h-4 w-4" /> Löschen
                                 </button>
                               )}
@@ -679,7 +821,9 @@ function UsersSection() {
           <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
             <Dialog.Panel className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
-              <Dialog.Title className="text-base font-semibold">Benutzer bearbeiten</Dialog.Title>
+              <Dialog.Title className="text-base font-semibold">
+                Benutzer bearbeiten
+              </Dialog.Title>
               <div className="mt-3 space-y-3">
                 <label className="block text-sm">
                   <span className="text-gray-700">Vorname</span>
@@ -699,22 +843,39 @@ function UsersSection() {
                 </label>
 
                 <div className="text-sm text-gray-700">Rolle</div>
-                <Listbox value={editRole} onChange={(v: "admin" | "user") => setEditRole(v)}>
+                <Listbox
+                  value={editRole}
+                  onChange={(v: "admin" | "user") => setEditRole(v)}
+                >
                   <div className="relative">
                     <Listbox.Button className="relative w-full rounded-xl border border-gray-300 bg-white px-3 py-2 pr-8 text-left text-sm focus:border-gray-400 focus:ring-2 focus:ring-gray-900/10">
-                      <span className="block truncate">{editRole === "admin" ? "Admin" : "User"}</span>
+                      <span className="block truncate">
+                        {editRole === "admin" ? "Admin" : "User"}
+                      </span>
                       <span className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
                         <ChevronUpDownIcon className="h-5 w-5 text-gray-400" />
                       </span>
                     </Listbox.Button>
-                    <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
+                    <Transition
+                      as={Fragment}
+                      leave="transition ease-in duration-100"
+                      leaveFrom="opacity-100"
+                      leaveTo="opacity-0"
+                    >
                       <Listbox.Options className="absolute z-50 mt-2 w-full rounded-xl bg-white py-1 text-sm shadow-lg ring-1 ring-black/5 focus:outline-none">
                         {["admin", "user"].map((r) => (
                           <Listbox.Option key={r} value={r as "admin" | "user"}>
                             {({ selected, active }) => (
-                              <div className={cx("flex cursor-pointer items-center justify-between px-3 py-2", active && "bg-gray-50")}>
+                              <div
+                                className={cx(
+                                  "flex cursor-pointer items-center justify-between px-3 py-2",
+                                  active && "bg-gray-50"
+                                )}
+                              >
                                 <span>{r === "admin" ? "Admin" : "User"}</span>
-                                {selected ? <CheckIcon className="h-5 w-5 text-gray-600" /> : null}
+                                {selected ? (
+                                  <CheckIcon className="h-5 w-5 text-gray-600" />
+                                ) : null}
                               </div>
                             )}
                           </Listbox.Option>
@@ -725,11 +886,18 @@ function UsersSection() {
                 </Listbox>
               </div>
               <div className="mt-5 flex items-center justify-end gap-2">
-                <button className="rounded px-3 py-1.5 hover:bg-gray-50" onClick={() => setEditOpen(false)} disabled={saving}>
+                <button
+                  className="rounded px-3 py-1.5 hover:bg-gray-50"
+                  onClick={() => setEditOpen(false)}
+                  disabled={saving}
+                >
                   Abbrechen
                 </button>
                 <button
-                  className={cx("rounded bg-black px-3 py-1.5 text-white", saving && "opacity-60")}
+                  className={cx(
+                    "rounded bg-black px-3 py-1.5 text-white",
+                    saving && "opacity-60"
+                  )}
                   onClick={() => void saveEdit()}
                   disabled={saving}
                 >
@@ -747,20 +915,34 @@ function UsersSection() {
           <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
             <Dialog.Panel className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
-              <Dialog.Title className="text-base font-semibold text-red-600">Benutzer löschen</Dialog.Title>
+              <Dialog.Title className="text-base font-semibold text-red-600">
+                Benutzer löschen
+              </Dialog.Title>
               <p className="mt-2 text-sm text-gray-600">
                 Möchtest du{" "}
                 <span className="font-medium">
-                  {delTarget ? [delTarget.firstName, delTarget.lastName].filter(Boolean).join(" ") || delTarget.email : ""}
+                  {delTarget
+                    ? [delTarget.firstName, delTarget.lastName]
+                        .filter(Boolean)
+                        .join(" ") || delTarget.email
+                    : ""}
                 </span>{" "}
-                wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
+                wirklich löschen? Diese Aktion kann nicht rückgängig gemacht
+                werden.
               </p>
               <div className="mt-5 flex items-center justify-end gap-2">
-                <button className="rounded px-3 py-1.5 hover:bg-gray-50" onClick={() => setDelOpen(false)} disabled={deleting}>
+                <button
+                  className="rounded px-3 py-1.5 hover:bg-gray-50"
+                  onClick={() => setDelOpen(false)}
+                  disabled={deleting}
+                >
                   Abbrechen
                 </button>
                 <button
-                  className={cx("rounded bg-red-600 px-3 py-1.5 text-white", deleting && "opacity-60")}
+                  className={cx(
+                    "rounded bg-red-600 px-3 py-1.5 text-white",
+                    deleting && "opacity-60"
+                  )}
                   onClick={() => void doDelete()}
                   disabled={deleting}
                 >
@@ -774,6 +956,15 @@ function UsersSection() {
     </section>
   );
 }
+
+type TemplateId = "a5-200" | "a5-140" | "a5-100";
+type Template = { id: TemplateId; label: string; pages: number };
+
+const TEMPLATE_OPTIONS: Template[] = [
+  { id: "a5-200", label: "Powerbook A5 - 200 Seiten", pages: 200 },
+  { id: "a5-140", label: "Powerbook A5 - 140 Seiten", pages: 140 },
+  { id: "a5-100", label: "Powerbook A5 - 100 Seiten", pages: 100 },
+];
 
 /* ======================= Books Section (nur relevante Klassen tweaked) ======================= */
 /* ======================= Books Section (Details / Rename / Delete) ======================= */
@@ -798,6 +989,23 @@ function BooksSection() {
   const [delTarget, setDelTarget] = useState<BookRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const [template, setTemplate] = useState<TemplateId>("a5-200"); // <- Auswahl gespeichert
+  const [createPowerbookDropdownOpen, setCreatePowerbookDropdownOpen] =
+    useState(false);
+  const [creating, setCreating] = useState(false);
+
+  const router = useRouter();
+
+  type GenState =
+    | { status: "idle" }
+    | { status: "working" }
+    | { status: "done"; token: string; url: string; dataUrl?: string }
+    | { status: "error"; message: string };
+
+  // ...innerhalb BooksSection():
+  const [qrState, setQrState] = useState<GenState>({ status: "idle" });
+  const [lastNotebookId, setLastNotebookId] = useState<string>("");
+
   // ── Laden
   async function loadBooks() {
     try {
@@ -806,7 +1014,9 @@ function BooksSection() {
       const res = await fetch(BOOKS_API, { cache: "no-store" });
       if (!res.ok) throw new Error(`HTTP_${res.status}`);
       const data = await res.json();
-      const list: BookRow[] = Array.isArray(data) ? data : (data?.notebooks ?? []);
+      const list: BookRow[] = Array.isArray(data)
+        ? data
+        : data?.notebooks ?? [];
       setRows(list);
     } catch {
       setErr("Konnte Notizbücher nicht laden.");
@@ -859,7 +1069,9 @@ function BooksSection() {
     setDetailsLoading(true);
     setDetailsOpen(true);
     try {
-      const res = await fetch(`/api/admin/notebooks/${b._id}`, { cache: "no-store" });
+      const res = await fetch(`/api/admin/notebooks/${b._id}`, {
+        cache: "no-store",
+      });
       if (!res.ok) throw new Error("GET detail failed");
       const data = await res.json();
       setDetailsData(data);
@@ -878,7 +1090,9 @@ function BooksSection() {
     if (!delTarget?._id) return;
     try {
       setDeleting(true);
-      const res = await fetch(`/api/admin/notebooks/${delTarget._id}`, { method: "DELETE" });
+      const res = await fetch(`/api/admin/notebooks/${delTarget._id}`, {
+        method: "DELETE",
+      });
       if (!res.ok) throw new Error("DELETE failed");
       setDelOpen(false);
       setDelTarget(null);
@@ -887,6 +1101,46 @@ function BooksSection() {
       alert("Löschen fehlgeschlagen.");
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function createNotebook(title: string, pages: number) {
+    setCreating(true);
+    setQrState({ status: "working" });
+    try {
+      const res = await fetch("/api/notebooks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title, noOwner: true, pages }), // 👈 Seiten mitsenden
+      });
+      if (!res.ok) throw new Error("Create failed");
+
+      const json = await res.json();
+      const nbId = String(json?.item?.id || "");
+      setLastNotebookId(nbId);
+
+      const qr = json?.qr as { token?: string; url?: string } | null;
+
+      if (qr?.token && qr?.url) {
+        const dataUrl = await QRCode.toDataURL(String(qr.url), {
+          errorCorrectionLevel: "M",
+          margin: 2,
+          scale: 6,
+        });
+        setQrState({ status: "done", token: qr.token, url: qr.url, dataUrl });
+      } else {
+        setQrState({
+          status: "error",
+          message: "QR konnte nicht erzeugt werden.",
+        });
+      }
+
+      await loadBooks();
+    } catch (e) {
+      console.error(e);
+      setQrState({ status: "error", message: "Erstellung fehlgeschlagen." });
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -899,23 +1153,124 @@ function BooksSection() {
         </p>
       </div>
 
-      <div className="mb-4">
+      <div>
+        {/* Powerbook Informationen eingeben wie z.b. Art des Powerbooks im Dropdown */}
+      </div>
+
+      <div className="mb-4 flex flex-row items-center gap-3">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Suchen (Titel, E-Mail)…"
           className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-400 focus:border-gray-400 focus:ring-2 focus:ring-gray-900/10"
         />
+
+        <Button onClick={() => setCreatePowerbookDropdownOpen(true)}>
+          Neues Powerbook erstellen
+        </Button>
       </div>
 
+      {createPowerbookDropdownOpen && (
+        <div className="w-full mb-4">
+          <DropDown
+            value={template}
+            onValueChange={(v: TemplateId) => setTemplate(v)}
+          >
+            <SelectTrigger className="min-w-[220px] w-full rounded-xl border-gray-300 py-2">
+              <SelectValue placeholder="Vorlage wählen" />
+            </SelectTrigger>
+            <SelectContent>
+              {TEMPLATE_OPTIONS.map((opt) => (
+                <SelectItem key={opt.id} value={opt.id}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </DropDown>
+          <div>
+            <Button
+              className="mt-2 w-full"
+              onClick={() => {
+                const t = TEMPLATE_OPTIONS.find((x) => x.id === template);
+                createNotebook(t?.label || "Neues Powerbook", t?.pages ?? 0);
+                setCreatePowerbookDropdownOpen(false);
+              }}
+            >
+              Powerbook erstellen
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {qrState.status === "done" && (
+        <section className="mb-6 rounded-2xl border bg-white p-4">
+          <div className="text-sm">
+            <div className="mb-1">
+              <span className="font-medium">Notebook ID:</span>{" "}
+              <code className="break-all">{lastNotebookId || "—"}</code>
+            </div>
+            <div className="mb-1">
+              <span className="font-medium">Token:</span>{" "}
+              <code className="break-all">{qrState.token}</code>
+            </div>
+            <div className="mb-3">
+              <span className="font-medium">URL:</span>{" "}
+              <a
+                href={qrState.url}
+                className="text-blue-600 underline break-all"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {qrState.url}
+              </a>
+            </div>
+
+            {qrState.dataUrl && (
+              <div className="flex items-start gap-6">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={qrState.dataUrl}
+                  alt="QR Code"
+                  className="h-48 w-48 rounded-lg border bg-white"
+                />
+                <div className="space-y-2">
+                  <a
+                    href={qrState.dataUrl}
+                    download={`powerbook-${lastNotebookId || "qr"}.png`}
+                    className="inline-block rounded-xl bg-gray-900 px-3 py-2 text-white hover:bg-black"
+                  >
+                    PNG herunterladen
+                  </a>
+                  <p className="text-xs text-gray-500">
+                    Scannen führt zu{" "}
+                    <span className="font-mono">{qrState.url}</span>
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {qrState.status === "error" && (
+        <div className="mb-6 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {qrState.message}
+        </div>
+      )}
+
       {err ? (
-        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{err}</div>
+        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {err}
+        </div>
       ) : null}
 
       {loading ? (
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-12 w-full animate-pulse rounded-xl bg-gray-100" />
+            <div
+              key={i}
+              className="h-12 w-full animate-pulse rounded-xl bg-gray-100"
+            />
           ))}
         </div>
       ) : (
@@ -924,7 +1279,9 @@ function BooksSection() {
             <thead className="bg-gray-50 text-gray-600">
               <tr>
                 <th className="px-4 py-3 text-left w-[28%]">Titel</th>
-                <th className="px-4 py-3 text-left w-[32%]">Besitzer (E-Mail)</th>
+                <th className="px-4 py-3 text-left w-[32%]">
+                  Besitzer (E-Mail)
+                </th>
                 <th className="px-4 py-3 text-left w-[10%]">Seiten</th>
                 <th className="px-4 py-3 text-left w-[10%]">Scans</th>
                 <th className="px-4 py-3 text-left w-[14%]">Angelegt</th>
@@ -934,7 +1291,10 @@ function BooksSection() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-gray-500">
+                  <td
+                    colSpan={6}
+                    className="px-4 py-6 text-center text-gray-500"
+                  >
                     Keine Notizbücher gefunden.
                   </td>
                 </tr>
@@ -947,7 +1307,10 @@ function BooksSection() {
                     <td className="px-4 py-3">{b.scannedPages}</td>
                     <td className="px-4 py-3">{formatDate(b.createdAt)}</td>
                     <td className="px-4 py-3">
-                      <Menu as="div" className="relative inline-block text-left">
+                      <Menu
+                        as="div"
+                        className="relative inline-block text-left"
+                      >
                         <Menu.Button className="rounded-md p-1 hover:bg-gray-50">
                           <EllipsisHorizontalIcon className="h-5 w-5 text-gray-600" />
                         </Menu.Button>
@@ -964,7 +1327,10 @@ function BooksSection() {
                             <Menu.Item>
                               {({ active }) => (
                                 <button
-                                  className={cx("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left", active && "bg-gray-50")}
+                                  className={cx(
+                                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left",
+                                    active && "bg-gray-50"
+                                  )}
                                   onClick={() => openRename(b)}
                                 >
                                   <PencilIcon className="h-4 w-4" /> Umbenennen
@@ -974,10 +1340,14 @@ function BooksSection() {
                             <Menu.Item>
                               {({ active }) => (
                                 <button
-                                  className={cx("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left", active && "bg-gray-50")}
+                                  className={cx(
+                                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left",
+                                    active && "bg-gray-50"
+                                  )}
                                   onClick={() => void openDetails(b)}
                                 >
-                                  <InformationCircleIcon className="h-4 w-4" /> Details
+                                  <InformationCircleIcon className="h-4 w-4" />{" "}
+                                  Details
                                 </button>
                               )}
                             </Menu.Item>
@@ -985,7 +1355,10 @@ function BooksSection() {
                             <Menu.Item>
                               {({ active }) => (
                                 <button
-                                  className={cx("flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-red-600", active && "bg-red-50")}
+                                  className={cx(
+                                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-red-600",
+                                    active && "bg-red-50"
+                                  )}
                                   onClick={() => openDelete(b)}
                                 >
                                   <TrashIcon className="h-4 w-4" /> Löschen
@@ -1010,7 +1383,9 @@ function BooksSection() {
           <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
             <Dialog.Panel className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
-              <Dialog.Title className="text-base font-semibold">Powerbook umbenennen</Dialog.Title>
+              <Dialog.Title className="text-base font-semibold">
+                Powerbook umbenennen
+              </Dialog.Title>
               <div className="mt-3 space-y-3">
                 <label className="block text-sm">
                   <span className="text-gray-700">Titel</span>
@@ -1022,11 +1397,18 @@ function BooksSection() {
                 </label>
               </div>
               <div className="mt-5 flex items-center justify-end gap-2">
-                <button className="rounded px-3 py-1.5 hover:bg-gray-50" onClick={() => setRenameOpen(false)} disabled={renaming}>
+                <button
+                  className="rounded px-3 py-1.5 hover:bg-gray-50"
+                  onClick={() => setRenameOpen(false)}
+                  disabled={renaming}
+                >
                   Abbrechen
                 </button>
                 <button
-                  className={cx("rounded bg-black px-3 py-1.5 text-white", renaming && "opacity-60")}
+                  className={cx(
+                    "rounded bg-black px-3 py-1.5 text-white",
+                    renaming && "opacity-60"
+                  )}
                   onClick={() => void doRename()}
                   disabled={renaming}
                 >
@@ -1044,28 +1426,58 @@ function BooksSection() {
           <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
             <Dialog.Panel className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl">
-              <Dialog.Title className="text-base font-semibold">Powerbook Details</Dialog.Title>
+              <Dialog.Title className="text-base font-semibold">
+                Powerbook Details
+              </Dialog.Title>
               <div className="mt-3 text-sm">
                 {detailsLoading ? (
                   <div className="h-24 animate-pulse rounded-xl bg-gray-100" />
                 ) : detailsData?.error ? (
-                  <div className="rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-red-700">{detailsData.error}</div>
+                  <div className="rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-red-700">
+                    {detailsData.error}
+                  </div>
                 ) : detailsData ? (
                   <div className="space-y-2">
-                    <div><span className="text-gray-500">Titel:</span> <span className="font-medium">{detailsData.title}</span></div>
-                    <div><span className="text-gray-500">Besitzer:</span> {detailsData.ownerEmail}</div>
-                    <div><span className="text-gray-500">Seiten:</span> {detailsData.totalPages}</div>
-                    <div><span className="text-gray-500">Scans:</span> {detailsData.scannedPages}</div>
-                    <div><span className="text-gray-500">Geteilt mit:</span> {detailsData.sharedWithCount ?? 0}</div>
-                    <div><span className="text-gray-500">Angelegt:</span> {formatDate(detailsData.createdAt)}</div>
+                    <div>
+                      <span className="text-gray-500">Titel:</span>{" "}
+                      <span className="font-medium">{detailsData.title}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Besitzer:</span>{" "}
+                      {detailsData.ownerEmail}
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Seiten:</span>{" "}
+                      {detailsData.totalPages}
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Scans:</span>{" "}
+                      {detailsData.scannedPages}
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Geteilt mit:</span>{" "}
+                      {detailsData.sharedWithCount ?? 0}
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Angelegt:</span>{" "}
+                      {formatDate(detailsData.createdAt)}
+                    </div>
                     {detailsData.projectId ? (
-                      <div><span className="text-gray-500">Projekt:</span> <span className="font-mono">{detailsData.projectId}</span></div>
+                      <div>
+                        <span className="text-gray-500">Projekt:</span>{" "}
+                        <span className="font-mono">
+                          {detailsData.projectId}
+                        </span>
+                      </div>
                     ) : null}
                   </div>
                 ) : null}
               </div>
               <div className="mt-5 flex items-center justify-end">
-                <button className="rounded px-3 py-1.5 hover:bg-gray-50" onClick={() => setDetailsOpen(false)}>
+                <button
+                  className="rounded px-3 py-1.5 hover:bg-gray-50"
+                  onClick={() => setDetailsOpen(false)}
+                >
                   Schließen
                 </button>
               </div>
@@ -1080,17 +1492,28 @@ function BooksSection() {
           <div className="fixed inset-0 bg-black/40" aria-hidden="true" />
           <div className="fixed inset-0 flex items-center justify-center p-4">
             <Dialog.Panel className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
-              <Dialog.Title className="text-base font-semibold text-red-600">Powerbook löschen</Dialog.Title>
+              <Dialog.Title className="text-base font-semibold text-red-600">
+                Powerbook löschen
+              </Dialog.Title>
               <p className="mt-2 text-sm text-gray-600">
-                Möchtest du <span className="font-medium">{delTarget?.title}</span> wirklich löschen?
-                Zugehörige Seiten/Scans werden entfernt. Diese Aktion kann nicht rückgängig gemacht werden.
+                Möchtest du{" "}
+                <span className="font-medium">{delTarget?.title}</span> wirklich
+                löschen? Zugehörige Seiten/Scans werden entfernt. Diese Aktion
+                kann nicht rückgängig gemacht werden.
               </p>
               <div className="mt-5 flex items-center justify-end gap-2">
-                <button className="rounded px-3 py-1.5 hover:bg-gray-50" onClick={() => setDelOpen(false)} disabled={deleting}>
+                <button
+                  className="rounded px-3 py-1.5 hover:bg-gray-50"
+                  onClick={() => setDelOpen(false)}
+                  disabled={deleting}
+                >
                   Abbrechen
                 </button>
                 <button
-                  className={cx("rounded bg-red-600 px-3 py-1.5 text-white", deleting && "opacity-60")}
+                  className={cx(
+                    "rounded bg-red-600 px-3 py-1.5 text-white",
+                    deleting && "opacity-60"
+                  )}
                   onClick={() => void doDelete()}
                   disabled={deleting}
                 >
@@ -1105,7 +1528,6 @@ function BooksSection() {
   );
 }
 
-
 /* ======================= Admin Page Client ======================= */
 export default function AdminPageClient() {
   const [notebookId, setNotebookId] = useState("");
@@ -1116,12 +1538,17 @@ export default function AdminPageClient() {
     e?.preventDefault();
     const id = notebookId.trim();
     if (!id) {
-      setState({ status: "error", message: "Bitte eine Notebook ID eingeben." });
+      setState({
+        status: "error",
+        message: "Bitte eine Notebook ID eingeben.",
+      });
       return;
     }
     try {
       setState({ status: "working" });
-      const res = await fetch(`/api/qr/single?notebookId=${encodeURIComponent(id)}`);
+      const res = await fetch(
+        `/api/qr/single?notebookId=${encodeURIComponent(id)}`
+      );
       const data: QrApiOk | QrApiErr = await res.json();
       if (!res.ok || !("token" in data) || !("url" in data)) {
         const msg = "error" in data ? data.error : `HTTP_${res.status}`;
@@ -1146,7 +1573,9 @@ export default function AdminPageClient() {
       {view === "qr" && (
         <main className="mx-auto max-w-2xl px-4 py-10">
           <h1 className="text-2xl font-semibold">QR-Code erzeugen</h1>
-          <p className="mt-1 text-sm text-gray-500">Erzeuge einen einmaligen Claim-Link für ein Notizbuch.</p>
+          <p className="mt-1 text-sm text-gray-500">
+            Erzeuge einen einmaligen Claim-Link für ein Notizbuch.
+          </p>
 
           <form
             className="mt-6 space-y-4"
@@ -1170,7 +1599,9 @@ export default function AdminPageClient() {
                 type="button"
                 onClick={handleGenerate}
                 disabled={disabled}
-                className={`rounded-xl px-4 py-2 text-white ${disabled ? "bg-gray-400" : "bg-gray-900 hover:bg-black"}`}
+                className={`rounded-xl px-4 py-2 text-white ${
+                  disabled ? "bg-gray-400" : "bg-gray-900 hover:bg-black"
+                }`}
               >
                 {disabled ? "Erzeuge…" : "QR-Code generieren"}
               </button>
@@ -1182,18 +1613,28 @@ export default function AdminPageClient() {
               <div className="rounded-xl border p-4">
                 <div className="text-sm">
                   <div className="mb-1">
-                    <span className="font-medium">Token:</span> <code className="break-all">{state.token}</code>
+                    <span className="font-medium">Token:</span>{" "}
+                    <code className="break-all">{state.token}</code>
                   </div>
                   <div className="mb-3">
                     <span className="font-medium">URL:</span>{" "}
-                    <a href={state.url} className="text-blue-600 underline break-all" target="_blank" rel="noreferrer">
+                    <a
+                      href={state.url}
+                      className="text-blue-600 underline break-all"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
                       {state.url}
                     </a>
                   </div>
                   {state.dataUrl && (
                     <div className="flex items-start gap-6">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={state.dataUrl} alt="QR Code" className="h-48 w-48 rounded-lg border bg-white" />
+                      <img
+                        src={state.dataUrl}
+                        alt="QR Code"
+                        className="h-48 w-48 rounded-lg border bg-white"
+                      />
                       <div className="space-y-2">
                         <a
                           href={state.dataUrl}
@@ -1203,7 +1644,8 @@ export default function AdminPageClient() {
                           PNG herunterladen
                         </a>
                         <p className="text-xs text-gray-500">
-                          Scannen führt zu <span className="font-mono">{state.url}</span>
+                          Scannen führt zu{" "}
+                          <span className="font-mono">{state.url}</span>
                         </p>
                       </div>
                     </div>
@@ -1214,7 +1656,9 @@ export default function AdminPageClient() {
           )}
 
           {state.status === "error" && (
-            <div className="mt-6 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">{state.message}</div>
+            <div className="mt-6 rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {state.message}
+            </div>
           )}
         </main>
       )}

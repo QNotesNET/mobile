@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 type LeanNotebook = {
   _id: Types.ObjectId;
   title: string;
-  ownerId: Types.ObjectId;
+  ownerId?: Types.ObjectId; // ← optional, falls Model es zulässt
   createdAt?: Date;
 };
 
@@ -25,8 +25,9 @@ export async function GET() {
 
     await connectToDB();
 
+    // 🔒 Nur Notebooks mit echter Owner-ObjectId
     const nbs = await Notebook.find(
-      {},
+      { ownerId: { $exists: true, $ne: null, $type: "objectId" } },
       { title: 1, ownerId: 1, createdAt: 1 }
     )
       .sort({ createdAt: -1 })
@@ -37,7 +38,16 @@ export async function GET() {
     }
 
     const nbIds = nbs.map((n) => n._id);
-    const ownerIds = Array.from(new Set(nbs.map((n) => String(n.ownerId)))).map((id) => new Types.ObjectId(id));
+
+    // Besitzer-IDs (nur valide ObjectIds)
+    const ownerIds = Array.from(
+      new Set(
+        nbs
+          .map((n) => n.ownerId)
+          .filter((id): id is Types.ObjectId => Boolean(id))
+          .map((id) => id!.toString())
+      )
+    ).map((id) => new Types.ObjectId(id));
 
     // Seiten-Stats aggregieren
     const pageStats = await Page.aggregate([
@@ -57,10 +67,7 @@ export async function GET() {
       },
     ]);
 
-    const statsMap = new Map<
-      string,
-      { totalPages: number; scannedPages: number }
-    >();
+    const statsMap = new Map<string, { totalPages: number; scannedPages: number }>();
     for (const s of pageStats) {
       statsMap.set(String(s._id), {
         totalPages: Number(s.totalPages ?? 0),
@@ -73,6 +80,7 @@ export async function GET() {
       { _id: { $in: ownerIds } },
       { email: 1 }
     ).lean<{ _id: Types.ObjectId; email: string }[]>();
+
     const ownerMap = new Map<string, string>();
     for (const o of owners) {
       ownerMap.set(String(o._id), o.email);
@@ -83,7 +91,7 @@ export async function GET() {
       return {
         _id: String(n._id),
         title: n.title,
-        ownerId: String(n.ownerId),
+        ownerId: String(n.ownerId), // existiert sicher durch den $type-Filter
         ownerEmail: ownerMap.get(String(n.ownerId)) ?? "—",
         totalPages: s.totalPages,
         scannedPages: s.scannedPages,

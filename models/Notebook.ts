@@ -2,7 +2,7 @@ import mongoose, { Schema, InferSchemaType, Types } from "mongoose";
 
 const NotebookSchema = new Schema({
   title: { type: String, required: true, trim: true },
-  ownerId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+  ownerId: { type: Schema.Types.ObjectId, ref: "User", required: false, index: true },
   sharedWith: [{ type: Schema.Types.ObjectId, ref: "User" }],
   projectId: { type: Schema.Types.ObjectId, ref: "Project", default: null, index: true },
 
