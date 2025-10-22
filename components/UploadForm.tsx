@@ -4,6 +4,15 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Check } from "lucide-react";
 import Link from "next/link";
+// oben bei den Imports ergänzen:
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { Calendar, CheckSquare, MessageSquare } from "lucide-react";
 
 type ItemType = "CAL" | "WA" | "TODO";
 type ItemStatus = "pending" | "accepted" | "rejected" | "editing";
@@ -129,6 +138,10 @@ export default function UploadForm({
 
   const [pagesContext, setPagesContext] = useState<object | null>(null);
 
+  // --- Neu: State für manuelles Hinzufügen einer Aktion ---
+  const [newType, setNewType] = useState<ItemType>("TODO");
+  const [newContent, setNewContent] = useState<string>("");
+
   const r = useRouter();
   useEffect(() => {
     if (!pageId) {
@@ -219,6 +232,7 @@ export default function UploadForm({
 
         if (job.status === "succeeded") {
           setImageUrl(job.imageUrl || "");
+          // Text serverseitig schon bereinigt – wir erlauben nachträgliches Editieren
           setText(job.text || "");
           setItems(buildItemsFromJob(job));
           setScanning(false);
@@ -477,6 +491,23 @@ export default function UploadForm({
     );
   }
 
+  // --- Neu: manuellen Eintrag hinzufügen ---
+  function addManualItem() {
+    const trimmed = (newContent || "").trim();
+    if (!trimmed) return;
+    setItems((prev) => [
+      ...prev,
+      {
+        id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        type: newType,
+        content: trimmed,
+        status: "pending",
+        editValue: trimmed,
+      },
+    ]);
+    setNewContent("");
+  }
+
   // globaler Speichern/Bestätigen-Button unten:
   async function saveAll() {
     setSubmitting(true);
@@ -607,15 +638,87 @@ export default function UploadForm({
 
       {/* Vorschau & Ergebnisse */}
       {imageUrl && (
-        <div className="mt-2 w-full flex flex-col lg:flex-row lg:space-x-4">
-          <img
-            src={imageUrl}
-            alt="Upload preview"
-            className="rounded border lg:w-1/2 w-full"
-          />
+        <div className="mt-2 w-full grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          {/* Bild */}
+          <div className="w-full">
+            <img
+              src={imageUrl}
+              alt="Upload preview"
+              className="rounded border w-full h-auto"
+            />
+          </div>
 
           {/* Aktion-Cards */}
-          <div className="flex flex-col lg:w-1/2 w-full">
+          <div className="flex flex-col w-full">
+            {/* Neu: manuellen Eintrag hinzufügen */}
+            {!pagesContext && (
+              <div className="mt-2 mb-2 rounded-lg border p-3">
+                <div className="text-sm font-semibold mb-2">
+                  Aktion hinzufügen
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                  {/* Type Dropdown */}
+                  <div className="sm:w-40 w-full">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="w-full justify-between">
+                          {newType === "TODO" && (
+                            <span className="inline-flex items-center gap-2">
+                              <CheckSquare className="h-4 w-4" /> Aufgabe
+                            </span>
+                          )}
+                          {newType === "CAL" && (
+                            <span className="inline-flex items-center gap-2">
+                              <Calendar className="h-4 w-4" /> Kalendar
+                            </span>
+                          )}
+                          {newType === "WA" && (
+                            <span className="inline-flex items-center gap-2">
+                              <MessageSquare className="h-4 w-4" /> WhatsApp
+                            </span>
+                          )}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="w-40">
+                        <DropdownMenuItem onClick={() => setNewType("TODO")}>
+                          <CheckSquare className="mr-2 h-4 w-4" />
+                          <span>Aufgabe</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setNewType("CAL")}>
+                          <Calendar className="mr-2 h-4 w-4" />
+                          <span>Kalendar</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setNewType("WA")}>
+                          <MessageSquare className="mr-2 h-4 w-4" />
+                          <span>WhatsApp</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  {/* Textfeld + Hinzufügen */}
+                  <input
+                    type="text"
+                    className="flex-1 min-w-0 border rounded px-2 py-2 text-sm"
+                    placeholder="Beschreibung eingeben…"
+                    value={newContent}
+                    onChange={(e) => setNewContent(e.target.value)}
+                    disabled={submitting}
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="px-3 py-2 cursor-pointer w-full sm:w-auto"
+                    onClick={addManualItem}
+                    disabled={submitting || !newContent.trim()}
+                  >
+                    Hinzufügen
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {!!items.length && !pagesContext && (
               <div className="mt-3 grid gap-3">
                 <p className="lg:text-lg font-semibold text-sm text-center lg:text-left my-4 lg:my-0">
@@ -631,7 +734,7 @@ export default function UploadForm({
                         <div className="text-sm font-semibold">
                           {typeLabel(it.type)}
                         </div>
-                        <div className="text-sm mt-1">{it.content}</div>
+                        <div className="text-sm mt-1 break-words">{it.content}</div>
 
                         {/* Status-Badge */}
                         {!pagesContext && (
@@ -784,7 +887,14 @@ export default function UploadForm({
               {!scanning && text && (
                 <div>
                   <div className="font-semibold mb-1">Erkannter Text:</div>
-                  <pre className="whitespace-pre-wrap break-words">{text}</pre>
+                  {/* Neu: Text vor dem Absenden bearbeiten */}
+                  <textarea
+                    className="w-full rounded-lg border p-2 text-sm disabled:bg-gray-100"
+                    rows={6}
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    disabled={submitting}
+                  />
                 </div>
               )}
             </div>
