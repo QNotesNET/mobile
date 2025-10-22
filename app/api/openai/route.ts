@@ -58,8 +58,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       text: response.output_text ?? "",
-      user: "WolfgangP",
-      domain: "nexoro.net",
+      user: "",
+      domain: "",
       model: visionModel,
       detail: visionDetail,
     });
