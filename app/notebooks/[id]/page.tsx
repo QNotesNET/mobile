@@ -61,7 +61,7 @@ export default async function NotebookOverviewPage(
         <h1 className="text-2xl font-semibold">
           {nb?.title ?? "Notebook"} – Seiten
         </h1>
-        <NotebookPagesActions notebookId={notebookId} />
+        {/* <NotebookPagesActions notebookId={notebookId} /> */}
       </div>
 
       <NotebookDetailClient

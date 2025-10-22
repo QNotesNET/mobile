@@ -173,7 +173,7 @@ export default function NotebookList({
                 return (
                   <Link href={`/notebooks/${notebookId}`} key={notebookId}>
                     <li className="flex gap-3 p-4 sm:flex-row lg:items-center lg:justify-between w-full">
-                      <span className="font-medium w-full lg:w-min">
+                      <span className="font-medium w-full">
                         {n.title}
                       </span>
 

@@ -6,8 +6,11 @@ import dynamic from "next/dynamic";
 import Loader from "@/components/Loader";
 import { useRouter } from "next/navigation";
 import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
+import { UploadIcon } from "lucide-react";
 
-const DigitalNotebook = dynamic(() => import("./DigitalNotebook"), { ssr: false });
+const DigitalNotebook = dynamic(() => import("./DigitalNotebook"), {
+  ssr: false,
+});
 const TextNotebook = dynamic(() => import("./TextNotebook"), { ssr: false });
 
 type LitePage = {
@@ -119,7 +122,10 @@ export default function NotebookDetailClient({
       const { blob, dataUrl } = await downscaleImageToJpeg(file, 1600, 0.7);
 
       const form = new FormData();
-      form.append("image", new File([blob], "scan.jpg", { type: "image/jpeg" }));
+      form.append(
+        "image",
+        new File([blob], "scan.jpg", { type: "image/jpeg" })
+      );
       const resp = await fetch(
         `/api/scan/recognize-page?notebookId=${encodeURIComponent(notebookId)}`,
         { method: "POST", body: form }
@@ -133,7 +139,12 @@ export default function NotebookDetailClient({
         pageToken: string;
       };
 
-      const payload = { notebookId, pageToken, pageIndex, imageDataUrl: dataUrl };
+      const payload = {
+        notebookId,
+        pageToken,
+        pageIndex,
+        imageDataUrl: dataUrl,
+      };
       sessionStorage.setItem("scan:pending", JSON.stringify(payload));
       r.push(`/s/${pageToken}`);
       setScanOpen(false);
@@ -157,28 +168,41 @@ export default function NotebookDetailClient({
       <div className="mb-4 flex items-center gap-2">
         <button
           onClick={() => setView("list")}
-          className={`px-3 py-1.5 rounded-xl border ${view === "list" ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"}`}
+          className={`px-3 py-1.5 rounded-xl border ${
+            view === "list"
+              ? "bg-gray-900 text-white"
+              : "bg-white hover:bg-gray-50"
+          }`}
         >
           Liste
         </button>
         <button
           onClick={() => setView("digital")}
-          className={`px-3 py-1.5 rounded-xl border ${view === "digital" ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"}`}
+          className={`px-3 py-1.5 rounded-xl border ${
+            view === "digital"
+              ? "bg-gray-900 text-white"
+              : "bg-white hover:bg-gray-50"
+          }`}
         >
           Digital
         </button>
         <button
           onClick={() => setView("text")}
-          className={`px-3 py-1.5 rounded-xl border ${view === "text" ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"}`}
+          className={`px-3 py-1.5 rounded-xl border ${
+            view === "text"
+              ? "bg-gray-900 text-white"
+              : "bg-white hover:bg-gray-50"
+          }`}
         >
           Textdarstellung
         </button>
 
         <button
           onClick={() => setScanOpen(true)}
-          className="ml-auto inline-flex items-center rounded-xl border px-3 py-1.5 hover:bg-gray-50"
+          className="ml-auto items-center rounded-xl border px-3 py-1.5 hover:bg-gray-50 hidden lg:inline-flex"
         >
-          Seite scannen
+          <UploadIcon className="mr-2 h-4 w-4" />
+          Seite hochladen
         </button>
       </div>
 
@@ -186,9 +210,10 @@ export default function NotebookDetailClient({
       {scanOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
-            <h3 className="text-lg font-semibold">Seite scannen</h3>
+            <h3 className="text-lg font-semibold">Seite hochladen</h3>
             <p className="mt-1 text-sm text-gray-600">
-              Foto aufnehmen oder Bild aus der Galerie wählen. Die Seitennummer wird erkannt und du wirst automatisch zur richtigen Seite weitergeleitet.
+              Lade ein Foto einer Notizseite hoch, um den Text erkennen zu
+              lassen und eine neue Seite in deinem Notebook zu hinterlegen.
             </p>
 
             <div className="mt-4">
@@ -229,16 +254,22 @@ export default function NotebookDetailClient({
             <thead className="bg-gray-50 text-gray-600">
               <tr>
                 <th className="px-4 py-3 text-left w-24">Seite</th>
-                <th className="px-4 py-3 text-left">Token</th>
+                <th className="px-4 py-3 text-left hidden lg:block">Token</th>
                 <th className="px-4 py-3 text-left w-40">Status</th>
-                <th className="px-4 py-3 text-left w-[460px]">Aktionen</th>
+                <th className="px-4 py-3 text-right w-full hidden lg:block">
+                  Aktionen
+                </th>
+                <th className="px-4 py-3 text-left w-[460px] lg:hidden">
+                  Herunterladen
+                </th>
               </tr>
             </thead>
             <tbody>
               {pages.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-4 py-6 text-gray-500">
-                    Noch keine Seiten vorhanden. Erzeuge neue Seiten über den Button oben rechts.
+                    Noch keine Seiten vorhanden. Erzeuge neue Seiten über den
+                    Button oben rechts.
                   </td>
                 </tr>
               ) : (
@@ -248,74 +279,100 @@ export default function NotebookDetailClient({
                   const pageIdForExport = p.pageToken;
 
                   return (
-                    <tr key={pageIdxStr} className="border-t">
-                      <td className="px-4 py-3 font-medium">#{pageIdxStr}</td>
-                      <td className="px-4 py-3 font-mono">{p.pageToken}</td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={
-                            "inline-flex items-center rounded-full px-2 py-0.5 text-xs " +
-                            (scanned ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600")
-                          }
-                        >
-                          {scanned ? "gescannt" : "leer"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 flex justify-end">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {scanned && (
-                            <a
-                              href={`/api/pages/${pageIdForExport}/export?format=png`}
-                              className="rounded border px-3 py-1 hover:bg-gray-50 md:hidden"
-                            >
-                              <ArrowDownTrayIcon className="h-4 w-4 text-gray-800" />
-                            </a>
-                          )}
-
-                          <Link
-                            href={`/s/${p.pageToken}`}
-                            className="rounded bg-black px-3 py-1 text-white hover:bg-black/90"
+                    <>
+                      <tr
+                        key={pageIdxStr}
+                        className="border-t"
+                        onClick={(e) => {
+                          // Nur Link-Klicks durchreichen
+                          const target = e.target as HTMLElement;
+                          if (target.tagName.toLowerCase() === "a") return;
+                          window.location.href = `/s/${p.pageToken}`;
+                        }}
+                      >
+                        <td className="px-4 py-3 font-medium w-full lg:w-min">
+                          Seite {pageIdxStr}
+                        </td>
+                        <td className="px-4 py-3 font-mono hidden lg:block">
+                          {p.pageToken}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={
+                              "inline-flex items-center rounded-full px-2 py-0.5 text-xs " +
+                              (scanned
+                                ? "bg-green-100 text-green-700"
+                                : "bg-gray-100 text-gray-600")
+                            }
                           >
-                            Öffnen
-                          </Link>
-
-                          {scanned ? (
-                            <div className="hidden md:flex gap-x-2">
-                              <a
-                                href={`/api/pages/${pageIdForExport}/export?format=pdf`}
-                                className="rounded border px-3 py-1 hover:bg-gray-50"
-                              >
-                                PDF
-                              </a>
-                              <a
-                                href={`/api/pages/${pageIdForExport}/export?format=jpg`}
-                                className="rounded border px-3 py-1 hover:bg-gray-50"
-                              >
-                                JPG
-                              </a>
+                            {scanned ? "gescannt" : "leer"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 flex justify-end">
+                          <div className="flex flex-wrap items-center gap-2">
+                            {scanned && (
                               <a
                                 href={`/api/pages/${pageIdForExport}/export?format=png`}
-                                className="rounded border px-3 py-1 hover:bg-gray-50"
+                                className="rounded border px-3 py-1 hover:bg-gray-50 md:hidden"
                               >
-                                PNG
+                                <ArrowDownTrayIcon className="h-4 w-4 text-gray-800" />
                               </a>
-                            </div>
-                          ) : (
-                            <div className="hidden md:flex gap-x-2">
-                              <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled>
-                                PDF
-                              </button>
-                              <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled>
-                                JPG
-                              </button>
-                              <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled>
-                                PNG
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                            )}
+
+                            <Link
+                              href={`/s/${p.pageToken}`}
+                              className="rounded bg-black px-3 py-1 text-white hover:bg-black/90 hidden lg:block"
+                            >
+                              Öffnen
+                            </Link>
+
+                            {scanned ? (
+                              <div className="flex gap-x-2">
+                                <a
+                                  href={`/api/pages/${pageIdForExport}/export?format=pdf`}
+                                  className="rounded border px-3 py-1 hover:bg-gray-50"
+                                >
+                                  PDF
+                                </a>
+                                <a
+                                  href={`/api/pages/${pageIdForExport}/export?format=jpg`}
+                                  className="rounded border px-3 py-1 hover:bg-gray-50"
+                                >
+                                  JPG
+                                </a>
+                                <a
+                                  href={`/api/pages/${pageIdForExport}/export?format=png`}
+                                  className="rounded border px-3 py-1 hover:bg-gray-50"
+                                >
+                                  PNG
+                                </a>
+                              </div>
+                            ) : (
+                              <div className="flex gap-x-2">
+                                <button
+                                  className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed"
+                                  disabled
+                                >
+                                  PDF
+                                </button>
+                                <button
+                                  className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed"
+                                  disabled
+                                >
+                                  JPG
+                                </button>
+                                <button
+                                  className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed"
+                                  disabled
+                                >
+                                  PNG
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    </>
                   );
                 })
               )}
