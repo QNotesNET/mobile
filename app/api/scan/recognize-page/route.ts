@@ -17,28 +17,36 @@ function toDataUrl(buf: Buffer, mime = "image/jpeg") {
   return `data:${mime};base64,${buf.toString("base64")}`;
 }
 function normalizeModelName(name?: string) {
+  // Für OpenRouter korrekten Namespace verwenden (default: openai/gpt-4o-mini)
   if (!name) return "openai/gpt-4o-mini";
   if (!name.includes("/")) return `openai/${name}`;
   return name;
 }
 
-// Cropt schmale Zonen an typischen Stellen und bereitet sie minimal vor
-async function makeFastCrops(input: Buffer): Promise<string[]> {
+const keepAliveAgent = new https.Agent({ keepAlive: true, maxSockets: 50 });
+
+/**
+ * Cropt sehr eckennahe Zonen und liefert pro Zone zwei Varianten:
+ *  - hard: binarisiert (threshold), gut bei dunkler Tinte
+ *  - soft: nur grayscale, erhält helle/blaue Tinte
+ * Zudem höhere Crop-Auflösung (width 900) für kleine Ziffern.
+ */
+async function makeFastCrops(input: Buffer): Promise<{ url: string; kind: "hard" | "soft"; corner: "br" | "bc" | "bl" | "tc" }[]> {
   const base = sharp(input).rotate(); // EXIF fix
   const meta = await base.metadata();
   const W = Math.max(1, meta.width ?? 1);
   const H = Math.max(1, meta.height ?? 1);
 
-  // Reihenfolge ist wichtig: index 0 = bottom center (höchste Priorität)
+  // Sehr eckennahe/untere Zonen (Priorität: br > bc > bl > tc)
   const zones = [
-    { x: 0.30, y: 0.86, ww: 0.40, hh: 0.12 }, // [0] bottom center
-    { x: 0.00, y: 0.86, ww: 0.25, hh: 0.14 }, // [1] bottom left
-    { x: 0.75, y: 0.86, ww: 0.25, hh: 0.14 }, // [2] bottom right
-    { x: 0.35, y: 0.00, ww: 0.30, hh: 0.12 }, // [3] top center
-  ];
+    { id: "br", x: 0.84, y: 0.88, ww: 0.16, hh: 0.12 }, // bottom-right
+    { id: "bc", x: 0.35, y: 0.88, ww: 0.30, hh: 0.12 }, // bottom-center
+    { id: "bl", x: 0.00, y: 0.88, ww: 0.16, hh: 0.12 }, // bottom-left
+    { id: "tc", x: 0.35, y: 0.00, ww: 0.30, hh: 0.12 }, // top-center
+  ] as const;
 
-  const dataUrls: string[] = [];
-  const MIN_PX = 8;
+  const out: { url: string; kind: "hard" | "soft"; corner: "br" | "bc" | "bl" | "tc" }[] = [];
+  const MIN_PX = 12;
 
   for (const z of zones) {
     let left = Math.floor(W * z.x);
@@ -48,49 +56,61 @@ async function makeFastCrops(input: Buffer): Promise<string[]> {
 
     if (left < 0) left = 0;
     if (top < 0) top = 0;
-    if (width < MIN_PX) width = MIN_PX;
-    if (height < MIN_PX) height = MIN_PX;
-
     if (left + width > W) width = W - left;
     if (top + height > H) height = H - top;
-
     if (width < MIN_PX || height < MIN_PX) continue;
 
+    // Variante A: hard (binarisiert)
     try {
-      const buf = await base
+      const hard = await base
         .extract({ left, top, width, height })
-        .resize({ width: 600 })
+        .resize({ width: 900 })
         .grayscale()
-        .threshold(180)
-        .jpeg({ quality: 72, mozjpeg: true })
+        .threshold(150) // etwas sanfter als 180 → blaue Tinte bleibt eher sichtbar
+        .jpeg({ quality: 74, mozjpeg: true })
         .toBuffer();
+      out.push({ url: toDataUrl(hard, "image/jpeg"), kind: "hard", corner: z.id });
+    } catch {}
 
-      dataUrls.push(toDataUrl(buf, "image/jpeg"));
-    } catch {
-      continue;
-    }
+    // Variante B: soft (nur grayscale)
+    try {
+      const soft = await base
+        .extract({ left, top, width, height })
+        .resize({ width: 900 })
+        .grayscale()
+        .jpeg({ quality: 78, mozjpeg: true })
+        .toBuffer();
+      out.push({ url: toDataUrl(soft, "image/jpeg"), kind: "soft", corner: z.id });
+    } catch {}
   }
 
-  if (dataUrls.length === 0) {
+  // Fallback: kleines Vollbild (soft)
+  if (out.length === 0) {
     const tiny = await base
-      .resize({ width: 900 })
+      .resize({ width: 1100 })
       .grayscale()
-      .threshold(180)
-      .jpeg({ quality: 72, mozjpeg: true })
+      .jpeg({ quality: 78, mozjpeg: true })
       .toBuffer();
-    dataUrls.push(toDataUrl(tiny, "image/jpeg"));
+    out.push({ url: toDataUrl(tiny, "image/jpeg"), kind: "soft", corner: "bc" });
   }
 
-  return dataUrls;
+  // Sortierung nach Ecke (Priorität) und soft vor hard (für blaue Stifte)
+  const orderCorner: Record<string, number> = { br: 0, bc: 1, bl: 2, tc: 3 };
+  const orderKind: Record<string, number> = { soft: 0, hard: 1 };
+  out.sort((a, b) => {
+    const oc = orderCorner[a.corner] - orderCorner[b.corner];
+    return oc !== 0 ? oc : orderKind[a.kind] - orderKind[b.kind];
+  });
+
+  return out;
 }
 
-const keepAliveAgent = new https.Agent({ keepAlive: true, maxSockets: 50 });
-
-// Ein Crop -> JSON-only Abfrage: {"n": 12} oder {"n": null}
+/** Ein einzelner Crop -> JSON-only Abfrage { "n": <digits> } | { "n": null } */
 async function detectFromCrop(
   client: OpenAI,
   model: string,
   cropUrl: string,
+  detail: "low" | "high",
   timeoutMs = 800
 ): Promise<number | null> {
   const messages: any = [
@@ -105,10 +125,7 @@ async function detectFromCrop(
             "If no page number is visible, return {\"n\": null}.\n" +
             "Do NOT guess. Digits only. No other fields.",
         },
-        {
-          type: "image_url",
-          image_url: { url: cropUrl, detail: "low" },
-        },
+        { type: "image_url", image_url: { url: cropUrl, detail } },
       ],
     },
   ];
@@ -127,15 +144,19 @@ async function detectFromCrop(
       signal: ac.signal,
     });
     const txt = resp.choices?.[0]?.message?.content ?? "{}";
-    const parsed = JSON.parse(txt);
-    const n = parsed?.n;
+    let n: unknown = null;
+    try {
+      const parsed = JSON.parse(txt);
+      n = parsed?.n;
+    } catch {
+      // falls response_format ignoriert wurde: Regex-Fallback
+      const m = String(txt).match(/\b([1-9][0-9]{0,2})\b/);
+      if (m) n = Number(m[1]);
+    }
     if (typeof n === "number" && Number.isFinite(n) && n >= 1 && n <= 999) {
       return Math.trunc(n);
     }
-    if (n === null) return null;
-    // Fallback-Parser, falls response_format ignoriert wurde:
-    const m = String(txt).match(/\b([1-9][0-9]{0,2})\b/);
-    return m ? Number(m[1]) : null;
+    return null;
   } catch {
     return null;
   } finally {
@@ -155,7 +176,7 @@ export async function POST(req: Request) {
     }
     const notebookId = new Types.ObjectId(notebookIdRaw);
 
-    // Bild
+    // 1) Bild aus multipart
     const form = await req.formData();
     const file = form.get("image") as File | null;
     if (!file) {
@@ -163,14 +184,14 @@ export async function POST(req: Request) {
     }
     const buf = Buffer.from(await file.arrayBuffer());
 
-    // Settings/Model
+    // 2) Settings/Model
     const settings = (await getSettings().catch(() => null)) as any;
     const model = normalizeModelName(settings?.pageDetect?.model || "openai/gpt-4o-mini");
 
-    // Crops
-    const dataUrls = await makeFastCrops(buf);
+    // 3) Crops generieren
+    const crops = await makeFastCrops(buf);
 
-    // OpenRouter
+    // 4) OpenRouter Client
     const apiKey = process.env.OPENROUTER_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: "Missing OPENROUTER_API_KEY" }, { status: 500 });
@@ -185,42 +206,51 @@ export async function POST(req: Request) {
       },
     } as any);
 
-    // Parallel pro Crop (sehr schnell, keine Rates)
-    // Priorität: index 0 (bottom center) > übrige
-    const perCrop = await Promise.all(
-      dataUrls.map((u, i) => detectFromCrop(client, model, u, i === 0 ? 900 : 800))
+    // 5) Erkennung – Pass 1 (schnell): detail:"low" für alle Crops
+    const firstPass = await Promise.all(
+      crops.map((c, i) => detectFromCrop(client, model, c.url, "low", c.corner === "br" ? 900 : 800))
     );
 
-    // Mehrheitsentscheid: gleiche Zahl in >=2 Crops
+    // Voting / Priorität
     const counts = new Map<number, number>();
-    for (const n of perCrop) {
-      if (typeof n === "number") {
-        counts.set(n, (counts.get(n) ?? 0) + 1);
-      }
-    }
+    for (const n of firstPass) if (typeof n === "number") counts.set(n, (counts.get(n) ?? 0) + 1);
+
     let decided: number | null = null;
-    for (const [n, c] of counts.entries()) {
-      if (c >= 2) {
-        decided = n; break;
-      }
+    // Mehrheit (>=2 gleiche Treffer)
+    for (const [n, c] of counts.entries()) if (c >= 2) { decided = n; break; }
+
+    // Bottom-right Priorität
+    if (decided == null) {
+      const brIdx = crops.findIndex((c) => c.corner === "br");
+      if (brIdx >= 0 && typeof firstPass[brIdx] === "number") decided = firstPass[brIdx]!;
     }
-    // sonst: nimm bottom-center, wenn dort was erkannt wurde
-    if (decided == null && typeof perCrop[0] === "number") {
-      decided = perCrop[0] as number;
-    }
-    // sonst: wenn genau EINE Zahl overall erkannt wurde, nimm diese
+
+    // Single unique
     if (decided == null) {
       const only = [...counts.entries()].filter(([, c]) => c >= 1);
       if (only.length === 1) decided = only[0][0];
     }
 
+    // 6) Falls noch nix: gezielte Retries mit detail:"high" (nur relevante Crops)
+    if (decided == null) {
+      const brSoft = crops.find((c) => c.corner === "br" && c.kind === "soft");
+      if (brSoft) decided = await detectFromCrop(client, model, brSoft.url, "high", 1000);
+    }
+    if (decided == null) {
+      const brHard = crops.find((c) => c.corner === "br" && c.kind === "hard");
+      if (brHard) decided = await detectFromCrop(client, model, brHard.url, "high", 1000);
+    }
+    if (decided == null) {
+      const bcSoft = crops.find((c) => c.corner === "bc" && c.kind === "soft");
+      if (bcSoft) decided = await detectFromCrop(client, model, bcSoft.url, "high", 900);
+    }
+
     if (decided == null) {
       return NextResponse.json({ error: "Page number not detected" }, { status: 422 });
     }
-
     const pageIndex = decided;
 
-    // DB lookup (pageToken)
+    // 7) DB lookup (pageToken)
     await connectToDB();
     const page = await Page.findOne({ notebookId, pageIndex })
       .select({ pageToken: 1 })
@@ -233,12 +263,14 @@ export async function POST(req: Request) {
       );
     }
 
+    // 8) Antwort
     return NextResponse.json({
       pageIndex,
       pageToken: page.pageToken,
       model,
-      crops: dataUrls.length,
-      votes: Object.fromEntries([...counts.entries()]), // debug
+      crops: crops.length,
+      // optional debug:
+      // firstPass,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Server error";
