@@ -1,15 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
-import { Camera, Clock, FileText, ChevronRight, Settings, BookOpenIcon } from "lucide-react";
+import { Camera, Clock, FileText, ChevronRight, Settings, BookOpenIcon, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+// --- NEW: Task type for upcoming list
+type TaskRow = {
+  _id: string;
+  title: string;
+  note?: string;
+  completed: boolean;
+  dueAt?: string | null;
+  listId: string;
+};
 
 type NotebookCard = {
   id: string;
@@ -36,13 +46,66 @@ export default function DashboardClient({
   pagesTotal,
   notebooks,
 }: Props) {
-  const recent = [
-    { id: "pg_1", title: "Protokoll: Sprint Planning", notebook: "Meeting Notizen", ts: "vor 10 Min" },
-    { id: "pg_2", title: "Jour Fixe – Entscheidungen", notebook: "Meeting Notizen", ts: "vor 2 Std" },
-    { id: "pg_3", title: "Baustelle: Fundament-Skizze", notebook: "Projekt Hausbau Buchner", ts: "Gestern" },
-  ];
 
   const initials = useMemo(() => userName.slice(0, 2).toUpperCase(), [userName]);
+
+  // ---------- NEW: Upcoming tasks (next 3) ----------
+  const [upcoming, setUpcoming] = useState<TaskRow[] | null>(null);
+  const [loadingUpcoming, setLoadingUpcoming] = useState<boolean>(true);
+
+  useEffect(() => {
+    let alive = true;
+    async function load() {
+      setLoadingUpcoming(true);
+      try {
+        // Hole genügend offene Tasks; wir sortieren clientseitig nach dueAt
+        const res = await fetch(`/api/tasks?completed=false&limit=50`, { cache: "no-store" });
+        const data = await res.json();
+        const items: TaskRow[] = Array.isArray(data?.items) ? data.items : [];
+
+        const sorted = items
+          .slice()
+          .sort((a, b) => {
+            const da = a.dueAt ? new Date(a.dueAt).getTime() : Number.POSITIVE_INFINITY;
+            const db = b.dueAt ? new Date(b.dueAt).getTime() : Number.POSITIVE_INFINITY;
+            return da - db;
+          })
+          .slice(0, 3);
+
+        if (alive) setUpcoming(sorted);
+      } catch {
+        if (alive) setUpcoming([]);
+      } finally {
+        if (alive) setLoadingUpcoming(false);
+      }
+    }
+    load();
+    return () => { alive = false; };
+  }, []);
+
+  function formatDue(dueAt?: string | null) {
+    if (!dueAt) return "ohne Termin";
+    const d = new Date(dueAt);
+    const now = new Date();
+    const isSameDay =
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate();
+    const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
+    const isTomorrow =
+      d.getFullYear() === tomorrow.getFullYear() &&
+      d.getMonth() === tomorrow.getMonth() &&
+      d.getDate() === tomorrow.getDate();
+
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    if (isSameDay) return `Heute, ${hm}`;
+    if (isTomorrow) return `Morgen, ${hm}`;
+    // wenn Uhrzeit auf 00:00 -> nur Datum
+    const onlyDate = d.getHours() === 0 && d.getMinutes() === 0;
+    const dateStr = `${pad(d.getDate())}.${pad(d.getMonth() + 1)}.`;
+    return onlyDate ? dateStr : `${dateStr} ${hm}`;
+  }
 
   return (
     <TooltipProvider>
@@ -70,7 +133,7 @@ export default function DashboardClient({
         {/* Main Grid */}
         <div className="mt-6 grid gap-6 lg:grid-cols-3">
           {/* Notebooks (ECHT) */}
-          <Card className="lg:col-span-2">
+          <Card className="lg:col-span-2 mx-auto w-full max-w-[380px] sm:max-w-[560px] lg:max-w-none">
             <CardHeader className="flex items-start justify-between pb-3">
               <div>
                 <CardTitle>Deine Powerbooks</CardTitle>
@@ -103,7 +166,7 @@ export default function DashboardClient({
                             </div>
                           </div>
                         </div>
-                        <Tooltip>
+                        {/* <Tooltip>
                           <TooltipTrigger asChild>
                             <Button size="icon" variant="ghost" className="h-8 w-8" asChild>
                               <Link href={`/notebooks/${nb.id}/settings`} aria-label="Powerbook-Einstellungen">
@@ -112,7 +175,7 @@ export default function DashboardClient({
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>Powerbook-Einstellungen</TooltipContent>
-                        </Tooltip>
+                        </Tooltip> */}
                       </div>
 
                       <div className="mt-4">
@@ -130,9 +193,9 @@ export default function DashboardClient({
                         <Button asChild size="sm">
                           <Link href={`/notebooks/${nb.id}`}>Öffnen</Link>
                         </Button>
-                        <Button asChild size="sm" variant="secondary">
+                        {/* <Button asChild size="sm" variant="secondary">
                           <Link href={`/notebooks/${nb.id}/share`}>Teilen</Link>
-                        </Button>
+                        </Button> */}
                       </div>
                     </div>
                   ))}
@@ -141,31 +204,43 @@ export default function DashboardClient({
             </CardContent>
           </Card>
 
-          {/* rechts bleibt Dummy */}
-          <Card>
+          {/* Rechte Spalte: ANSTEHENDE AUFGABEN (neu) */}
+          <Card className="mx-auto w-full max-w-[380px] sm:max-w-[560px] lg:max-w-none">
             <CardHeader className="pb-3">
-              <CardTitle>Heutige Aufgaben</CardTitle>
-              <CardDescription>Das sind deine Aufgaben für den heutigen Tag</CardDescription>
+              <CardTitle>Anstehende Aufgaben</CardTitle>
+              <CardDescription>Die nächsten drei offenen Aufgaben</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {recent.map((r) => (
-                <Link
-                  key={r.id}
-                  href={`/pages/${r.id}`}
-                  className="group flex items-center gap-3 rounded-xl border p-3 hover:bg-accent"
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg border bg-background">
-                    <FileText className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">{r.title}</div>
-                    <div className="truncate text-xs text-muted-foreground">
-                      {r.notebook} • {r.ts}
+              {loadingUpcoming ? (
+                <>
+                  <div className="h-14 w-full animate-pulse rounded-xl bg-muted/60" />
+                  <div className="h-14 w-full animate-pulse rounded-xl bg-muted/60" />
+                  <div className="h-14 w-full animate-pulse rounded-xl bg-muted/60" />
+                </>
+              ) : !upcoming || upcoming.length === 0 ? (
+                <div className="rounded-xl border p-3 text-sm text-muted-foreground">
+                  Aktuell stehen keine offenen Aufgaben an.
+                </div>
+              ) : (
+                upcoming.map((t) => (
+                  <Link
+                    key={t._id}
+                    href={`/tasks`} // ggf. deeplink anpassen, falls du eine Detail-Route hast
+                    className="group flex items-center gap-3 rounded-xl border p-3 hover:bg-accent"
+                  >
+                    <div className="flex h-10 w-10 items-center justify-center rounded-lg border bg-background">
+                      <Check className="h-5 w-5 text-muted-foreground" />
                     </div>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                </Link>
-              ))}
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{t.title || "Aufgabe"}</div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        Fällig: {formatDue(t.dueAt)}
+                      </div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                  </Link>
+                ))
+              )}
             </CardContent>
           </Card>
         </div>
@@ -179,14 +254,14 @@ function MetricCard({ icon: Icon, title, value, link }: { icon: LucideIcon; titl
   return (
     <Card className="shadow-sm">
       <Link href={link}>
-      <CardContent className="flex flex-col items-center justify-center gap-2 p-4 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl border">
-          <Icon className="h-6 w-6 text-muted-foreground" />
-        </div>
-        <div className="text-base text-muted-foreground">{title}</div>
-        <div className="text-3xl font-bold leading-tight">{value}</div>
-      </CardContent>
-      </Link> 
+        <CardContent className="flex flex-col items-center justify-center gap-2 p-4 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl border">
+            <Icon className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <div className="text-base text-muted-foreground">{title}</div>
+          <div className="text-3xl font-bold leading-tight">{value}</div>
+        </CardContent>
+      </Link>
     </Card>
   );
 }
@@ -203,7 +278,7 @@ function ActionCard({
   hint?: string;
 }) {
   return (
-    <Card className="shadow-sm">
+    <Card className="shadow-sm ">
       <CardContent className="flex flex-col items-center justify-center gap-2 p-4 text-center">
         <div className="flex h-12 w-12 items-center justify-center rounded-xl border">
           <Icon className="h-6 w-6 text-muted-foreground" />

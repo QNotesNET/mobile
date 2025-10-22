@@ -1,16 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Loader from "@/components/Loader";
 import { useRouter } from "next/navigation";
 import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
 import { UploadIcon } from "lucide-react";
 
-const DigitalNotebook = dynamic(() => import("./DigitalNotebook"), {
-  ssr: false,
-});
+const DigitalNotebook = dynamic(() => import("./DigitalNotebook"), { ssr: false });
 const TextNotebook = dynamic(() => import("./TextNotebook"), { ssr: false });
 
 type LitePage = {
@@ -20,6 +18,8 @@ type LitePage = {
   id?: string;
   _id?: string;
 };
+
+type CtxStatus = "processing" | "done" | null;
 
 export default function NotebookDetailClient({
   notebookId,
@@ -31,6 +31,65 @@ export default function NotebookDetailClient({
   totalPages: number;
 }) {
   const [view, setView] = useState<"list" | "digital" | "text">("list");
+
+  // --- NEW: Pages-Context Status Map (nur für ungescannte Seiten interessant)
+  const [ctxStatus, setCtxStatus] = useState<Record<string, CtxStatus>>({});
+  useEffect(() => {
+    const abort = new AbortController();
+
+    // nur Seiten ohne Bild prüfen
+    const candidates = pages.filter((p) => (p.images?.length ?? 0) === 0);
+
+    // kleines Concurrency-Limit
+    const BATCH = 6;
+    let i = 0;
+
+    function pickStatus(raw: any): CtxStatus {
+      if (!raw) return null;
+      const d = raw.data ?? raw;
+      if (!d) return null;
+      if (typeof d.status === "string") return d.status === "processing" ? "processing" : "done";
+      if (typeof d.state === "string") return d.state === "processing" ? "processing" : "done";
+      if (typeof d.processing === "boolean") return d.processing ? "processing" : "done";
+      return null;
+    }
+
+    async function fetchOne(token: string) {
+      try {
+        const url = `/api/pages-context?notebookId=${encodeURIComponent(
+          notebookId
+        )}&pageToken=${encodeURIComponent(token)}`;
+        const res = await fetch(url, { signal: abort.signal, cache: "no-store" });
+        if (!res.ok) {
+          // 404 = kein Context -> bleibt null
+          return { token, status: null as CtxStatus };
+        }
+        const data = await res.json();
+        return { token, status: pickStatus(data) };
+      } catch {
+        return { token, status: null as CtxStatus };
+      }
+    }
+
+    async function run() {
+      const results: Array<{ token: string; status: CtxStatus }> = [];
+      while (i < candidates.length) {
+        const batch = candidates.slice(i, i + BATCH);
+        i += BATCH;
+        const chunk = await Promise.all(batch.map((p) => fetchOne(p.pageToken)));
+        results.push(...chunk);
+      }
+      setCtxStatus((prev) => {
+        const next = { ...prev };
+        for (const r of results) next[r.token] = r.status;
+        return next;
+      });
+    }
+
+    if (candidates.length) run();
+
+    return () => abort.abort();
+  }, [notebookId, pages]);
 
   // --- Scan-Modal ---
   const [scanOpen, setScanOpen] = useState(false);
@@ -122,10 +181,7 @@ export default function NotebookDetailClient({
       const { blob, dataUrl } = await downscaleImageToJpeg(file, 1600, 0.7);
 
       const form = new FormData();
-      form.append(
-        "image",
-        new File([blob], "scan.jpg", { type: "image/jpeg" })
-      );
+      form.append("image", new File([blob], "scan.jpg", { type: "image/jpeg" }));
       const resp = await fetch(
         `/api/scan/recognize-page?notebookId=${encodeURIComponent(notebookId)}`,
         { method: "POST", body: form }
@@ -139,12 +195,7 @@ export default function NotebookDetailClient({
         pageToken: string;
       };
 
-      const payload = {
-        notebookId,
-        pageToken,
-        pageIndex,
-        imageDataUrl: dataUrl,
-      };
+      const payload = { notebookId, pageToken, pageIndex, imageDataUrl: dataUrl };
       sessionStorage.setItem("scan:pending", JSON.stringify(payload));
       r.push(`/s/${pageToken}`);
       setScanOpen(false);
@@ -169,9 +220,7 @@ export default function NotebookDetailClient({
         <button
           onClick={() => setView("list")}
           className={`px-3 py-1.5 rounded-xl border ${
-            view === "list"
-              ? "bg-gray-900 text-white"
-              : "bg-white hover:bg-gray-50"
+            view === "list" ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"
           }`}
         >
           Liste
@@ -179,9 +228,7 @@ export default function NotebookDetailClient({
         <button
           onClick={() => setView("digital")}
           className={`px-3 py-1.5 rounded-xl border ${
-            view === "digital"
-              ? "bg-gray-900 text-white"
-              : "bg-white hover:bg-gray-50"
+            view === "digital" ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"
           }`}
         >
           Digital
@@ -189,9 +236,7 @@ export default function NotebookDetailClient({
         <button
           onClick={() => setView("text")}
           className={`px-3 py-1.5 rounded-xl border ${
-            view === "text"
-              ? "bg-gray-900 text-white"
-              : "bg-white hover:bg-gray-50"
+            view === "text" ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"
           }`}
         >
           Textdarstellung
@@ -212,8 +257,7 @@ export default function NotebookDetailClient({
           <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
             <h3 className="text-lg font-semibold">Seite hochladen</h3>
             <p className="mt-1 text-sm text-gray-600">
-              Lade ein Foto einer Notizseite hoch, um den Text erkennen zu
-              lassen und eine neue Seite in deinem Notebook zu hinterlegen.
+              Lade ein Foto einer Notizseite hoch, um den Text erkennen zu lassen und eine neue Seite in deinem Notebook zu hinterlegen.
             </p>
 
             <div className="mt-4">
@@ -236,11 +280,7 @@ export default function NotebookDetailClient({
               >
                 Abbrechen
               </button>
-              <button
-                className="rounded bg-black px-3 py-1.5 text-white disabled:opacity-50"
-                disabled
-                title="Bitte oben ein Bild auswählen"
-              >
+              <button className="rounded bg-black px-3 py-1.5 text-white disabled:opacity-50" disabled title="Bitte oben ein Bild auswählen">
                 {scanBusy ? "Erkenne…" : "Weiter"}
               </button>
             </div>
@@ -256,20 +296,15 @@ export default function NotebookDetailClient({
                 <th className="px-4 py-3 text-left w-24">Seite</th>
                 <th className="px-4 py-3 text-left hidden lg:block">Token</th>
                 <th className="px-4 py-3 text-left w-40">Status</th>
-                <th className="px-4 py-3 text-right w-full hidden lg:block">
-                  Aktionen
-                </th>
-                <th className="px-4 py-3 text-left w-[460px] lg:hidden">
-                  Herunterladen
-                </th>
+                <th className="px-4 py-3 text-right w-full hidden lg:block">Aktionen</th>
+                <th className="px-4 py-3 text-left w-[460px] lg:hidden">Herunterladen</th>
               </tr>
             </thead>
             <tbody>
               {pages.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-4 py-6 text-gray-500">
-                    Noch keine Seiten vorhanden. Erzeuge neue Seiten über den
-                    Button oben rechts.
+                    Noch keine Seiten vorhanden. Erzeuge neue Seiten über den Button oben rechts.
                   </td>
                 </tr>
               ) : (
@@ -278,101 +313,78 @@ export default function NotebookDetailClient({
                   const pageIdxStr = String(p.pageIndex);
                   const pageIdForExport = p.pageToken;
 
+                  // NEW: Context-Status prüfen (nur wenn nicht gescannt)
+                  const ctx = scanned ? null : ctxStatus[p.pageToken] ?? null;
+                  const isProcessing = ctx === "processing";
+
+                  // Badge-Farbe + Text
+                  const badgeClass = isProcessing
+                    ? "bg-amber-100 text-amber-800"
+                    : scanned
+                    ? "bg-green-100 text-green-700"
+                    : "bg-gray-100 text-gray-600";
+                  const badgeText = isProcessing ? "in Verarbeitung" : scanned ? "gescannt" : "leer";
+
                   return (
-                    <>
-                      <tr
-                        key={pageIdxStr}
-                        className="border-t"
-                        onClick={(e) => {
-                          // Nur Link-Klicks durchreichen
-                          const target = e.target as HTMLElement;
-                          if (target.tagName.toLowerCase() === "a") return;
-                          window.location.href = `/s/${p.pageToken}`;
-                        }}
-                      >
-                        <td className="px-4 py-3 font-medium w-full lg:w-min">
-                          Seite {pageIdxStr}
-                        </td>
-                        <td className="px-4 py-3 font-mono hidden lg:block">
-                          {p.pageToken}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={
-                              "inline-flex items-center rounded-full px-2 py-0.5 text-xs " +
-                              (scanned
-                                ? "bg-green-100 text-green-700"
-                                : "bg-gray-100 text-gray-600")
-                            }
-                          >
-                            {scanned ? "gescannt" : "leer"}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 flex justify-end">
-                          <div className="flex flex-wrap items-center gap-2">
-                            {scanned && (
-                              <a
-                                href={`/api/pages/${pageIdForExport}/export?format=png`}
-                                className="rounded border px-3 py-1 hover:bg-gray-50 md:hidden"
-                              >
-                                <ArrowDownTrayIcon className="h-4 w-4 text-gray-800" />
-                              </a>
-                            )}
-
-                            <Link
-                              href={`/s/${p.pageToken}`}
-                              className="rounded bg-black px-3 py-1 text-white hover:bg-black/90 hidden lg:block"
+                    <tr
+                      key={pageIdxStr}
+                      className="border-t"
+                      onClick={(e) => {
+                        const target = e.target as HTMLElement;
+                        if (target.tagName.toLowerCase() === "a") return;
+                        window.location.href = `/s/${p.pageToken}`;
+                      }}
+                    >
+                      <td className="px-4 py-3 font-medium w-full lg:w-min">Seite {pageIdxStr}</td>
+                      <td className="px-4 py-3 font-mono hidden lg:block">{p.pageToken}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${badgeClass}`}>
+                          {badgeText}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 flex justify-end">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {scanned && (
+                            <a
+                              href={`/api/pages/${pageIdForExport}/export?format=png`}
+                              className="rounded border px-3 py-1 hover:bg-gray-50 md:hidden"
                             >
-                              Öffnen
-                            </Link>
+                              <ArrowDownTrayIcon className="h-4 w-4 text-gray-800" />
+                            </a>
+                          )}
 
-                            {scanned ? (
-                              <div className="flex gap-x-2">
-                                <a
-                                  href={`/api/pages/${pageIdForExport}/export?format=pdf`}
-                                  className="rounded border px-3 py-1 hover:bg-gray-50"
-                                >
-                                  PDF
-                                </a>
-                                <a
-                                  href={`/api/pages/${pageIdForExport}/export?format=jpg`}
-                                  className="rounded border px-3 py-1 hover:bg-gray-50"
-                                >
-                                  JPG
-                                </a>
-                                <a
-                                  href={`/api/pages/${pageIdForExport}/export?format=png`}
-                                  className="rounded border px-3 py-1 hover:bg-gray-50"
-                                >
-                                  PNG
-                                </a>
-                              </div>
-                            ) : (
-                              <div className="flex gap-x-2">
-                                <button
-                                  className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed"
-                                  disabled
-                                >
-                                  PDF
-                                </button>
-                                <button
-                                  className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed"
-                                  disabled
-                                >
-                                  JPG
-                                </button>
-                                <button
-                                  className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed"
-                                  disabled
-                                >
-                                  PNG
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    </>
+                          <Link href={`/s/${p.pageToken}`} className="rounded bg-black px-3 py-1 text-white hover:bg-black/90 hidden lg:block">
+                            Öffnen
+                          </Link>
+
+                          {scanned ? (
+                            <div className="flex gap-x-2">
+                              <a href={`/api/pages/${pageIdForExport}/export?format=pdf`} className="rounded border px-3 py-1 hover:bg-gray-50">
+                                PDF
+                              </a>
+                              <a href={`/api/pages/${pageIdForExport}/export?format=jpg`} className="rounded border px-3 py-1 hover:bg-gray-50">
+                                JPG
+                              </a>
+                              <a href={`/api/pages/${pageIdForExport}/export?format=png`} className="rounded border px-3 py-1 hover:bg-gray-50">
+                                PNG
+                              </a>
+                            </div>
+                          ) : (
+                            <div className="flex gap-x-2">
+                              <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled>
+                                PDF
+                              </button>
+                              <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled>
+                                JPG
+                              </button>
+                              <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled>
+                                PNG
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
                   );
                 })
               )}
@@ -391,11 +403,7 @@ export default function NotebookDetailClient({
         </Suspense>
       ) : (
         <Suspense fallback={<Loader small label="Textdarstellung lädt…" />}>
-          <TextNotebook
-            totalPages={totalPages}
-            notebookId={notebookId}
-            getPageToken={(n) => getPageTokenByIndex(n)}
-          />
+          <TextNotebook totalPages={totalPages} notebookId={notebookId} getPageToken={(n) => getPageTokenByIndex(n)} />
         </Suspense>
       )}
     </div>
