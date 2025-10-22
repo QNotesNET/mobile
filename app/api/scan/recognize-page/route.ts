@@ -32,12 +32,12 @@ function normalizeModelName(name?: string) {
 
 // Cropt schmale Zonen an typischen Stellen und bereitet sie minimal vor
 async function makeFastCrops(input: Buffer): Promise<string[]> {
-  const base = sharp(input).rotate(); // EXIF-fix
+  const base = sharp(input).rotate(); // EXIF fix
   const meta = await base.metadata();
-  const w = meta.width ?? 2000;
-  const h = meta.height ?? 2800;
+  const W = Math.max(1, meta.width  ?? 1);
+  const H = Math.max(1, meta.height ?? 1);
 
-  // Zonen (relativ): bottom-center, bottom-left, bottom-right, top-center, top-left/right (optional)
+  // typische Zonen (relativ)
   const zones = [
     { x: 0.30, y: 0.86, ww: 0.40, hh: 0.12 }, // bottom center
     { x: 0.00, y: 0.86, ww: 0.25, hh: 0.14 }, // bottom left
@@ -45,26 +45,56 @@ async function makeFastCrops(input: Buffer): Promise<string[]> {
     { x: 0.35, y: 0.00, ww: 0.30, hh: 0.12 }, // top center
   ];
 
-  const crops: Buffer[] = [];
-  for (const z of zones) {
-    const rx = Math.max(0, Math.floor(w * z.x));
-    const ry = Math.max(0, Math.floor(h * z.y));
-    const rw = Math.min(w - rx, Math.floor(w * z.ww));
-    const rh = Math.min(h - ry, Math.floor(h * z.hh));
-    if (rw <= 0 || rh <= 0) continue;
+  const dataUrls: string[] = [];
+  const MIN_PX = 8; // minimale Kantenlänge nach dem Clamp
 
-    const buf = await base
-      .extract({ left: rx, top: ry, width: rw, height: rh })
-      .resize({ width: 600 }) // klein & schnell
+  for (const z of zones) {
+    // gewünschte Region
+    let left   = Math.floor(W * z.x);
+    let top    = Math.floor(H * z.y);
+    let width  = Math.floor(W * z.ww);
+    let height = Math.floor(H * z.hh);
+
+    // clamp innerhalb des Bildes
+    if (left < 0) left = 0;
+    if (top  < 0) top  = 0;
+    if (width  < MIN_PX)  width  = MIN_PX;
+    if (height < MIN_PX)  height = MIN_PX;
+
+    if (left + width  > W) width  = W - left;
+    if (top  + height > H) height = H - top;
+
+    // Falls nach Clamp etwas schief ist, skippen
+    if (width < MIN_PX || height < MIN_PX) continue;
+
+    try {
+      const buf = await base
+        .extract({ left, top, width, height })
+        .resize({ width: 600 })      // klein & schnell
+        .grayscale()
+        .threshold(180)              // Ziffern hervorheben
+        .jpeg({ quality: 72, mozjpeg: true })
+        .toBuffer();
+
+      dataUrls.push(toDataUrl(buf, "image/jpeg"));
+    } catch {
+      // einzelner Crop fehlgeschlagen → überspringen
+      continue;
+    }
+  }
+
+  // Fallback: kein gültiger Crop → 1 kleines Vollbild (sehr schnell)
+  if (dataUrls.length === 0) {
+    const tiny = await base
+      .resize({ width: 900 }) // klein halten
       .grayscale()
-      .threshold(180) // binarisieren -> Ziffern treten hervor
+      .threshold(180)
       .jpeg({ quality: 72, mozjpeg: true })
       .toBuffer();
-
-    crops.push(buf);
+    dataUrls.push(toDataUrl(tiny, "image/jpeg"));
   }
-  // Data-URLs zurückgeben (OpenRouter vision input_image via URL/Data-URL)
-  return crops.map(b => toDataUrl(b, "image/jpeg"));
+
+  return dataUrls;
 }
 
 const keepAliveAgent = new https.Agent({ keepAlive: true, maxSockets: 50 });
