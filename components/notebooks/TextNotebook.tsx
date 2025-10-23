@@ -14,6 +14,7 @@ export default function TextNotebook({
 }) {
   const [current, setCurrent] = useState(1);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const touchStartX = useRef<number | null>(null);
 
   // Cache: key = `${notebookId}:${pageToken}`
   const [cache, setCache] = useState<
@@ -90,8 +91,38 @@ export default function TextNotebook({
 
   const data = getTextFor(current);
 
+  // === 🔥 Keyboard Navigation (Desktop)
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "ArrowLeft") prevPage();
+      if (e.key === "ArrowRight") nextPage();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+
+  // === 📱 Swipe Gestures (Mobile)
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+
+    if (Math.abs(deltaX) > 80) {
+      if (deltaX > 0) prevPage(); // swipe right -> previous
+      else nextPage(); // swipe left -> next
+    }
+    touchStartX.current = null;
+  }
+
   return (
-    <div className="rounded-2xl border bg-white p-3">
+    <div
+      className="rounded-2xl border bg-white p-3 select-none"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Toolbar */}
       <div className="mb-3 flex items-center gap-2 text-sm">
         <span className="text-gray-600">
