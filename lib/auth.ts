@@ -27,11 +27,13 @@ export async function verifySessionJWT(token: string) {
 export function cookieOptions() {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax" as const,
+    secure: true, // MUSS true sein → sonst löscht iOS es
+    sameSite: "none" as const, // Nur "none" erlaubt Cross-Domain + WebView
     path: "/",
+    maxAge: 60 * 60 * 24 * 30, // 30 Tage persistente Session
   };
 }
+
 
 /**
  * Gibt ein sicheres, kompaktes User-Objekt zurück.
