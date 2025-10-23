@@ -112,6 +112,15 @@ export default function NotebookDetailClient({
     return p?.pageToken ?? null;
   }
 
+  function downloadPage(pageId: string) {
+    // iOS Safari / WebView Trick → iframe
+    const iframe = document.createElement("iframe");
+    iframe.style.display = "none";
+    iframe.src = `/api/pages/${pageId}/export?format=png`;
+    document.body.appendChild(iframe);
+    setTimeout(() => iframe.remove(), 3000);
+  }
+
   return (
     <div className="mt-6">
       <div className="mb-4 flex items-center justify-between gap-2">
@@ -214,12 +223,12 @@ export default function NotebookDetailClient({
                       </td>
                       <td className="px-4 py-3 flex justify-end">
                         {scanned && (
-                          <a
-                            href={`/api/pages/${pageIdForExport}/export?format=png`}
+                          <button
+                            onClick={() => downloadPage(pageIdForExport)}
                             className="rounded border px-3 py-1 hover:bg-gray-50 md:hidden"
                           >
                             <ArrowDownTrayIcon className="h-4 w-4 text-gray-800" />
-                          </a>
+                          </button>
                         )}
 
                         <Link
