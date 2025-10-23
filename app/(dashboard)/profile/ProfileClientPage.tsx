@@ -158,6 +158,25 @@ function ProfileClientPage({
       </div>
 
       <Separator />
+      <Link
+        href="/pricing"
+        className="my-4 rounded-xl border border-gray-200 bg-gray-100 p-3 flex flex-row items-center justify-between"
+      >
+        <div className="flex flex-col">
+          <div className="text-lg font-semibold text-black truncate">
+            <div className="text-xs uppercase tracking-wider text-gray-700">
+              Dein Tarif
+            </div>
+            {currentPlan}
+          </div>
+        </div>
+        <div className="mt-0.5 flex items-center justify-between">
+          <p className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-white/90">
+            Verwalten
+          </p>
+        </div>
+      </Link>
+      <Separator />
 
       {/* === Middle Section === */}
       <div className="flex flex-col space-y-4 my-4">
@@ -188,24 +207,6 @@ function ProfileClientPage({
       </div>
 
       {/* === Plan Section === */}
-      <Link
-        href="/pricing"
-        className="my-4 rounded-xl border border-gray-200 bg-gray-100 p-3 flex flex-row items-center justify-between"
-      >
-        <div className="flex flex-col">
-          <div className="text-lg font-semibold text-black truncate">
-            <div className="text-xs uppercase tracking-wider text-gray-700">
-              Dein Tarif
-            </div>
-            {currentPlan}
-          </div>
-        </div>
-        <div className="mt-0.5 flex items-center justify-between">
-          <p className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-white/90">
-            Verwalten
-          </p>
-        </div>
-      </Link>
 
       <Separator />
 
