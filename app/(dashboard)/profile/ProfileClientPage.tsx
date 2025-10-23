@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { Separator } from "@/components/ui/separator";
@@ -7,8 +8,9 @@ import {
   Cog6ToothIcon,
   EnvelopeIcon,
 } from "@heroicons/react/24/outline";
-import { Bolt, BoltIcon, BookOpenIcon, Calendar, Check } from "lucide-react";
+import { BoltIcon, Calendar, Check, HomeIcon } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams, usePathname } from "next/navigation";
 import React, { useEffect, useState } from "react";
 
 function ProfileClientPage({
@@ -22,6 +24,9 @@ function ProfileClientPage({
 }) {
   const DEFAULT_AVATAR = "/images/avatar-fallback.png";
   const [url, setUrl] = useState("");
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const linkParam = searchParams.get("link");
 
   useEffect(() => {
     (async () => {
@@ -34,8 +39,79 @@ function ProfileClientPage({
     })();
   }, []);
 
+  // Alle Navigationslinks
+  const linksTop = [
+    { href: "/", key: "dashboard", icon: HomeIcon, label: "Dashboard" },
+    { href: "/todos", key: "todos", icon: Check, label: "Aufgaben" },
+    { href: "/calendar", key: "calendar", icon: Calendar, label: "Kalendar" },
+  ];
+
+  const linksMiddle = [
+    {
+      href: "/integrations",
+      key: "integrations",
+      icon: AdjustmentsHorizontalIcon,
+      label: "Integrationen",
+    },
+    {
+      href: "/settings",
+      key: "settings",
+      icon: Cog6ToothIcon,
+      label: "Einstellungen",
+    },
+  ];
+
+  const linksBottom = [
+    {
+      href: "/support",
+      key: "support",
+      icon: EnvelopeIcon,
+      label: "Hilfe & Kontakt",
+    },
+  ];
+
+  const isActive = (key: string, href: string) => {
+    // Priorität: Query-Param > Aktuelle Route
+    if (linkParam) {
+      // Spezialfall: link=dashboard => /
+      if (linkParam === "dashboard" && key === "dashboard") return true;
+      return linkParam === key;
+    }
+    if (key === "dashboard") return pathname === "/";
+    return pathname.startsWith(href);
+  };
+
+  const renderLink = (href: string, key: string, Icon: any, label: string) => {
+    const active = isActive(key, href);
+    return (
+      <Link
+        key={href}
+        href={href}
+        className={`flex flex-row items-center border-gray-100 rounded-full border px-4 py-2 transition ${
+          active
+            ? "bg-black text-white"
+            : "text-gray-700 hover:bg-gray-100 focus:bg-gray-100"
+        }`}
+      >
+        <Icon
+          className={`size-6 shrink-0 mr-2 ${
+            active ? "text-white" : "text-gray-700"
+          }`}
+        />
+        <span
+          className={`text-lg font-semibold ${
+            active ? "text-white" : "text-gray-700"
+          }`}
+        >
+          {label}
+        </span>
+      </Link>
+    );
+  };
+
   return (
     <div className="mt-8">
+      {/* === Header === */}
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex min-w-0 items-center gap-3">
           <div className="size-12 overflow-hidden rounded-full ring-1 ring-white/10 bg-white/10">
@@ -71,68 +147,37 @@ function ProfileClientPage({
           </form>
         </div>
       </div>
+
       <Separator />
+
+      {/* === Top Section === */}
       <div className="flex flex-col space-y-4 my-4">
-        <Link
-          href={"/todos"}
-          className="flex flex-row items-center border-gray-100 rounded-full border px-4 py-2 hover:bg-gray-100 focus:bg-gray-100"
-        >
-          <Check className="size-6 shrink-0 mr-2 text-gray-700" />
-          <span className="text-lg font-semibold text-gray-700">Aufgaben</span>
-        </Link>
-        <Link
-          href={"/calendar"}
-          className="flex flex-row items-center border-gray-100 rounded-full border px-4 py-2 hover:bg-gray-100 focus:bg-gray-100"
-        >
-          <Calendar className="size-6 shrink-0 mr-2 text-gray-700" />
-          <span className="text-lg font-semibold text-gray-700">Kalendar</span>
-        </Link>
+        {linksTop.map((link) =>
+          renderLink(link.href, link.key, link.icon, link.label)
+        )}
       </div>
+
       <Separator />
+
+      {/* === Middle Section === */}
       <div className="flex flex-col space-y-4 my-4">
-        {/* <Link
-          href={"/notebooks"}
-          className="flex flex-row items-center border-gray-100 rounded-full border px-4 py-2 hover:bg-gray-100 focus:bg-gray-100"
-        >
-          <BookOpenIcon className="size-6 shrink-0 mr-2 text-gray-700" />
-          <span className="text-lg font-semibold text-gray-700">
-            Powerbooks
-          </span>
-        </Link> */}
-        <Link
-          href={"/integrations"}
-          className="flex flex-row items-center border-gray-100 rounded-full border px-4 py-2 hover:bg-gray-100 focus:bg-gray-100"
-        >
-          <AdjustmentsHorizontalIcon className="size-6 shrink-0 mr-2 text-gray-700" />
-          <span className="text-lg font-semibold text-gray-700">
-            Integrationen
-          </span>
-        </Link>
-        <Link
-          href={"/settings"}
-          className="flex flex-row items-center border-gray-100 rounded-full border px-4 py-2 hover:bg-gray-100 focus:bg-gray-100"
-        >
-          <Cog6ToothIcon className="size-6 shrink-0 mr-2 text-gray-700" />
-          <span className="text-lg font-semibold text-gray-700">
-            Einstellungen
-          </span>
-        </Link>
+        {linksMiddle.map((link) =>
+          renderLink(link.href, link.key, link.icon, link.label)
+        )}
       </div>
+
       <Separator />
+
+      {/* === Bottom Section === */}
       <div className="flex flex-col space-y-4 my-4">
-        <Link
-          href={"/support"}
-          className="flex flex-row items-center border-gray-100 rounded-full border px-4 py-2 hover:bg-gray-100 focus:bg-gray-100"
-        >
-          <EnvelopeIcon className="size-6 shrink-0 mr-2 text-gray-700" />
-          <span className="text-lg font-semibold text-gray-700">
-            Hilfe & Kontakt
-          </span>
-        </Link>
+        {linksBottom.map((link) =>
+          renderLink(link.href, link.key, link.icon, link.label)
+        )}
+
         {role === "admin" && (
           <Link
             href={"/admin"}
-            className="flex flex-row items-center border-gray-100 bg-black text-white rounded-full border px-4 py-2"
+            className="flex flex-row items-center border border-gray-100 bg-black text-white rounded-full px-4 py-2"
           >
             <BoltIcon className="size-6 shrink-0 mr-2 text-white" />
             <span className="text-lg font-semibold text-white">
@@ -141,6 +186,8 @@ function ProfileClientPage({
           </Link>
         )}
       </div>
+
+      {/* === Plan Section === */}
       <Link
         href="/pricing"
         className="my-4 rounded-xl border border-gray-200 bg-gray-100 p-3 flex flex-row items-center justify-between"
@@ -153,15 +200,18 @@ function ProfileClientPage({
             {currentPlan}
           </div>
         </div>
-
         <div className="mt-0.5 flex items-center justify-between">
           <p className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-white/90">
             Verwalten
           </p>
         </div>
       </Link>
+
       <Separator />
-      <p className="mt-4 text-xs text-gray-500 w-full text-center">App-Version: 1.0.0</p>
+
+      <p className="mt-4 text-xs text-gray-500 w-full text-center">
+        App-Version: 1.0.0
+      </p>
     </div>
   );
 }

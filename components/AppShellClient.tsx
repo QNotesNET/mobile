@@ -152,11 +152,21 @@ export default function AppShellClient({
     window.dispatchEvent(ev);
   }
 
+    const linkParam =
+      pathname === "/" ? "dashboard" : pathname.replace("/", "");
+
   return (
     <div className="min-h-dvh bg-white">
       {/* Mobile Drawer */}
-      <Dialog open={sidebarOpen} onClose={setSidebarOpen} className="relative z-50 lg:hidden">
-        <DialogBackdrop transition className="fixed inset-0 bg-black transition-opacity data-[closed]:opacity-0" />
+      <Dialog
+        open={sidebarOpen}
+        onClose={setSidebarOpen}
+        className="relative z-50 lg:hidden"
+      >
+        <DialogBackdrop
+          transition
+          className="fixed inset-0 bg-black transition-opacity data-[closed]:opacity-0"
+        />
         <div className="fixed inset-0 flex">
           <DialogPanel
             transition
@@ -164,7 +174,11 @@ export default function AppShellClient({
           >
             <TransitionChild as={Fragment}>
               <div className="absolute left-full top-0 flex w-16 justify-center pt-5 data-[closed]:opacity-0">
-                <button type="button" onClick={() => setSidebarOpen(false)} className="-m-2.5 p-2.5 text-white">
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen(false)}
+                  className="-m-2.5 p-2.5 text-white"
+                >
                   <span className="sr-only">Close sidebar</span>
                   <XMarkIcon className="size-6" />
                 </button>
@@ -174,7 +188,11 @@ export default function AppShellClient({
             {/* Drawer content */}
             <div className="flex grow flex-col gap-y-5 overflow-y-auto px-6 pb-4">
               <div className="flex h-20 shrink-0 items-center">
-                <Link href="/" onClick={() => setSidebarOpen(false)} className="flex items-center">
+                <Link
+                  href="/"
+                  onClick={() => setSidebarOpen(false)}
+                  className="flex items-center"
+                >
                   <Image
                     src="/images/logos/logo-white.svg"
                     alt="Powerbook"
@@ -206,7 +224,9 @@ export default function AppShellClient({
                           onClick={() => setSidebarOpen(false)}
                           aria-current={item.current ? "page" : undefined}
                           className={classNames(
-                            item.current ? "bg-white/10 text-white" : "text-gray-300 hover:bg-white/10 hover:text-white",
+                            item.current
+                              ? "bg-white/10 text-white"
+                              : "text-gray-300 hover:bg-white/10 hover:text-white",
                             "group flex gap-x-3 rounded-md p-2 text-sm font-semibold"
                           )}
                         >
@@ -223,9 +243,13 @@ export default function AppShellClient({
                 {/* PLAN-STREIFEN (MOBILE) */}
                 <div className="mt-4">
                   <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                    <div className="text-[10px] uppercase tracking-wider text-gray-300">Dein Tarif</div>
+                    <div className="text-[10px] uppercase tracking-wider text-gray-300">
+                      Dein Tarif
+                    </div>
                     <div className="mt-0.5 flex items-center justify-between">
-                      <div className="text-sm font-semibold text-white truncate">{currentPlan}</div>
+                      <div className="text-sm font-semibold text-white truncate">
+                        {currentPlan}
+                      </div>
                       <Link
                         href="/pricing"
                         onClick={() => setSidebarOpen(false)}
@@ -248,7 +272,9 @@ export default function AppShellClient({
                             src={avatar || DEFAULT_AVATAR}
                             alt="Avatar"
                             className="size-full object-cover"
-                            onError={(e) => { (e.currentTarget.src = DEFAULT_AVATAR); }}
+                            onError={(e) => {
+                              e.currentTarget.src = DEFAULT_AVATAR;
+                            }}
                           />
                         </div>
                         <div className="min-w-0">
@@ -273,7 +299,9 @@ export default function AppShellClient({
                       </form>
                     </div>
                   ) : (
-                    <div className="text-sm text-gray-400">Nicht eingeloggt</div>
+                    <div className="text-sm text-gray-400">
+                      Nicht eingeloggt
+                    </div>
                   )}
                 </div>
               </nav>
@@ -287,7 +315,14 @@ export default function AppShellClient({
         <div className="flex grow flex-col gap-y-6 overflow-y-auto px-6 py-6">
           <div className="flex h-12 shrink-0 items-center">
             <Link href="/" className="flex items-center">
-              <Image src="/images/logos/logo-white.svg" alt="Powerbook" width={120} height={36} priority className="h-15 w-auto" />
+              <Image
+                src="/images/logos/logo-white.svg"
+                alt="Powerbook"
+                width={120}
+                height={36}
+                priority
+                className="h-15 w-auto"
+              />
             </Link>
           </div>
 
@@ -309,7 +344,9 @@ export default function AppShellClient({
                       href={item.href}
                       aria-current={item.current ? "page" : undefined}
                       className={classNames(
-                        item.current ? "bg-white/10 text-white" : "text-gray-300 hover:bg-white/10 hover:text-white",
+                        item.current
+                          ? "bg-white/10 text-white"
+                          : "text-gray-300 hover:bg-white/10 hover:text-white",
                         "group flex gap-x-3 rounded-md p-2 text-sm font-semibold"
                       )}
                     >
@@ -325,9 +362,13 @@ export default function AppShellClient({
 
             {/* PLAN-STREIFEN (DESKTOP) */}
             <div className="mt-3 rounded-xl border border-white/10 bg-white/5 p-3">
-              <div className="text-[10px] uppercase tracking-wider text-gray-300">Dein Tarif</div>
+              <div className="text-[10px] uppercase tracking-wider text-gray-300">
+                Dein Tarif
+              </div>
               <div className="mt-0.5 flex items-center justify-between">
-                <div className="text-sm font-semibold text-white truncate">{currentPlan}</div>
+                <div className="text-sm font-semibold text-white truncate">
+                  {currentPlan}
+                </div>
                 <Link
                   href="/pricing"
                   className="rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-black hover:bg-white/90"
@@ -348,7 +389,9 @@ export default function AppShellClient({
                         src={avatar || DEFAULT_AVATAR}
                         alt="Avatar"
                         className="size-full object-cover"
-                        onError={(e) => { (e.currentTarget.src = DEFAULT_AVATAR); }}
+                        onError={(e) => {
+                          e.currentTarget.src = DEFAULT_AVATAR;
+                        }}
                       />
                     </div>
                     <div className="min-w-0">
@@ -392,11 +435,11 @@ export default function AppShellClient({
       {/* Main */}
       {isAdmin ? (
         <main className="">
-          <div className="">{children}</div>
+          <div className="pt-4 pb-20 lg:pb-0">{children}</div>
         </main>
       ) : (
         <main className="lg:pl-72">
-          <div className="px-4 sm:px-6 lg:px-8 pb-20 lg:pb-0">{children}</div>
+          <div className="px-4 sm:px-6 lg:px-8 pb-20 lg:pb-0 pt-4">{children}</div>
         </main>
       )}
 
@@ -405,15 +448,20 @@ export default function AppShellClient({
         <div className="relative w-full">
           {/* Leiste */}
           <div className="pointer-events-auto h-20 bg-black border-t shadow-lg ring-1 ring-white/10 flex items-center justify-between px-16 text-gray-200">
-            <Link href="/notebooks" className="inline-flex items-center justify-center size-10 rounded-full hover:bg-white/10 active:scale-95 transition">
+            <Link
+              href="/notebooks"
+              className="inline-flex items-center justify-center size-10 rounded-full hover:bg-white/10 active:scale-95 transition"
+            >
               <BookOpen className="size-6" />
               <span className="sr-only">Powerbooks</span>
             </Link>
-            <Link href="/profile" className="inline-flex items-center justify-center size-10 rounded-full hover:bg-white/10 active:scale-95 transition">
+            <Link
+              href={`/profile?link=${encodeURIComponent(linkParam)}`}
+              className="inline-flex items-center justify-center size-10 rounded-full hover:bg-white/10 active:scale-95 transition"
+            >
               <User className="size-6" />
               <span className="sr-only">Profil</span>
             </Link>
-            
           </div>
 
           {/* Center FAB */}
