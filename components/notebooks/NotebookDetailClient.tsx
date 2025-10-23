@@ -139,12 +139,14 @@ export default function NotebookDetailClient({
         </div>
 
         {/* 🔍 Suchfeld */}
-        <Input
-          className="max-w-[8rem]"
-          placeholder="Seite suchen"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+        {view !== "text" && (
+          <Input
+            className="max-w-[8rem]"
+            placeholder="Seite suchen"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        )}
       </div>
 
       {view === "list" ? (

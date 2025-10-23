@@ -12,7 +12,7 @@ export default function TextNotebook({
   notebookId: string;
   getPageToken: (page: number) => string | null | undefined;
 }) {
-  const [current, setCurrent] = useState(1); // linke Seite
+  const [current, setCurrent] = useState(1);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   // Cache: key = `${notebookId}:${pageToken}`
@@ -20,31 +20,20 @@ export default function TextNotebook({
     Record<string, { text: string; loaded: boolean; error?: string }>
   >({});
 
-  const maxLeftPage = useMemo(
-    () => (totalPages % 2 === 0 ? totalPages - 1 : totalPages),
-    [totalPages]
-  );
+  const canPrev = current > 1;
+  const canNext = current < totalPages;
 
-  function clampToSpread(n: number) {
-    let page = Math.max(1, Math.min(n, maxLeftPage));
-    if (page % 2 === 0) page -= 1; // linke Seite
-    return page;
+  function prevPage() {
+    setCurrent((c) => Math.max(1, c - 1));
   }
 
-  const leftPage = current;
-  const rightPage = Math.min(current + 1, totalPages);
-
-  const canPrev = leftPage > 1;
-  const canNext = rightPage < totalPages;
-
-  function prevSpread() {
-    setCurrent((c) => clampToSpread(c - 2));
+  function nextPage() {
+    setCurrent((c) => Math.min(totalPages, c + 1));
   }
-  function nextSpread() {
-    setCurrent((c) => clampToSpread(c + 2));
-  }
+
   function goTo(n: number) {
-    setCurrent(clampToSpread(n));
+    const target = Math.max(1, Math.min(n, totalPages));
+    setCurrent(target);
   }
 
   async function ensureLoaded(pageNum: number) {
@@ -78,33 +67,44 @@ export default function TextNotebook({
   }
 
   useEffect(() => {
-    void ensureLoaded(leftPage);
-    if (rightPage !== leftPage) void ensureLoaded(rightPage);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leftPage, rightPage, notebookId]);
+    void ensureLoaded(current);
+  }, [current, notebookId]);
 
-  function getTextFor(pageNum: number): { text: string; loading: boolean; error?: string } {
+  function getTextFor(pageNum: number): {
+    text: string;
+    loading: boolean;
+    error?: string;
+  } {
     const token = getPageToken(pageNum);
-    if (!token) return { text: "", loading: false, error: "Kein Token gefunden" };
+    if (!token)
+      return { text: "", loading: false, error: "Kein Token gefunden" };
     const key = `${notebookId}:${token}`;
     const entry = cache[key];
     if (!entry) return { text: "", loading: true };
-    return { text: entry.text || "", loading: !entry.loaded, error: entry.error };
+    return {
+      text: entry.text || "",
+      loading: !entry.loaded,
+      error: entry.error,
+    };
   }
+
+  const data = getTextFor(current);
 
   return (
     <div className="rounded-2xl border bg-white p-3">
       {/* Toolbar */}
       <div className="mb-3 flex items-center gap-2 text-sm">
         <span className="text-gray-600">
-          Seitenbereich: <strong>Seite {leftPage}–{rightPage}</strong> / {totalPages}
+          Seite <strong>{current}</strong> / {totalPages}
         </span>
 
         <div className="ml-auto flex items-center gap-2">
           <button
-            onClick={prevSpread}
+            onClick={prevPage}
             disabled={!canPrev}
-            className={`rounded-lg border px-2 py-1 ${canPrev ? "hover:bg-gray-50" : "opacity-40 cursor-not-allowed"}`}
+            className={`rounded-lg border px-2 py-1 ${
+              canPrev ? "hover:bg-gray-50" : "opacity-40 cursor-not-allowed"
+            }`}
             aria-label="Zurück"
             title="Zurück"
           >
@@ -112,13 +112,13 @@ export default function TextNotebook({
           </button>
 
           <div className="inline-flex items-center gap-1">
-            <span className="text-gray-600">Gehe zu</span>
+            {/* <span className="text-gray-600">Gehe zu</span> */}
             <input
               ref={inputRef}
               type="number"
               min={1}
               max={totalPages}
-              defaultValue={leftPage}
+              defaultValue={current}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   const n = Number((e.target as HTMLInputElement).value || "1");
@@ -139,9 +139,11 @@ export default function TextNotebook({
           </div>
 
           <button
-            onClick={nextSpread}
+            onClick={nextPage}
             disabled={!canNext}
-            className={`rounded-lg border px-2 py-1 ${canNext ? "hover:bg-gray-50" : "opacity-40 cursor-not-allowed"}`}
+            className={`rounded-lg border px-2 py-1 ${
+              canNext ? "hover:bg-gray-50" : "opacity-40 cursor-not-allowed"
+            }`}
             aria-label="Weiter"
             title="Weiter"
           >
@@ -150,40 +152,22 @@ export default function TextNotebook({
         </div>
       </div>
 
-      {/* Book spread */}
-      <div className="relative grid grid-cols-1 gap-4 md:grid-cols-2">
-        <PageView
-          pageNumber={leftPage}
-          data={getTextFor(leftPage)}
-          lined
-          labelPosition="tl"
-        />
-        <PageView
-          pageNumber={rightPage}
-          data={getTextFor(rightPage)}
-          lined
-          labelPosition="tr"
-        />
+      {/* Nur EINE Seite */}
+      <div className="relative">
+        <PageView pageNumber={current} data={data} lined labelPosition="tr" />
       </div>
-
-      {/* <p className="mt-3 text-right text-xs text-gray-500">
-        Texte werden über <code>notebookId + pageToken</code> geladen. Footer-Seitenzahlen werden entfernt.
-      </p> */}
     </div>
   );
 }
 
-/* ---------- Helpers zum Entfernen der Footer-Seitenzahl ---------- */
+/* ---------- Helpers ---------- */
 function escapeRegExp(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Entfernt die letzte Zeile, wenn sie nur die (aktuelle) Seitenzahl enthält –
- * optional mit "Seite"/"Page", Trennstrichen, Punkt/Klammer/Spaces.
- */
 function stripFooterPageNumber(input: string, pageNumber: number): string {
   if (!input) return input;
-  const trimmed = input.replace(/\s+$/g, ""); // trailing Leerzeilen/Spaces weg
+  const trimmed = input.replace(/\s+$/g, "");
   const lines = trimmed.split(/\r?\n/);
   if (lines.length === 0) return "";
 
@@ -220,7 +204,7 @@ function PageView({
 
   return (
     <div
-      className={`relative aspect-[3/4] overflow-hidden rounded-xl border bg-white shadow-sm`}
+      className="relative aspect-[3/4] overflow-hidden rounded-xl border bg-white shadow-sm"
       style={
         lined
           ? {
