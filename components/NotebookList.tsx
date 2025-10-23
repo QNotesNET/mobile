@@ -115,53 +115,8 @@ export default function NotebookList({
 
   return (
     <div className="space-y-4">
-      {/* Tabs */}
-      {/* <div className="flex items-center gap-2">
-        <button
-          onClick={() => setTab("books")}
-          className={`rounded-xl border px-3 py-1.5 text-sm transition ${
-            tab === "books" ? "bg-black text-white border-black" : "bg-white hover:bg-gray-50"
-          }`}
-        >
-          Powerbooks
-        </button>
-        <button
-          onClick={() => setTab("projects")}
-          className={`rounded-xl border px-3 py-1.5 text-sm transition ${
-            tab === "projects" ? "bg-black text-white border-black" : "bg-white hover:bg-gray-50"
-          }`}
-        >
-          Projekte
-        </button>
-        <div className="ml-auto" />
-      </div> */}
-
-      {/* Powerbooks */}
       {tab === "books" && (
         <>
-          {/* <form
-            className="flex gap-2"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const form = e.currentTarget as HTMLFormElement;
-              const title = (new FormData(form).get("title") || "").toString().trim();
-              if (!title) return;
-              await createNotebook(title);
-              (form.elements.namedItem("title") as HTMLInputElement).value = "";
-            }}
-          >
-            <input
-              name="title"
-              placeholder="Neues Powerbook…"
-              className="border rounded px-3 py-2 w-full"
-              disabled={creating}
-              required
-            />
-            <button className="bg-black text-white rounded px-3 py-2 disabled:opacity-50" disabled={creating}>
-              {creating ? "Erstelle" : "Erstellen"}
-            </button>
-          </form> */}
-
           {/* Empty-State Promo statt schnödem Text */}
           {items.length === 0 ? (
             <EmptyPowerbookPromo />
@@ -171,62 +126,26 @@ export default function NotebookList({
                 const notebookId = (n.id ?? n._id) as string;
 
                 return (
-                  <Link href={`/notebooks/${notebookId}`} key={notebookId}>
-                    <li className="flex gap-3 p-4 sm:flex-row lg:items-center lg:justify-between w-full">
-                      <span className="font-medium w-full">
-                        {n.title}
-                      </span>
+                  <li
+                    key={notebookId}
+                    className="flex gap-3 p-4 sm:flex-row lg:items-center lg:justify-between w-full"
+                  >
+                    <Link
+                      href={`/notebooks/${notebookId}`}
+                      className="flex-1 font-medium"
+                    >
+                      {n.title}
+                    </Link>
 
-                      <div className="flex gap-2 sm:justify-end items-center justify-between lg:justify-end">
-                        <Link
-                          href={`/notebooks/${notebookId}`}
-                          className="rounded border px-3 py-1 text-sm hover:bg-black/90 bg-black text-white hidden lg:inline-block"
-                        >
-                          Details
-                        </Link>
-
-                        {/* 
-                      <button
-                        onClick={async () => {
-                          const title = prompt("Neuer Titel:", n.title);
-                          if (!title) return;
-                          await renameNotebook(notebookId, title);
-                        }}
-                        className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
+                    <div className="flex gap-2 sm:justify-end items-center justify-between lg:justify-end">
+                      <Link
+                        href={`/notebooks/${notebookId}`}
+                        className="rounded border px-3 py-1 text-sm hover:bg-black/90 bg-black text-white hidden lg:inline-block"
                       >
-                        Umbenennen
-                      </button>
-
-                      <button
-                        onClick={async () => {
-                          if (!confirm("Notebook löschen?")) return;
-                          await deleteNotebook(notebookId);
-                        }}
-                        className="rounded bg-black px-3 py-1 text-sm text-white hover:bg-black/90"
-                      >
-                        Löschen
-                      </button>
-                      */}
-
-                        {/* <button
-                        onClick={async () => {
-                          const from = Number(prompt("Seiten von:", "1") || "1");
-                          const to = Number(prompt("…bis:", "10") || "10");
-                          if (!from || !to) return;
-                          const res = await fetch(`/api/notebooks/${notebookId}/pages/batch`, {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ from, to }),
-                          });
-                          if (res.ok) alert("Seiten erzeugt. QR-Token sind bereit (Route /s/<token>).");
-                        }}
-                        className="rounded border px-3 py-1 text-sm hover:bg-gray-50"
-                      >
-                        Seiten erzeugen
-                      </button> */}
-                      </div>
-                    </li>
-                  </Link>
+                        Details
+                      </Link>
+                    </div>
+                  </li>
                 );
               })}
             </ul>
