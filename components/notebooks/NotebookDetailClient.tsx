@@ -34,37 +34,41 @@ export default function NotebookDetailClient({
   totalPages: number;
 }) {
   const [view, setView] = useState<"list" | "digital" | "text">("list");
-
-  // === 🔍 Suchfeld ===
   const [searchQuery, setSearchQuery] = useState("");
-
-  // Gefilterte Seiten (nur bei Ansicht "list" relevant)
-  const filteredPages = useMemo(() => {
-    if (!searchQuery.trim()) return pages;
-    const q = searchQuery.trim().toLowerCase();
-    return pages.filter((p) => String(p.pageIndex).toLowerCase().includes(q));
-  }, [searchQuery, pages]);
-
-  // --- Context Status (unverändert) ---
   const [ctxStatus, setCtxStatus] = useState<Record<string, CtxStatus>>({});
+  const [visibleCount, setVisibleCount] = useState(10); // 👈 Start-Limit
+  const observerRef = useRef<HTMLDivElement | null>(null);
+
+  // === Sichtbasiertes Lazy Loading ===
+  useEffect(() => {
+    if (!observerRef.current) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        // Wenn Scroll-Ende sichtbar → weitere 10 Seiten laden
+        setVisibleCount((v) => v + 10);
+      }
+    });
+    observer.observe(observerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const visiblePages = useMemo(() => {
+    return pages.slice(0, visibleCount);
+  }, [pages, visibleCount]);
+
+  const filteredPages = useMemo(() => {
+    if (!searchQuery.trim()) return visiblePages;
+    const q = searchQuery.trim().toLowerCase();
+    return visiblePages.filter((p) =>
+      String(p.pageIndex).toLowerCase().includes(q)
+    );
+  }, [searchQuery, visiblePages]);
+
   useEffect(() => {
     const abort = new AbortController();
-    const candidates = pages.filter((p) => (p.images?.length ?? 0) === 0);
-    const BATCH = 6;
-    let i = 0;
-
-    function pickStatus(raw: any): CtxStatus {
-      if (!raw) return null;
-      const d = raw.data ?? raw;
-      if (!d) return null;
-      if (typeof d.status === "string")
-        return d.status === "processing" ? "processing" : "done";
-      if (typeof d.state === "string")
-        return d.state === "processing" ? "processing" : "done";
-      if (typeof d.processing === "boolean")
-        return d.processing ? "processing" : "done";
-      return null;
-    }
+    const candidates = visiblePages.filter(
+      (p) => (p.images?.length ?? 0) === 0
+    );
 
     async function fetchOne(token: string) {
       try {
@@ -75,24 +79,31 @@ export default function NotebookDetailClient({
           signal: abort.signal,
           cache: "no-store",
         });
+
+        if (res.status === 404) return { token, status: null as CtxStatus };
         if (!res.ok) return { token, status: null as CtxStatus };
+
         const data = await res.json();
-        return { token, status: pickStatus(data) };
+        const d = data?.data ?? data;
+        let status: CtxStatus = null;
+        if (
+          d?.status === "processing" ||
+          d?.state === "processing" ||
+          d?.processing === true
+        )
+          status = "processing";
+        else if (d) status = "done";
+
+        return { token, status };
       } catch {
         return { token, status: null as CtxStatus };
       }
     }
 
     async function run() {
-      const results: Array<{ token: string; status: CtxStatus }> = [];
-      while (i < candidates.length) {
-        const batch = candidates.slice(i, i + BATCH);
-        i += BATCH;
-        const chunk = await Promise.all(
-          batch.map((p) => fetchOne(p.pageToken))
-        );
-        results.push(...chunk);
-      }
+      const results = await Promise.all(
+        candidates.map((p) => fetchOne(p.pageToken))
+      );
       setCtxStatus((prev) => {
         const next = { ...prev };
         for (const r of results) next[r.token] = r.status;
@@ -102,11 +113,10 @@ export default function NotebookDetailClient({
 
     if (candidates.length) run();
     return () => abort.abort();
-  }, [notebookId, pages]);
+  }, [notebookId, visiblePages]);
 
   const r = useRouter();
 
-  // --- Textdarstellung ---
   function getPageTokenByIndex(n: number): string | null {
     const p = pages.find((x) => Number(x.pageIndex) === Number(n));
     return p?.pageToken ?? null;
@@ -117,18 +127,16 @@ export default function NotebookDetailClient({
     const fileName = `qnotes-page-${pageId}.png`;
 
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    // @ts-expect-error --- Just defined on mobile
-    const isInWebView = !!window.ReactNativeWebView; // Expo/React Native
+    // @ts-expect-error ---
+    const isInWebView = !!window.ReactNativeWebView;
 
     if (isIOS || isInWebView) {
-      // iOS → iframe-Trick
       const iframe = document.createElement("iframe");
       iframe.style.display = "none";
       iframe.src = url;
       document.body.appendChild(iframe);
       setTimeout(() => iframe.remove(), 3000);
     } else {
-      // Desktop / Android normaler Browser
       const a = document.createElement("a");
       a.href = url;
       a.download = fileName;
@@ -165,7 +173,6 @@ export default function NotebookDetailClient({
           </button>
         </div>
 
-        {/* 🔍 Suchfeld */}
         {view !== "text" && (
           <Input
             className="max-w-[8rem]"
@@ -262,6 +269,16 @@ export default function NotebookDetailClient({
               )}
             </tbody>
           </table>
+
+          {/* 🔻 Scroll-Ende-Indikator */}
+          <div
+            ref={observerRef}
+            className="h-10 w-full text-center text-gray-400 text-sm py-2"
+          >
+            {visibleCount < pages.length
+              ? "Scrollen, um mehr anzuzeigen…"
+              : "Alle Seiten geladen"}
+          </div>
         </div>
       ) : view === "digital" ? (
         <Suspense fallback={<Loader small label="Digital-Ansicht lädt…" />}>
