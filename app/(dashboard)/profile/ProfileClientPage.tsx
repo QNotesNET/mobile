@@ -209,7 +209,7 @@ function ProfileClientPage({
 
       <Separator />
 
-      <p className="mt-4 text-xs text-gray-500 w-full text-center">
+      <p className="mt-4 text-xs text-gray-500 w-full text-center mb-16">
         App-Version: 1.0.0
       </p>
     </div>
