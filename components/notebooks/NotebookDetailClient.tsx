@@ -7,9 +7,11 @@ import dynamic from "next/dynamic";
 import Loader from "@/components/Loader";
 import { useRouter } from "next/navigation";
 import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
-import { UploadIcon } from "lucide-react";
+import { Input } from "../ui/input";
 
-const DigitalNotebook = dynamic(() => import("./DigitalNotebook"), { ssr: false });
+const DigitalNotebook = dynamic(() => import("./DigitalNotebook"), {
+  ssr: false,
+});
 const TextNotebook = dynamic(() => import("./TextNotebook"), { ssr: false });
 
 type LitePage = {
@@ -33,15 +35,21 @@ export default function NotebookDetailClient({
 }) {
   const [view, setView] = useState<"list" | "digital" | "text">("list");
 
-  // --- NEW: Pages-Context Status Map (nur für ungescannte Seiten interessant)
+  // === 🔍 Suchfeld ===
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Gefilterte Seiten (nur bei Ansicht "list" relevant)
+  const filteredPages = useMemo(() => {
+    if (!searchQuery.trim()) return pages;
+    const q = searchQuery.trim().toLowerCase();
+    return pages.filter((p) => String(p.pageIndex).toLowerCase().includes(q));
+  }, [searchQuery, pages]);
+
+  // --- Context Status (unverändert) ---
   const [ctxStatus, setCtxStatus] = useState<Record<string, CtxStatus>>({});
   useEffect(() => {
     const abort = new AbortController();
-
-    // nur Seiten ohne Bild prüfen
     const candidates = pages.filter((p) => (p.images?.length ?? 0) === 0);
-
-    // kleines Concurrency-Limit
     const BATCH = 6;
     let i = 0;
 
@@ -49,9 +57,12 @@ export default function NotebookDetailClient({
       if (!raw) return null;
       const d = raw.data ?? raw;
       if (!d) return null;
-      if (typeof d.status === "string") return d.status === "processing" ? "processing" : "done";
-      if (typeof d.state === "string") return d.state === "processing" ? "processing" : "done";
-      if (typeof d.processing === "boolean") return d.processing ? "processing" : "done";
+      if (typeof d.status === "string")
+        return d.status === "processing" ? "processing" : "done";
+      if (typeof d.state === "string")
+        return d.state === "processing" ? "processing" : "done";
+      if (typeof d.processing === "boolean")
+        return d.processing ? "processing" : "done";
       return null;
     }
 
@@ -60,11 +71,11 @@ export default function NotebookDetailClient({
         const url = `/api/pages-context?notebookId=${encodeURIComponent(
           notebookId
         )}&pageToken=${encodeURIComponent(token)}`;
-        const res = await fetch(url, { signal: abort.signal, cache: "no-store" });
-        if (!res.ok) {
-          // 404 = kein Context -> bleibt null
-          return { token, status: null as CtxStatus };
-        }
+        const res = await fetch(url, {
+          signal: abort.signal,
+          cache: "no-store",
+        });
+        if (!res.ok) return { token, status: null as CtxStatus };
         const data = await res.json();
         return { token, status: pickStatus(data) };
       } catch {
@@ -77,7 +88,9 @@ export default function NotebookDetailClient({
       while (i < candidates.length) {
         const batch = candidates.slice(i, i + BATCH);
         i += BATCH;
-        const chunk = await Promise.all(batch.map((p) => fetchOne(p.pageToken)));
+        const chunk = await Promise.all(
+          batch.map((p) => fetchOne(p.pageToken))
+        );
         results.push(...chunk);
       }
       setCtxStatus((prev) => {
@@ -88,128 +101,12 @@ export default function NotebookDetailClient({
     }
 
     if (candidates.length) run();
-
     return () => abort.abort();
   }, [notebookId, pages]);
 
-  // --- Scan-Modal ---
-  const [scanOpen, setScanOpen] = useState(false);
-  const [scanBusy, setScanBusy] = useState(false);
-  const fileRef = useRef<HTMLInputElement | null>(null);
   const r = useRouter();
 
-  // --- Helper: Bild runter skalieren & als JPEG erzeugen ---
-  async function downscaleImageToJpeg(
-    file: File,
-    maxDim = 1600,
-    quality = 0.7
-  ): Promise<{ blob: Blob; dataUrl: string }> {
-    const imgUrl = URL.createObjectURL(file);
-    try {
-      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-        const el = new Image();
-        el.onload = () => resolve(el);
-        el.onerror = (e) => reject(e);
-        el.src = imgUrl;
-      });
-
-      const { width, height } = img;
-      if (!width || !height) {
-        const buf = await file.arrayBuffer();
-        const blob = new Blob([buf], { type: "image/jpeg" });
-        const dataUrlFallback = await new Promise<string>((res) => {
-          const fr = new FileReader();
-          fr.onload = () => res(String(fr.result || ""));
-          fr.readAsDataURL(blob);
-        });
-        return { blob, dataUrl: dataUrlFallback };
-      }
-
-      let targetW = width;
-      let targetH = height;
-      if (Math.max(width, height) > maxDim) {
-        if (width >= height) {
-          targetW = maxDim;
-          targetH = Math.round((height / width) * maxDim);
-        } else {
-          targetH = maxDim;
-          targetW = Math.round((width / height) * maxDim);
-        }
-      }
-
-      const canvas = document.createElement("canvas");
-      canvas.width = targetW;
-      canvas.height = targetH;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Canvas context not available");
-      ctx.drawImage(img, 0, 0, targetW, targetH);
-
-      const blob: Blob = await new Promise((resolve, reject) =>
-        canvas.toBlob(
-          (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
-          "image/jpeg",
-          quality
-        )
-      );
-
-      const dataUrl: string = await new Promise((resolve) =>
-        canvas.toBlob(
-          (b) => {
-            if (!b) {
-              resolve("");
-              return;
-            }
-            const fr = new FileReader();
-            fr.onload = () => resolve(String(fr.result || ""));
-            fr.readAsDataURL(b);
-          },
-          "image/jpeg",
-          quality
-        )
-      );
-
-      return { blob, dataUrl };
-    } finally {
-      URL.revokeObjectURL(imgUrl);
-    }
-  }
-
-  async function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setScanBusy(true);
-      const { blob, dataUrl } = await downscaleImageToJpeg(file, 1600, 0.7);
-
-      const form = new FormData();
-      form.append("image", new File([blob], "scan.jpg", { type: "image/jpeg" }));
-      const resp = await fetch(
-        `/api/scan/recognize-page?notebookId=${encodeURIComponent(notebookId)}`,
-        { method: "POST", body: form }
-      );
-      if (!resp.ok) {
-        const msg = await resp.text().catch(() => "");
-        throw new Error(msg || "Seitenerkennung fehlgeschlagen.");
-      }
-      const { pageIndex, pageToken } = (await resp.json()) as {
-        pageIndex: number;
-        pageToken: string;
-      };
-
-      const payload = { notebookId, pageToken, pageIndex, imageDataUrl: dataUrl };
-      sessionStorage.setItem("scan:pending", JSON.stringify(payload));
-      r.push(`/s/${pageToken}`);
-      setScanOpen(false);
-    } catch (err) {
-      console.error("scan recognize error", err);
-      alert((err as Error)?.message || "Scan fehlgeschlagen");
-    } finally {
-      setScanBusy(false);
-      if (fileRef.current) fileRef.current.value = "";
-    }
-  }
-
-  // --- Resolver für Textdarstellung: pageIndex -> pageToken ---
+  // --- Textdarstellung ---
   function getPageTokenByIndex(n: number): string | null {
     const p = pages.find((x) => Number(x.pageIndex) === Number(n));
     return p?.pageToken ?? null;
@@ -217,77 +114,38 @@ export default function NotebookDetailClient({
 
   return (
     <div className="mt-6">
-      <div className="mb-4 flex items-center gap-2">
-        <button
-          onClick={() => setView("list")}
-          className={`px-3 py-1.5 rounded-xl border ${
-            view === "list" ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"
-          }`}
-        >
-          Liste
-        </button>
-        <button
-          onClick={() => setView("digital")}
-          className={`px-3 py-1.5 rounded-xl border ${
-            view === "digital" ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"
-          }`}
-        >
-          Digital
-        </button>
-        <button
-          onClick={() => setView("text")}
-          className={`px-3 py-1.5 rounded-xl border ${
-            view === "text" ? "bg-gray-900 text-white" : "bg-white hover:bg-gray-50"
-          }`}
-        >
-          Textdarstellung
-        </button>
-
-        <button
-          onClick={() => setScanOpen(true)}
-          className="ml-auto items-center rounded-xl border px-3 py-1.5 hover:bg-gray-50 hidden lg:inline-flex"
-        >
-          <UploadIcon className="mr-2 h-4 w-4" />
-          Seite hochladen
-        </button>
-      </div>
-
-      {/* Modal */}
-      {scanOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
-            <h3 className="text-lg font-semibold">Seite hochladen</h3>
-            <p className="mt-1 text-sm text-gray-600">
-              Lade ein Foto einer Notizseite hoch, um den Text erkennen zu lassen und eine neue Seite in deinem Notebook zu hinterlegen.
-            </p>
-
-            <div className="mt-4">
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={onPickFile}
-                disabled={scanBusy}
-                className="block w-full text-sm file:mr-3 file:rounded-lg file:border file:bg-white file:px-3 file:py-2 hover:file:bg-gray-50 disabled:opacity-50"
-              />
-            </div>
-
-            <div className="mt-5 flex items-center justify-end gap-2">
-              <button
-                className="rounded px-3 py-1.5 hover:bg-gray-50"
-                onClick={() => !scanBusy && setScanOpen(false)}
-                disabled={scanBusy}
-              >
-                Abbrechen
-              </button>
-              <button className="rounded bg-black px-3 py-1.5 text-white disabled:opacity-50" disabled title="Bitte oben ein Bild auswählen">
-                {scanBusy ? "Erkenne…" : "Weiter"}
-              </button>
-            </div>
-          </div>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setView("list")}
+            className={`px-3 py-1.5 rounded-xl border ${
+              view === "list"
+                ? "bg-gray-900 text-white"
+                : "bg-white hover:bg-gray-50"
+            }`}
+          >
+            Liste
+          </button>
+          <button
+            onClick={() => setView("text")}
+            className={`px-3 py-1.5 rounded-xl border ${
+              view === "text"
+                ? "bg-gray-900 text-white"
+                : "bg-white hover:bg-gray-50"
+            }`}
+          >
+            Textdarstellung
+          </button>
         </div>
-      )}
+
+        {/* 🔍 Suchfeld */}
+        <Input
+          className="max-w-[8rem]"
+          placeholder="Seite suchen"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
 
       {view === "list" ? (
         <div className="overflow-hidden rounded-2xl border bg-white">
@@ -297,93 +155,77 @@ export default function NotebookDetailClient({
                 <th className="px-4 py-3 text-left w-24">Seite</th>
                 <th className="px-4 py-3 text-left hidden lg:block">Token</th>
                 <th className="px-4 py-3 text-left w-40">Status</th>
-                <th className="px-4 py-3 text-right w-full hidden lg:block">Aktionen</th>
-                <th className="px-4 py-3 text-left w-[460px] lg:hidden">Herunterladen</th>
+                <th className="px-4 py-3 text-right w-full hidden lg:block">
+                  Aktionen
+                </th>
+                <th className="px-4 py-3 text-left w-[460px] lg:hidden">
+                  Herunterladen
+                </th>
               </tr>
             </thead>
             <tbody>
-              {pages.length === 0 ? (
+              {filteredPages.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-4 py-6 text-gray-500">
-                    Noch keine Seiten vorhanden. Erzeuge neue Seiten über den Button oben rechts.
+                    Keine Seite gefunden.
                   </td>
                 </tr>
               ) : (
-                pages.map((p) => {
+                filteredPages.map((p) => {
                   const scanned = (p.images?.length ?? 0) > 0;
                   const pageIdxStr = String(p.pageIndex);
                   const pageIdForExport = p.pageToken;
-
-                  // NEW: Context-Status prüfen (nur wenn nicht gescannt)
                   const ctx = scanned ? null : ctxStatus[p.pageToken] ?? null;
                   const isProcessing = ctx === "processing";
 
-                  // Badge-Farbe + Text
                   const badgeClass = isProcessing
                     ? "bg-amber-100 text-amber-800"
                     : scanned
                     ? "bg-green-100 text-green-700"
                     : "bg-gray-100 text-gray-600";
-                  const badgeText = isProcessing ? "in Verarbeitung" : scanned ? "gescannt" : "leer";
+                  const badgeText = isProcessing
+                    ? "in Verarbeitung"
+                    : scanned
+                    ? "gescannt"
+                    : "leer";
 
                   return (
                     <tr
                       key={pageIdxStr}
-                      className="border-t"
-                      onClick={(e) => {
-                        const target = e.target as HTMLElement;
-                        if (target.tagName.toLowerCase() === "a") return;
-                        window.location.href = `/s/${p.pageToken}`;
-                      }}
+                      className="border-t cursor-pointer hover:bg-gray-50"
+                      onClick={() =>
+                        (window.location.href = `/s/${p.pageToken}`)
+                      }
                     >
-                      <td className="px-4 py-3 font-medium w-full lg:w-min">Seite {pageIdxStr}</td>
-                      <td className="px-4 py-3 font-mono hidden lg:block">{p.pageToken}</td>
+                      <td className="px-4 py-3 font-medium w-full lg:w-min">
+                        Seite {pageIdxStr}
+                      </td>
+                      <td className="px-4 py-3 font-mono hidden lg:block">
+                        {p.pageToken}
+                      </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${badgeClass}`}>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${badgeClass}`}
+                        >
                           {badgeText}
                         </span>
                       </td>
                       <td className="px-4 py-3 flex justify-end">
-                        <div className="flex flex-wrap items-center gap-2">
-                          {scanned && (
-                            <a
-                              href={`/api/pages/${pageIdForExport}/export?format=png`}
-                              className="rounded border px-3 py-1 hover:bg-gray-50 md:hidden"
-                            >
-                              <ArrowDownTrayIcon className="h-4 w-4 text-gray-800" />
-                            </a>
-                          )}
+                        {scanned && (
+                          <a
+                            href={`/api/pages/${pageIdForExport}/export?format=png`}
+                            className="rounded border px-3 py-1 hover:bg-gray-50 md:hidden"
+                          >
+                            <ArrowDownTrayIcon className="h-4 w-4 text-gray-800" />
+                          </a>
+                        )}
 
-                          <Link href={`/s/${p.pageToken}`} className="rounded bg-black px-3 py-1 text-white hover:bg-black/90 hidden lg:block">
-                            Öffnen
-                          </Link>
-
-                          {scanned ? (
-                            <div className="flex gap-x-2">
-                              <a href={`/api/pages/${pageIdForExport}/export?format=pdf`} className="rounded border px-3 py-1 hover:bg-gray-50">
-                                PDF
-                              </a>
-                              <a href={`/api/pages/${pageIdForExport}/export?format=jpg`} className="rounded border px-3 py-1 hover:bg-gray-50">
-                                JPG
-                              </a>
-                              <a href={`/api/pages/${pageIdForExport}/export?format=png`} className="rounded border px-3 py-1 hover:bg-gray-50">
-                                PNG
-                              </a>
-                            </div>
-                          ) : (
-                            <div className="flex gap-x-2">
-                              <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled>
-                                PDF
-                              </button>
-                              <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled>
-                                JPG
-                              </button>
-                              <button className="rounded border px-3 py-1 text-gray-400 cursor-not-allowed" disabled>
-                                PNG
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                        <Link
+                          href={`/s/${p.pageToken}`}
+                          className="rounded bg-black px-3 py-1 text-white hover:bg-black/90 hidden lg:block"
+                        >
+                          Öffnen
+                        </Link>
                       </td>
                     </tr>
                   );
@@ -404,7 +246,11 @@ export default function NotebookDetailClient({
         </Suspense>
       ) : (
         <Suspense fallback={<Loader small label="Textdarstellung lädt…" />}>
-          <TextNotebook totalPages={totalPages} notebookId={notebookId} getPageToken={(n) => getPageTokenByIndex(n)} />
+          <TextNotebook
+            totalPages={totalPages}
+            notebookId={notebookId}
+            getPageToken={(n) => getPageTokenByIndex(n)}
+          />
         </Suspense>
       )}
     </div>
