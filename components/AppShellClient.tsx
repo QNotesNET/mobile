@@ -16,7 +16,7 @@ import {
   AdjustmentsHorizontalIcon,
   BoltIcon as Bolt,
 } from "@heroicons/react/24/outline";
-import { BookOpen, Settings, Camera } from "lucide-react"; // Scan Icon behalten
+import { BookOpen, Settings, Camera, User } from "lucide-react"; // Scan Icon behalten
 
 function classNames(...classes: Array<string | false | null | undefined>) {
   return classes.filter(Boolean).join(" ");
@@ -381,13 +381,13 @@ export default function AppShellClient({
       </div>
 
       {/* Mobile Topbar */}
-      <div className="sticky top-0 z-30 flex items-center gap-x-4 bg-black px-4 py-3 text-white shadow-sm lg:hidden">
+      {/* <div className="sticky top-0 z-30 flex items-center gap-x-4 bg-black px-4 py-3 text-white shadow-sm lg:hidden">
         <button type="button" onClick={() => setSidebarOpen(true)} className="-m-2.5 p-2.5 text-gray-200 hover:text-white">
           <span className="sr-only">Open sidebar</span>
           <Bars3Icon className="size-6" />
         </button>
         <div className="flex-1 text-sm font-semibold">Powerbook</div>
-      </div>
+      </div> */}
 
       {/* Main */}
       {isAdmin ? (
@@ -396,7 +396,7 @@ export default function AppShellClient({
         </main>
       ) : (
         <main className="lg:pl-72">
-          <div className="px-4 py-8 sm:px-6 lg:px-8">{children}</div>
+          <div className="px-4 sm:px-6 lg:px-8 pb-20 lg:pb-0">{children}</div>
         </main>
       )}
 
@@ -409,10 +409,11 @@ export default function AppShellClient({
               <BookOpen className="size-6" />
               <span className="sr-only">Powerbooks</span>
             </Link>
-            <Link href="/settings" className="inline-flex items-center justify-center size-10 rounded-full hover:bg-white/10 active:scale-95 transition">
-              <Settings className="size-6" />
-              <span className="sr-only">Einstellungen</span>
+            <Link href="/profile" className="inline-flex items-center justify-center size-10 rounded-full hover:bg-white/10 active:scale-95 transition">
+              <User className="size-6" />
+              <span className="sr-only">Profil</span>
             </Link>
+            
           </div>
 
           {/* Center FAB */}
