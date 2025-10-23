@@ -113,12 +113,30 @@ export default function NotebookDetailClient({
   }
 
   function downloadPage(pageId: string) {
-    // iOS Safari / WebView Trick → iframe
-    const iframe = document.createElement("iframe");
-    iframe.style.display = "none";
-    iframe.src = `/api/pages/${pageId}/export?format=png`;
-    document.body.appendChild(iframe);
-    setTimeout(() => iframe.remove(), 3000);
+    const url = `/api/pages/${pageId}/export?format=png`;
+    const fileName = `qnotes-page-${pageId}.png`;
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    // @ts-expect-error --- Just defined on mobile
+    const isInWebView = !!window.ReactNativeWebView; // Expo/React Native
+
+    if (isIOS || isInWebView) {
+      // iOS → iframe-Trick
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      iframe.src = url;
+      document.body.appendChild(iframe);
+      setTimeout(() => iframe.remove(), 3000);
+    } else {
+      // Desktop / Android normaler Browser
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.target = "_blank";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
   }
 
   return (
