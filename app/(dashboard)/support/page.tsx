@@ -1,14 +1,9 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useEffect } from "react";
 import Script from "next/script";
-import {
-  Mail,
-  MessageSquare,
-  Phone,
-  ChevronRight,
-  Circle,
-} from "lucide-react";
+import { usePathname } from "next/navigation";
+import { Mail, MessageSquare, Phone, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Accordion,
@@ -17,23 +12,18 @@ import {
   AccordionContent,
 } from "@/components/ui/accordion";
 
-/* ================================
-   Öffnungszeiten – HIER KONFIGURIEREN
-   ================================ */
+/* ================================ Öffnungszeiten ================================ */
 const OPENING_HOURS = {
-  timezone: "UTC", // z.B. "Europe/Vienna" oder "UTC"
+  timezone: "Europe/Vienna",
   monFri: [{ start: "08:00", end: "17:30" }],
   sat: [{ start: "10:00", end: "14:00" }],
   sun: [] as { start: string; end: string }[],
 };
 
-// Utility: "HH:MM" -> Minuten seit 00:00
-function toMinutes(hhmm: string): number {
-  const [h, m] = hhmm.split(":").map((x) => parseInt(x, 10));
+function toMinutes(hhmm: string) {
+  const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;
 }
-
-// Ermittelt Zeit/Tag in der gewünschten Zeitzone
 function getNowInTZ(tz: string) {
   const now = new Date();
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -43,19 +33,12 @@ function getNowInTZ(tz: string) {
     minute: "2-digit",
     hour12: false,
   }).formatToParts(now);
-
   const get = (t: string) => parts.find((p) => p.type === t)?.value || "";
-  const weekdayShort = get("weekday"); // Mon, Tue, ...
-  const hour = parseInt(get("hour") || "0", 10);
-  const minute = parseInt(get("minute") || "0", 10);
-
-  return {
-    weekdayShort,
-    minutes: hour * 60 + minute,
-  };
+  const weekdayShort = get("weekday");
+  const hour = parseInt(get("hour") || "0");
+  const minute = parseInt(get("minute") || "0");
+  return { weekdayShort, minutes: hour * 60 + minute };
 }
-
-// Prüft, ob innerhalb einer der Zeitspannen offen ist
 function isOpenNow(cfg = OPENING_HOURS) {
   const { weekdayShort, minutes } = getNowInTZ(cfg.timezone);
   const map: Record<string, { start: string; end: string }[]> = {
@@ -68,16 +51,15 @@ function isOpenNow(cfg = OPENING_HOURS) {
     Sun: cfg.sun,
   };
   const spans = map[weekdayShort] || [];
-  return spans.some((s) => minutes >= toMinutes(s.start) && minutes < toMinutes(s.end));
+  return spans.some(
+    (s) => minutes >= toMinutes(s.start) && minutes < toMinutes(s.end)
+  );
 }
-
-// Formatiert Öffnungszeiten für die Anzeige (untereinander)
 function formatHours(cfg = OPENING_HOURS) {
   const fmt = (spans: { start: string; end: string }[]) =>
     spans.length
       ? spans.map((s) => `${s.start}–${s.end}`).join(", ")
       : "geschlossen";
-
   return {
     tz: cfg.timezone,
     monFri: fmt(cfg.monFri),
@@ -86,11 +68,13 @@ function formatHours(cfg = OPENING_HOURS) {
   };
 }
 
+/* ================================ Komponente ================================ */
 export default function SupportKontakt() {
   const open = useMemo(() => isOpenNow(OPENING_HOURS), []);
   const hrs = useMemo(() => formatHours(OPENING_HOURS), []);
+  const pathname = usePathname();
 
-  // Klick auf unsere Schaltfläche -> versuche den Nixera-Launcher zu triggern
+  /* --- Chat öffnen --- */
   const openChatbox = useCallback(() => {
     const tryClick = () => {
       const selectors = [
@@ -100,7 +84,6 @@ export default function SupportKontakt() {
         '[data-widget="nixera"]',
         'button[aria-label*="Chat"]',
         'button[aria-label*="Support"]',
-        'button[aria-label*="Open"]',
       ];
       for (const sel of selectors) {
         const el = document.querySelector(sel) as HTMLElement | null;
@@ -109,7 +92,6 @@ export default function SupportKontakt() {
           return true;
         }
       }
-      // Fallback: versuche iFrame zu finden und per postMessage zu öffnen
       const iframe = Array.from(document.querySelectorAll("iframe")).find((f) =>
         (f as HTMLIFrameElement).src?.includes("widget.nixera")
       ) as HTMLIFrameElement | undefined;
@@ -119,7 +101,6 @@ export default function SupportKontakt() {
       }
       return false;
     };
-
     if (!tryClick()) {
       const start = Date.now();
       const iv = setInterval(() => {
@@ -128,15 +109,36 @@ export default function SupportKontakt() {
     }
   }, []);
 
+  /* --- Widget laden / entfernen --- */
+  useEffect(() => {
+    const WIDGET_SRC = "https://widget.nixera.net/widget.js";
+
+    if (pathname === "/support") {
+      // Script einfügen (falls nicht vorhanden)
+      if (!document.querySelector(`script[src="${WIDGET_SRC}"]`)) {
+        const s = document.createElement("script");
+        s.src = WIDGET_SRC;
+        s.async = true;
+        s.dataset.organizationId = "org_33LWlztfZOmd8G0iyxLZU1trI4x";
+        document.body.appendChild(s);
+      }
+    } else {
+      // Beim Verlassen: Widget & iframe entfernen
+      const iframes = Array.from(document.querySelectorAll("iframe")).filter(
+        (f) => (f as HTMLIFrameElement).src?.includes("widget.nixera")
+      );
+      iframes.forEach((f) => f.remove());
+
+      const widgetButtons = document.querySelectorAll(
+        "[data-nixera-widget-button], .nixera-widget-button, #nixera-widget-button"
+      );
+      widgetButtons.forEach((el) => el.remove());
+    }
+  }, [pathname]);
+
+  /* ------------------------------ JSX ------------------------------ */
   return (
     <>
-      {/* Nixera Widget unten rechts */}
-      <Script
-        src="https://widget.nixera.net/widget.js"
-        data-organization-id="org_33LWlztfZOmd8G0iyxLZU1trI4x"
-        strategy="afterInteractive"
-      />
-
       <div className="mx-auto max-w-6xl px-4 py-8">
         <h1 className="text-2xl font-semibold">Kontakt & Hilfe</h1>
         <p className="mt-2 text-gray-600">
@@ -157,9 +159,9 @@ export default function SupportKontakt() {
             <CardFooter>
               <Button
                 className="w-full h-10 justify-between"
-                onClick={() => {
-                  window.location.href = "mailto:support@powerbook.at";
-                }}
+                onClick={() =>
+                  (window.location.href = "mailto:support@powerbook.at")
+                }
               >
                 E-Mail schreiben
                 <ChevronRight className="ml-2 h-4 w-4" />
@@ -178,10 +180,6 @@ export default function SupportKontakt() {
                 Schnelle Hilfe direkt im Browser. Stelle Fragen, teile kurze
                 Anliegen – wir helfen live, wenn möglich.
               </p>
-              {/* <p className="mt-3 flex items-center gap-2 text-xs text-gray-500">
-                <span className="inline-block h-2 w-2 rounded-full bg-gray-300" />
-                Live-Chat ist in Vorbereitung.
-              </p> */}
             </CardBody>
             <CardFooter>
               <Button
@@ -213,8 +211,6 @@ export default function SupportKontakt() {
                 />
                 {open ? "Aktuell geöffnet" : "Zurzeit geschlossen"}
               </div>
-
-              {/* Öffnungszeiten konfigurierbar & sauber untereinander */}
               <div className="mt-3 text-sm text-gray-700">
                 <div className="text-xs uppercase tracking-wide text-gray-500 mb-1">
                   Öffnungszeiten ({hrs.tz})
@@ -229,9 +225,7 @@ export default function SupportKontakt() {
             <CardFooter>
               <Button
                 className="w-full h-10 justify-between"
-                onClick={() => {
-                  window.location.href = "tel:+43123456789";
-                }}
+                onClick={() => (window.location.href = "tel:+43123456789")}
               >
                 Jetzt anrufen
                 <ChevronRight className="ml-2 h-4 w-4" />
@@ -243,7 +237,9 @@ export default function SupportKontakt() {
         {/* FAQ */}
         <section className="mt-10 mb-16">
           <h2 className="text-xl font-semibold mb-1">FAQ</h2>
-          <p className="text-sm text-gray-600 mb-3">Häufig gestellte Fragen findest du hier direkt beantwortet.</p>
+          <p className="text-sm text-gray-600 mb-3">
+            Häufig gestellte Fragen findest du hier direkt beantwortet.
+          </p>
           <div className="rounded-2xl border bg-white p-2 sm:p-4">
             <Accordion type="single" collapsible className="w-full">
               <AccordionItem value="faq-1" className="border-b">
@@ -285,8 +281,7 @@ export default function SupportKontakt() {
   );
 }
 
-/* ---------- Kleine Layout-Helfer (Tailwind) ---------- */
-
+/* ---------- Layout-Helfer ---------- */
 function Card({ children }: { children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border bg-white p-5 shadow-sm flex flex-col min-h-[260px]">
@@ -294,14 +289,7 @@ function Card({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
-
-function CardHeader({
-  icon,
-  title,
-}: {
-  icon: React.ReactNode;
-  title: string;
-}) {
+function CardHeader({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
     <div className="flex items-center gap-3 mb-3">
       <div className="h-9 w-9 rounded-full bg-black text-white flex items-center justify-center">
@@ -311,11 +299,9 @@ function CardHeader({
     </div>
   );
 }
-
 function CardBody({ children }: { children: React.ReactNode }) {
   return <div className="text-sm flex-1">{children}</div>;
 }
-
 function CardFooter({ children }: { children: React.ReactNode }) {
   return <div className="mt-4">{children}</div>;
 }
