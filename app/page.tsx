@@ -149,6 +149,7 @@ export default async function DashboardPage() {
         notebookCount={notebookCount}
         pagesTotal={pagesTotal}
         notebooks={notebooks}
+        userId={user?.id || ""}
       />
     </AppShell>
   );

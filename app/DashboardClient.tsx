@@ -35,8 +35,9 @@ type Props = {
   userName: string;
   userEmail: string;
   notebookCount: number;
-  pagesTotal: number;     // ← neu: alle gescannten Seiten
+  pagesTotal: number; // ← neu: alle gescannten Seiten
   notebooks: NotebookCard[];
+  userId: string; // <– ID des aktuellen Benutzers
 };
 
 export default function DashboardClient({
@@ -45,9 +46,12 @@ export default function DashboardClient({
   notebookCount,
   pagesTotal,
   notebooks,
+  userId
 }: Props) {
-
-  const initials = useMemo(() => userName.slice(0, 2).toUpperCase(), [userName]);
+  const initials = useMemo(
+    () => userName.slice(0, 2).toUpperCase(),
+    [userName]
+  );
 
   // ---------- NEW: Upcoming tasks (next 3) ----------
   const [upcoming, setUpcoming] = useState<TaskRow[] | null>(null);
@@ -58,16 +62,24 @@ export default function DashboardClient({
     async function load() {
       setLoadingUpcoming(true);
       try {
-        // Hole genügend offene Tasks; wir sortieren clientseitig nach dueAt
-        const res = await fetch(`/api/tasks?completed=false&limit=50`, { cache: "no-store" });
+        const res = await fetch(
+          `/api/tasks?userId=${encodeURIComponent(
+            userId
+          )}&completed=false&limit=50`,
+          { cache: "no-store" }
+        );
         const data = await res.json();
         const items: TaskRow[] = Array.isArray(data?.items) ? data.items : [];
 
         const sorted = items
           .slice()
           .sort((a, b) => {
-            const da = a.dueAt ? new Date(a.dueAt).getTime() : Number.POSITIVE_INFINITY;
-            const db = b.dueAt ? new Date(b.dueAt).getTime() : Number.POSITIVE_INFINITY;
+            const da = a.dueAt
+              ? new Date(a.dueAt).getTime()
+              : Number.POSITIVE_INFINITY;
+            const db = b.dueAt
+              ? new Date(b.dueAt).getTime()
+              : Number.POSITIVE_INFINITY;
             return da - db;
           })
           .slice(0, 3);
@@ -80,8 +92,10 @@ export default function DashboardClient({
       }
     }
     load();
-    return () => { alive = false; };
-  }, []);
+    return () => {
+      alive = false;
+    };
+  }, [userId]); // <– Effekt abhängiger von userId
 
   function formatDue(dueAt?: string | null) {
     if (!dueAt) return "ohne Termin";
@@ -91,7 +105,8 @@ export default function DashboardClient({
       d.getFullYear() === now.getFullYear() &&
       d.getMonth() === now.getMonth() &&
       d.getDate() === now.getDate();
-    const tomorrow = new Date(now); tomorrow.setDate(now.getDate() + 1);
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
     const isTomorrow =
       d.getFullYear() === tomorrow.getFullYear() &&
       d.getMonth() === tomorrow.getMonth() &&
@@ -113,7 +128,9 @@ export default function DashboardClient({
         {/* Header */}
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Willkommen, {userName}</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Willkommen, {userName}
+            </h1>
             <p className="text-muted-foreground">Eingeloggt als {userEmail}</p>
           </div>
           <div className="flex w-full items-center gap-2 md:w-auto">
@@ -124,10 +141,30 @@ export default function DashboardClient({
 
         {/* Top Row */}
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <MetricCard icon={BookOpenIcon} title="Powerbooks" value={String(notebookCount)} link="/notebooks"/>
-          <MetricCard icon={FileText} title="Erfasste Seiten" value={String(pagesTotal)} link="/notebooks" />
-          <ActionCard icon={Camera} title="Seite scannen" href="/scan" hint="Schnell starten" />
-          <ActionCard icon={Clock} title="Zuletzt bearbeitet" href="/notebooks?sort=recent" hint="Schnell starten" />
+          <MetricCard
+            icon={BookOpenIcon}
+            title="Powerbooks"
+            value={String(notebookCount)}
+            link="/notebooks"
+          />
+          <MetricCard
+            icon={FileText}
+            title="Erfasste Seiten"
+            value={String(pagesTotal)}
+            link="/notebooks"
+          />
+          <ActionCard
+            icon={Camera}
+            title="Seite scannen"
+            href="/scan"
+            hint="Schnell starten"
+          />
+          <ActionCard
+            icon={Clock}
+            title="Zuletzt bearbeitet"
+            href="/notebooks?sort=recent"
+            hint="Schnell starten"
+          />
         </div>
 
         {/* Main Grid */}
@@ -137,7 +174,9 @@ export default function DashboardClient({
             <CardHeader className="flex items-start justify-between pb-3">
               <div>
                 <CardTitle>Deine Powerbooks</CardTitle>
-                <CardDescription>Kurzer Überblick & schnelle Aktionen</CardDescription>
+                <CardDescription>
+                  Kurzer Überblick & schnelle Aktionen
+                </CardDescription>
               </div>
               <Button variant="ghost" asChild>
                 <Link href="/notebooks">
@@ -158,7 +197,10 @@ export default function DashboardClient({
                         <div className="flex items-center gap-3">
                           <div className={`h-8 w-8 rounded-lg ${nb.color}`} />
                           <div>
-                            <Link href={`/notebooks/${nb.id}`} className="font-medium hover:underline">
+                            <Link
+                              href={`/notebooks/${nb.id}`}
+                              className="font-medium hover:underline"
+                            >
                               {nb.title}
                             </Link>
                             <div className="text-xs text-muted-foreground">
@@ -208,7 +250,9 @@ export default function DashboardClient({
           <Card className="mx-auto w-full max-w-[380px] sm:max-w-[560px] lg:max-w-none">
             <CardHeader className="pb-3">
               <CardTitle>Anstehende Aufgaben</CardTitle>
-              <CardDescription>Die nächsten drei offenen Aufgaben</CardDescription>
+              <CardDescription>
+                Die nächsten drei offenen Aufgaben
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {loadingUpcoming ? (
@@ -232,7 +276,9 @@ export default function DashboardClient({
                       <Check className="h-5 w-5 text-muted-foreground" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium">{t.title || "Aufgabe"}</div>
+                      <div className="truncate font-medium">
+                        {t.title || "Aufgabe"}
+                      </div>
                       <div className="truncate text-xs text-muted-foreground">
                         Fällig: {formatDue(t.dueAt)}
                       </div>
