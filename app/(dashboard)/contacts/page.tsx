@@ -31,7 +31,6 @@ export default function ContactsPage() {
   const [open, setOpen] = useState(false);
   const [editContact, setEditContact] = useState<any | null>(null);
 
-  // --- Modal Form State ---
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -45,7 +44,7 @@ export default function ContactsPage() {
     company: "",
   });
 
-  // --- Fetch Kontakte ---
+  // --- Kontakte laden ---
   useEffect(() => {
     (async () => {
       try {
@@ -61,7 +60,7 @@ export default function ContactsPage() {
     })();
   }, []);
 
-  // --- Öffnet Modal für Bearbeiten oder Neu ---
+  // --- Modal öffnen ---
   function openModal(contact?: any) {
     if (contact) {
       setEditContact(contact);
@@ -95,7 +94,7 @@ export default function ContactsPage() {
     setOpen(true);
   }
 
-  // --- Speichern (POST oder PUT) ---
+  // --- Speichern ---
   async function handleSave() {
     const method = editContact ? "PUT" : "POST";
     const url = editContact
@@ -133,86 +132,51 @@ export default function ContactsPage() {
     }
   }
 
-  // --- Als VCF speichern ---
-function saveAsVCard(contact: any) {
-  const lines = [
-    "BEGIN:VCARD",
-    "VERSION:3.0",
-    `FN:${contact.firstName || ""} ${contact.lastName || ""}`,
-    contact.phone ? `TEL;TYPE=CELL:${contact.phone}` : "",
-    contact.email ? `EMAIL:${contact.email}` : "",
-    contact.company ? `ORG:${contact.company}` : "",
-    contact.position ? `TITLE:${contact.position}` : "",
-    contact.street || contact.city || contact.country
-      ? `ADR;TYPE=home:;;${contact.street || ""};${contact.city || ""};;${
-          contact.postalCode || ""
-        };${contact.country || ""}`
-      : "",
-    "END:VCARD",
-  ].filter(Boolean);
-
-  const vcardContent = lines.join("\n");
-  const blob = new Blob([vcardContent], { type: "text/vcard;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-
-  // 📱 iOS/Android-safe Variante:
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-  if (isMobile) {
-    // Data-URL für mobile WebView öffnen
-    const dataUrl =
-      "data:text/vcard;charset=utf-8," + encodeURIComponent(vcardContent);
-    window.open(dataUrl, "_blank");
-  } else {
-    // Normaler Desktop-Download
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${contact.firstName || "contact"}_${
-      contact.lastName || ""
-    }.vcf`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  // --- vCard Download via API (funktioniert in WebView) ---
+  function downloadVCard(contactId: string) {
+    window.location.href = `/api/contact-vcard?id=${contactId}`;
   }
-}
-
 
   if (loading) return <p className="text-gray-500">Lade Kontakte…</p>;
 
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-semibold">Kontakte</h1>
+        <h1 className="text-2xl font-semibold">Kontakte2</h1>
         <Button onClick={() => openModal()} className="bg-black text-white">
-          <UserPlus className="h-4 w-4 mr-2" /> Kontakt erstellen1
+          <UserPlus className="h-4 w-4 mr-2" /> Kontakt erstellen
         </Button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         {contacts.map((c) => (
-          <Card key={c._id} className="overflow-hidden relative pt-0">
-            {/* Schwarzer Balken – füllt oben komplett aus */}
-            <div className="bg-black h-20 w-full" />
+          <Card
+            key={c._id}
+            className="overflow-hidden relative pb-4 border rounded-xl shadow-sm"
+          >
+            {/* Schwarzer Balken ganz oben */}
+            <div className="bg-black w-full h-20 rounded-t-xl" />
 
             {/* Profilbild – halb überlappend */}
-            <div className="absolute left-1/2 top-10 transform -translate-x-1/2">
+            <div className="absolute left-1/2 top-10 -translate-x-1/2">
               <img
                 src="/images/avatar-fallback.png"
                 alt={c.firstName}
-                className="w-20 h-20 rounded-full border-4 border-white object-cover"
+                className="w-20 h-20 rounded-full border-4 border-white object-cover shadow"
               />
             </div>
 
-            {/* Card Content */}
-            <CardContent className="pt-10 text-center text-gray-700">
-              <CardTitle className="text-lg mb-1">
+            {/* Inhalt */}
+            <CardContent className="pt-12 text-center text-gray-700">
+              <CardTitle className="text-lg mb-1 font-semibold">
                 {c.firstName} {c.lastName}
               </CardTitle>
-              <div className="flex flex-col gap-1 text-sm">
+
+              <div className="flex flex-col gap-1 text-sm text-gray-600">
                 {c.position && (
                   <div className="flex items-center justify-center gap-1">
-                    <Building2 className="h-4 w-4" /> {c.position} @ {c.company}
+                    <Building2 className="h-4 w-4" />
+                    {c.position} {c.company && `@ ${c.company}`}
                   </div>
                 )}
                 {c.email && (
@@ -228,12 +192,15 @@ function saveAsVCard(contact: any) {
                 {(c.street || c.city || c.country) && (
                   <div className="flex items-center justify-center gap-1 text-center">
                     <MapPin className="h-4 w-4" />
-                    {c.street}, {c.postalCode} {c.city}, {c.country}
+                    {[c.street, c.postalCode, c.city, c.country]
+                      .filter(Boolean)
+                      .join(", ")}
                   </div>
                 )}
               </div>
 
-              <div className="flex justify-center gap-4 mt-3">
+              {/* Buttons */}
+              <div className="flex justify-center gap-3 mt-4 flex-wrap">
                 <Button
                   variant="outline"
                   size="sm"
@@ -254,7 +221,7 @@ function saveAsVCard(contact: any) {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => saveAsVCard(c)}
+                  onClick={() => downloadVCard(c._id)}
                   className="text-blue-600 hover:text-blue-800"
                 >
                   <Download className="h-4 w-4 mr-1" /> In Kontakte speichern
@@ -272,14 +239,14 @@ function saveAsVCard(contact: any) {
             <DialogTitle>
               {editContact ? "Kontakt bearbeiten" : "Neuen Kontakt anlegen"}
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-gray-500">
               Gib die wichtigsten Informationen über den Kontakt ein.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
             <div>
-              <Label className="mb-1.5 block">Vorname</Label>
+              <Label className="mb-2 block">Vorname</Label>
               <Input
                 value={form.firstName}
                 onChange={(e) =>
@@ -288,7 +255,7 @@ function saveAsVCard(contact: any) {
               />
             </div>
             <div>
-              <Label className="mb-1.5 block">Nachname</Label>
+              <Label className="mb-2 block">Nachname</Label>
               <Input
                 value={form.lastName}
                 onChange={(e) => setForm({ ...form, lastName: e.target.value })}
@@ -296,23 +263,23 @@ function saveAsVCard(contact: any) {
             </div>
           </div>
 
-          <div className="mt-2 space-y-3">
+          <div className="mt-3 space-y-3">
             <div>
-              <Label className="mb-1.5 block">E-Mail</Label>
+              <Label className="mb-2 block">E-Mail</Label>
               <Input
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
               />
             </div>
             <div>
-              <Label className="mb-1.5 block">Telefon</Label>
+              <Label className="mb-2 block">Telefon</Label>
               <Input
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
               />
             </div>
             <div>
-              <Label className="mb-1.5 block">Straße</Label>
+              <Label className="mb-2 block">Straße</Label>
               <Input
                 value={form.street}
                 onChange={(e) => setForm({ ...form, street: e.target.value })}
@@ -321,7 +288,7 @@ function saveAsVCard(contact: any) {
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div>
-                <Label className="mb-1.5 block">PLZ</Label>
+                <Label className="mb-2 block">PLZ</Label>
                 <Input
                   value={form.postalCode}
                   onChange={(e) =>
@@ -330,14 +297,14 @@ function saveAsVCard(contact: any) {
                 />
               </div>
               <div>
-                <Label className="mb-1.5 block">Stadt</Label>
+                <Label className="mb-2 block">Stadt</Label>
                 <Input
                   value={form.city}
                   onChange={(e) => setForm({ ...form, city: e.target.value })}
                 />
               </div>
               <div>
-                <Label className="mb-1.5 block">Land</Label>
+                <Label className="mb-2 block">Land</Label>
                 <Input
                   value={form.country}
                   onChange={(e) =>
@@ -348,14 +315,14 @@ function saveAsVCard(contact: any) {
             </div>
 
             <div>
-              <Label className="mb-1.5 block">Position</Label>
+              <Label className="mb-2 block">Position</Label>
               <Input
                 value={form.position}
                 onChange={(e) => setForm({ ...form, position: e.target.value })}
               />
             </div>
             <div>
-              <Label className="mb-1.5 block">Firma</Label>
+              <Label className="mb-2 block">Firma</Label>
               <Input
                 value={form.company}
                 onChange={(e) => setForm({ ...form, company: e.target.value })}
