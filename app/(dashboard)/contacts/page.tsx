@@ -134,32 +134,49 @@ export default function ContactsPage() {
   }
 
   // --- Als VCF speichern ---
-  function saveAsVCard(contact: any) {
-    const vcard = `
-BEGIN:VCARD
-VERSION:3.0
-N:${contact.lastName || ""};${contact.firstName || ""}
-FN:${contact.firstName || ""} ${contact.lastName || ""}
-ORG:${contact.company || ""}
-TITLE:${contact.position || ""}
-TEL;TYPE=cell:${contact.phone || ""}
-EMAIL;TYPE=work:${contact.email || ""}
-ADR;TYPE=home:;;${contact.street || ""};${contact.city || ""};${
-      contact.postalCode || ""
-    };${contact.country || ""}
-END:VCARD
-`.trim();
+function saveAsVCard(contact: any) {
+  const lines = [
+    "BEGIN:VCARD",
+    "VERSION:3.0",
+    `FN:${contact.firstName || ""} ${contact.lastName || ""}`,
+    contact.phone ? `TEL;TYPE=CELL:${contact.phone}` : "",
+    contact.email ? `EMAIL:${contact.email}` : "",
+    contact.company ? `ORG:${contact.company}` : "",
+    contact.position ? `TITLE:${contact.position}` : "",
+    contact.street || contact.city || contact.country
+      ? `ADR;TYPE=home:;;${contact.street || ""};${contact.city || ""};;${
+          contact.postalCode || ""
+        };${contact.country || ""}`
+      : "",
+    "END:VCARD",
+  ].filter(Boolean);
 
-    const blob = new Blob([vcard], { type: "text/vcard" });
-    const url = URL.createObjectURL(blob);
+  const vcardContent = lines.join("\n");
+  const blob = new Blob([vcardContent], { type: "text/vcard;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+
+  // 📱 iOS/Android-safe Variante:
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  if (isMobile) {
+    // Data-URL für mobile WebView öffnen
+    const dataUrl =
+      "data:text/vcard;charset=utf-8," + encodeURIComponent(vcardContent);
+    window.open(dataUrl, "_blank");
+  } else {
+    // Normaler Desktop-Download
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${contact.firstName || "Kontakt"}_${
+    a.download = `${contact.firstName || "contact"}_${
       contact.lastName || ""
     }.vcf`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
+}
+
 
   if (loading) return <p className="text-gray-500">Lade Kontakte…</p>;
 
@@ -168,7 +185,7 @@ END:VCARD
       <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-semibold">Kontakte</h1>
         <Button onClick={() => openModal()} className="bg-black text-white">
-          <UserPlus className="h-4 w-4 mr-2" /> Kontakt erstellen
+          <UserPlus className="h-4 w-4 mr-2" /> Kontakt erstellen1
         </Button>
       </div>
 
