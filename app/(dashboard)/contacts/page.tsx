@@ -46,19 +46,6 @@ export default function ContactsPage() {
       position: "Marketing Managerin",
       company: "Preinfalk Media",
     },
-    {
-      id: "2",
-      firstName: "Thomas",
-      lastName: "Bauer",
-      email: "thomas.bauer@example.com",
-      phone: "+43 699 9876543",
-      street: "Landstraße 10",
-      postalCode: "4020",
-      city: "Linz",
-      country: "Österreich",
-      position: "Projektleiter",
-      company: "Pipvaro GmbH",
-    },
   ]);
 
   const [open, setOpen] = useState(false);
@@ -99,7 +86,9 @@ export default function ContactsPage() {
               <Plus className="w-4 h-4" /> Kontakt erstellen
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+
+          {/* Scrollbarer Inhalt */}
+          <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Neuen Kontakt anlegen</DialogTitle>
               <DialogDescription>
@@ -107,8 +96,9 @@ export default function ContactsPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-4 py-2">
-              {/* Vorname & Nachname nebeneinander */}
+            {/* Scroll-Inhalt mit Abstand */}
+            <div className="grid gap-4 py-2 pb-6">
+              {/* Vorname & Nachname */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1">
                   <Label htmlFor="firstName">Vorname</Label>
@@ -230,10 +220,10 @@ export default function ContactsPage() {
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="sticky bottom-0 bg-white pt-3 pb-2 border-t">
               <Button
                 onClick={handleCreate}
-                className="bg-black text-white hover:bg-black/90"
+                className="w-full sm:w-auto bg-black text-white hover:bg-black/90"
               >
                 Speichern
               </Button>
@@ -249,10 +239,7 @@ export default function ContactsPage() {
             key={c.id}
             className="overflow-hidden relative flex flex-col items-center pb-5"
           >
-            {/* Schwarzer Balken */}
             <div className="absolute top-0 left-0 right-0 h-20 bg-black" />
-
-            {/* Profilbild */}
             <div className="relative mt-10">
               <Image
                 src="/images/avatar-placeholder.png"
@@ -262,8 +249,6 @@ export default function ContactsPage() {
                 className="rounded-full border-4 border-white shadow-md object-cover z-10 relative -mt-10"
               />
             </div>
-
-            {/* Content */}
             <CardContent className="mt-3 text-center space-y-2 w-full">
               <h2 className="text-lg font-semibold">
                 {c.firstName} {c.lastName}
