@@ -1,284 +1,361 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Mail, Phone, MapPin, Briefcase, Trash } from "lucide-react";
-import Image from "next/image";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Building2,
+  Mail,
+  Phone,
+  MapPin,
+  Trash2,
+  Edit2,
+  Download,
+  UserPlus,
+} from "lucide-react";
 import {
   Dialog,
-  DialogTrigger,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-
-type Contact = {
-  _id?: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone?: string;
-  street?: string;
-  postalCode?: string;
-  city?: string;
-  country?: string;
-  position?: string;
-  company?: string;
-  avatarUrl?: string;
-};
 
 export default function ContactsPage() {
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [open, setOpen] = useState(false);
+  const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newContact, setNewContact] = useState<Partial<Contact>>({});
+  const [open, setOpen] = useState(false);
+  const [editContact, setEditContact] = useState<any | null>(null);
 
-  // === FETCH CONTACTS ===
+  // --- Modal Form State ---
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    street: "",
+    postalCode: "",
+    city: "",
+    country: "",
+    position: "",
+    company: "",
+  });
+
+  // --- Fetch Kontakte ---
   useEffect(() => {
     (async () => {
-      const res = await fetch("/api/contacts");
-      const data = await res.json();
-      setContacts(data.contacts || []);
-      setLoading(false);
+      try {
+        const res = await fetch("/api/contacts");
+        if (!res.ok) throw new Error("Fetch failed");
+        const data = await res.json();
+        setContacts(data.contacts || []);
+      } catch {
+        setContacts([]);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
-  // === CREATE CONTACT ===
-  async function handleCreate() {
-    if (!newContact.firstName || !newContact.lastName || !newContact.email)
-      return;
-    const res = await fetch("/api/contacts", {
-      method: "POST",
+  // --- Öffnet Modal für Bearbeiten oder Neu ---
+  function openModal(contact?: any) {
+    if (contact) {
+      setEditContact(contact);
+      setForm({
+        firstName: contact.firstName || "",
+        lastName: contact.lastName || "",
+        email: contact.email || "",
+        phone: contact.phone || "",
+        street: contact.street || "",
+        postalCode: contact.postalCode || "",
+        city: contact.city || "",
+        country: contact.country || "",
+        position: contact.position || "",
+        company: contact.company || "",
+      });
+    } else {
+      setEditContact(null);
+      setForm({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        street: "",
+        postalCode: "",
+        city: "",
+        country: "",
+        position: "",
+        company: "",
+      });
+    }
+    setOpen(true);
+  }
+
+  // --- Speichern (POST oder PUT) ---
+  async function handleSave() {
+    const method = editContact ? "PUT" : "POST";
+    const url = editContact
+      ? `/api/contacts/${editContact._id}`
+      : "/api/contacts";
+
+    const res = await fetch(url, {
+      method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newContact),
+      body: JSON.stringify(form),
     });
+
     if (res.ok) {
       const data = await res.json();
-      setContacts((prev) => [data.contact, ...prev]);
-      setNewContact({});
+      setContacts((prev) => {
+        if (editContact) {
+          return prev.map((c) =>
+            c._id === editContact._id ? data.contact : c
+          );
+        }
+        return [data.contact, ...prev];
+      });
       setOpen(false);
+    } else {
+      alert("Fehler beim Speichern");
     }
   }
 
-  // === DELETE CONTACT ===
+  // --- Löschen ---
   async function handleDelete(id: string) {
     if (!confirm("Diesen Kontakt wirklich löschen?")) return;
-    await fetch(`/api/contacts/${id}`, { method: "DELETE" });
-    setContacts((prev) => prev.filter((c) => c._id !== id));
+    const res = await fetch(`/api/contacts/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setContacts((prev) => prev.filter((c) => c._id !== id));
+    }
   }
 
+  // --- Als VCF speichern ---
+  function saveAsVCard(contact: any) {
+    const vcard = `
+BEGIN:VCARD
+VERSION:3.0
+N:${contact.lastName || ""};${contact.firstName || ""}
+FN:${contact.firstName || ""} ${contact.lastName || ""}
+ORG:${contact.company || ""}
+TITLE:${contact.position || ""}
+TEL;TYPE=cell:${contact.phone || ""}
+EMAIL;TYPE=work:${contact.email || ""}
+ADR;TYPE=home:;;${contact.street || ""};${contact.city || ""};${
+      contact.postalCode || ""
+    };${contact.country || ""}
+END:VCARD
+`.trim();
+
+    const blob = new Blob([vcard], { type: "text/vcard" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${contact.firstName || "Kontakt"}_${
+      contact.lastName || ""
+    }.vcf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  if (loading) return <p className="text-gray-500">Lade Kontakte…</p>;
+
   return (
-    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div className="p-4">
+      <div className="flex justify-between items-center mb-4">
         <h1 className="text-2xl font-semibold">Kontakte</h1>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 bg-black hover:bg-black/90 text-white">
-              <Plus className="w-4 h-4" /> Kontakt erstellen
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-md max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Neuen Kontakt anlegen</DialogTitle>
-              <DialogDescription>
-                Gib die wichtigsten Informationen ein.
-              </DialogDescription>
-            </DialogHeader>
+        <Button onClick={() => openModal()} className="bg-black text-white">
+          <UserPlus className="h-4 w-4 mr-2" /> Kontakt erstellen
+        </Button>
+      </div>
 
-            <div className="grid gap-4 py-2 pb-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <Label>Vorname</Label>
-                  <Input
-                    value={newContact.firstName || ""}
-                    onChange={(e) =>
-                      setNewContact({
-                        ...newContact,
-                        firstName: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <Label>Nachname</Label>
-                  <Input
-                    value={newContact.lastName || ""}
-                    onChange={(e) =>
-                      setNewContact({ ...newContact, lastName: e.target.value })
-                    }
-                  />
-                </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        {contacts.map((c) => (
+          <Card key={c._id} className="overflow-hidden relative pt-0">
+            {/* Schwarzer Balken – füllt oben komplett aus */}
+            <div className="bg-black h-20 w-full" />
+
+            {/* Profilbild – halb überlappend */}
+            <div className="absolute left-1/2 top-10 transform -translate-x-1/2">
+              <img
+                src="/images/avatar-fallback.png"
+                alt={c.firstName}
+                className="w-20 h-20 rounded-full border-4 border-white object-cover"
+              />
+            </div>
+
+            {/* Card Content */}
+            <CardContent className="pt-10 text-center text-gray-700">
+              <CardTitle className="text-lg mb-1">
+                {c.firstName} {c.lastName}
+              </CardTitle>
+              <div className="flex flex-col gap-1 text-sm">
+                {c.position && (
+                  <div className="flex items-center justify-center gap-1">
+                    <Building2 className="h-4 w-4" /> {c.position} @ {c.company}
+                  </div>
+                )}
+                {c.email && (
+                  <div className="flex items-center justify-center gap-1">
+                    <Mail className="h-4 w-4" /> {c.email}
+                  </div>
+                )}
+                {c.phone && (
+                  <div className="flex items-center justify-center gap-1">
+                    <Phone className="h-4 w-4" /> {c.phone}
+                  </div>
+                )}
+                {(c.street || c.city || c.country) && (
+                  <div className="flex items-center justify-center gap-1 text-center">
+                    <MapPin className="h-4 w-4" />
+                    {c.street}, {c.postalCode} {c.city}, {c.country}
+                  </div>
+                )}
               </div>
 
-              <div className="flex flex-col gap-1">
-                <Label>E-Mail</Label>
+              <div className="flex justify-center gap-4 mt-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openModal(c)}
+                >
+                  <Edit2 className="h-4 w-4 mr-1" /> Bearbeiten
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => handleDelete(c._id)}
+                >
+                  <Trash2 className="h-4 w-4 mr-1" /> Löschen
+                </Button>
+              </div>
+
+              <div className="mt-2 flex justify-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => saveAsVCard(c)}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  <Download className="h-4 w-4 mr-1" /> In Kontakte speichern
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Modal */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {editContact ? "Kontakt bearbeiten" : "Neuen Kontakt anlegen"}
+            </DialogTitle>
+            <DialogDescription>
+              Gib die wichtigsten Informationen über den Kontakt ein.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-3">
+            <div>
+              <Label className="mb-1.5 block">Vorname</Label>
+              <Input
+                value={form.firstName}
+                onChange={(e) =>
+                  setForm({ ...form, firstName: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label className="mb-1.5 block">Nachname</Label>
+              <Input
+                value={form.lastName}
+                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="mt-2 space-y-3">
+            <div>
+              <Label className="mb-1.5 block">E-Mail</Label>
+              <Input
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="mb-1.5 block">Telefon</Label>
+              <Input
+                value={form.phone}
+                onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="mb-1.5 block">Straße</Label>
+              <Input
+                value={form.street}
+                onChange={(e) => setForm({ ...form, street: e.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div>
+                <Label className="mb-1.5 block">PLZ</Label>
                 <Input
-                  value={newContact.email || ""}
+                  value={form.postalCode}
                   onChange={(e) =>
-                    setNewContact({ ...newContact, email: e.target.value })
+                    setForm({ ...form, postalCode: e.target.value })
                   }
                 />
               </div>
-
-              <div className="flex flex-col gap-1">
-                <Label>Telefon</Label>
+              <div>
+                <Label className="mb-1.5 block">Stadt</Label>
                 <Input
-                  value={newContact.phone || ""}
-                  onChange={(e) =>
-                    setNewContact({ ...newContact, phone: e.target.value })
-                  }
+                  value={form.city}
+                  onChange={(e) => setForm({ ...form, city: e.target.value })}
                 />
               </div>
-
-              <div className="flex flex-col gap-1">
-                <Label>Straße</Label>
+              <div>
+                <Label className="mb-1.5 block">Land</Label>
                 <Input
-                  value={newContact.street || ""}
+                  value={form.country}
                   onChange={(e) =>
-                    setNewContact({ ...newContact, street: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <Label>PLZ</Label>
-                  <Input
-                    value={newContact.postalCode || ""}
-                    onChange={(e) =>
-                      setNewContact({
-                        ...newContact,
-                        postalCode: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <Label>Stadt</Label>
-                  <Input
-                    value={newContact.city || ""}
-                    onChange={(e) =>
-                      setNewContact({ ...newContact, city: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <Label>Land</Label>
-                <Input
-                  value={newContact.country || ""}
-                  onChange={(e) =>
-                    setNewContact({ ...newContact, country: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <Label>Position</Label>
-                <Input
-                  value={newContact.position || ""}
-                  onChange={(e) =>
-                    setNewContact({ ...newContact, position: e.target.value })
-                  }
-                />
-              </div>
-
-              <div className="flex flex-col gap-1">
-                <Label>Firma</Label>
-                <Input
-                  value={newContact.company || ""}
-                  onChange={(e) =>
-                    setNewContact({ ...newContact, company: e.target.value })
+                    setForm({ ...form, country: e.target.value })
                   }
                 />
               </div>
             </div>
 
-            <DialogFooter>
-              <Button
-                onClick={handleCreate}
-                className="bg-black text-white hover:bg-black/90"
-              >
-                Speichern
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
+            <div>
+              <Label className="mb-1.5 block">Position</Label>
+              <Input
+                value={form.position}
+                onChange={(e) => setForm({ ...form, position: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="mb-1.5 block">Firma</Label>
+              <Input
+                value={form.company}
+                onChange={(e) => setForm({ ...form, company: e.target.value })}
+              />
+            </div>
+          </div>
 
-      {loading ? (
-        <p className="text-gray-500">Lade Kontakte…</p>
-      ) : contacts.length === 0 ? (
-        <p className="text-gray-500">Keine Kontakte vorhanden.</p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {contacts.map((c) => (
-            <Card
-              key={c._id}
-              className="overflow-hidden relative flex flex-col items-center pb-5"
+          <DialogFooter>
+            <Button
+              onClick={handleSave}
+              className="bg-black text-white w-full mt-4"
             >
-              <div className="absolute top-0 left-0 right-0 h-20 bg-black" />
-              <div className="relative mt-10">
-                <Image
-                  src={c.avatarUrl || "/images/avatar-placeholder.png"}
-                  alt={`${c.firstName} ${c.lastName}`}
-                  width={90}
-                  height={90}
-                  className="rounded-full border-4 border-white shadow-md object-cover z-10 relative -mt-10"
-                />
-              </div>
-              <CardContent className="mt-3 text-center space-y-2 w-full">
-                <h2 className="text-lg font-semibold">
-                  {c.firstName} {c.lastName}
-                </h2>
-                {c.position && (
-                  <p className="text-sm text-gray-500">
-                    <Briefcase className="inline-block w-4 h-4 mr-1 text-gray-400" />
-                    {c.position} {c.company && `@ ${c.company}`}
-                  </p>
-                )}
-                <div className="space-y-1 text-sm text-gray-700">
-                  <p className="flex items-center justify-center gap-2">
-                    <Mail className="w-4 h-4 text-gray-500" /> {c.email}
-                  </p>
-                  {c.phone && (
-                    <p className="flex items-center justify-center gap-2">
-                      <Phone className="w-4 h-4 text-gray-500" /> {c.phone}
-                    </p>
-                  )}
-                  {(c.street || c.city || c.country) && (
-                    <div className="flex flex-col items-center justify-center text-gray-600 mt-1">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-gray-500" />
-                        <span>
-                          {[c.street, c.postalCode, c.city]
-                            .filter(Boolean)
-                            .join(", ")}
-                        </span>
-                      </div>
-                      {c.country && <div>{c.country}</div>}
-                    </div>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDelete(c._id!)}
-                  className="text-red-600 hover:bg-red-50 mt-2"
-                >
-                  <Trash className="w-4 h-4 mr-1" /> Löschen
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+              Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
