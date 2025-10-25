@@ -92,7 +92,7 @@ export default function ContactsPage() {
 
   const myContactUrl = user?.id
     ? `${
-        process.env.NEXT_PUBLIC_APP_URL || "https://my.powerbook.at"
+        "https://powerbook.at"
       }/contact/${user.id}`
     : "—";
 
