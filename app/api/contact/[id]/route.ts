@@ -1,20 +1,18 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextResponse } from "next/server";
 import connectToDB from "@/lib/mongoose";
 import UserContactProfile from "@/models/UserContactProfile";
 
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: Request, context: any) {
   await connectToDB();
 
-  const { id } = params;
+  const id = context?.params?.id;
   if (!id) {
     return NextResponse.json({ error: "Missing ID" }, { status: 400 });
   }
 
   try {
-    // Suche Profil anhand der userId (nicht _id!)
+    // Profil anhand der userId finden
     const profile = await UserContactProfile.findOne({ userId: id });
 
     if (!profile) {
