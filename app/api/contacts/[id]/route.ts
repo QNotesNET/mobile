@@ -1,7 +1,10 @@
+// app/api/contacts/[id]/route.ts
 import { NextResponse } from "next/server";
 import connectToDB from "@/lib/mongoose";
 import Contact from "@/models/Contact";
 import { verifySessionJWT, SESSION_COOKIE_NAME } from "@/lib/auth";
+
+export const runtime = "nodejs";
 
 async function getUserFromRequest(req: Request) {
   const cookieHeader = req.headers.get("cookie");
@@ -22,19 +25,18 @@ async function getUserFromRequest(req: Request) {
   }
 }
 
+// ✅ KORREKTE FUNKTION FÜR NEXT 15+
 export async function DELETE(
   req: Request,
-  { params }: { params: { id: string } }
+  ctx: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await ctx.params;
   await connectToDB();
   const user = await getUserFromRequest(req);
   if (!user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const contact = await Contact.findOneAndDelete({
-    _id: params.id,
-    userId: user.sub,
-  });
+  const contact = await Contact.findOneAndDelete({ _id: id, userId: user.sub });
   if (!contact)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
