@@ -4,7 +4,7 @@ import { useState, useEffect, Fragment, type ComponentType, type SVGProps } from
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
-import { ArrowRightOnRectangleIcon, CalendarIcon, CheckIcon, EnvelopeIcon } from "@heroicons/react/24/outline";
+import { ArrowRightOnRectangleIcon, CalendarIcon, CheckIcon, EnvelopeIcon, UsersIcon } from "@heroicons/react/24/outline";
 
 import { Dialog, DialogBackdrop, DialogPanel, TransitionChild } from "@headlessui/react";
 import {
@@ -117,7 +117,12 @@ export default function AppShellClient({
       { name: "Powerbooks", href: "/notebooks", icon: BookOpenIcon },
       { name: "Aufgaben", href: "/todos", icon: CheckIcon },
       { name: "Kalendar", href: "/calendar", icon: CalendarIcon },
-      { name: "Integrationen", href: "/integrations", icon: AdjustmentsHorizontalIcon },
+      { name: "Kontakte", href: "/contacts", icon: UsersIcon },
+      {
+        name: "Integrationen",
+        href: "/integrations",
+        icon: AdjustmentsHorizontalIcon,
+      },
       { name: "Einstellungen", href: "/settings", icon: Cog6ToothIcon },
       { name: "Hilfe & Kontakt", href: "/support", icon: EnvelopeIcon },
       { name: "Admin", href: "/admin", icon: Bolt },
@@ -128,7 +133,12 @@ export default function AppShellClient({
       { name: "Powerbooks", href: "/notebooks", icon: BookOpenIcon },
       { name: "Aufgaben", href: "/todos", icon: CheckIcon },
       { name: "Kalendar", href: "/calendar", icon: CalendarIcon },
-      { name: "Integrationen", href: "/integrations", icon: AdjustmentsHorizontalIcon },
+      { name: "Kontakte", href: "/contacts", icon: UsersIcon },
+      {
+        name: "Integrationen",
+        href: "/integrations",
+        icon: AdjustmentsHorizontalIcon,
+      },
       { name: "Einstellungen", href: "/settings", icon: Cog6ToothIcon },
       { name: "Hilfe & Kontakt", href: "/support", icon: EnvelopeIcon },
     ];

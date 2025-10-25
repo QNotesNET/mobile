@@ -7,6 +7,7 @@ import {
   ArrowRightOnRectangleIcon,
   Cog6ToothIcon,
   EnvelopeIcon,
+  UsersIcon,
 } from "@heroicons/react/24/outline";
 import { BoltIcon, Calendar, Check, HomeIcon } from "lucide-react";
 import Link from "next/link";
@@ -44,6 +45,7 @@ function ProfileClientPage({
     { href: "/", key: "dashboard", icon: HomeIcon, label: "Dashboard" },
     { href: "/todos", key: "todos", icon: Check, label: "Aufgaben" },
     { href: "/calendar", key: "calendar", icon: Calendar, label: "Kalendar" },
+    { href: "/contacts", key: "contacts", icon: UsersIcon, label: "Kontakte" },
   ];
 
   const linksMiddle = [
