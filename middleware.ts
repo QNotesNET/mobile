@@ -3,11 +3,11 @@ import { NextResponse, NextRequest } from "next/server";
 
 // Statisch öffentlich (Assets etc.)
 const STATIC_PREFIXES = [
-  "/_next",         // _next/static & _next/image
+  "/_next", // _next/static & _next/image
   "/favicon.ico",
   "/apple-icon.png",
   "/icon.png",
-  "/images",        // public/images/*
+  "/images", // public/images/*
 ];
 
 // Public: immer erlauben (auch wenn eingeloggt)
@@ -33,10 +33,10 @@ const AUTH_PAGES = [
 
 // Weitere öffentliche Routen (z.B. QR-Resolver, Shortlinks)
 const OTHER_PUBLIC = [
-  "/s",                  // /s/<token>
-  "/api/pages/resolve",  // token resolver API
-    "/api/integrations"
-
+  "/s", // /s/<token>
+  "/api/pages/resolve", // token resolver API
+  "/api/integrations",
+  "/contact"
 ];
 
 function startsWithAny(pathname: string, prefixes: string[]) {
@@ -82,5 +82,7 @@ export function middleware(req: NextRequest) {
 
 export const config = {
   // Alles matchen außer klar statischen Pfaden
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|apple-icon.png|icon.png|images/).*)"],
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|apple-icon.png|icon.png|images/).*)",
+  ],
 };
