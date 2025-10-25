@@ -29,14 +29,10 @@ export async function GET(req: Request) {
     .filter(Boolean)
     .join("\n");
 
-  const res = new NextResponse(lines, {
-    status: 200,
+  // ❗ Kein Attachment-Header → nur Textanzeige
+  return new NextResponse(lines, {
     headers: {
       "Content-Type": "text/vcard; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${
-        contact.firstName || "contact"
-      }_${contact.lastName || ""}.vcf"`,
     },
   });
-  return res;
 }

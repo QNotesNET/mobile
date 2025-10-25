@@ -132,9 +132,8 @@ export default function ContactsPage() {
     }
   }
 
-  // --- vCard Download via API (funktioniert in WebView) ---
   function downloadVCard(contactId: string) {
-    window.location.href = `/api/contact-vcard?id=${contactId}`;
+    window.open(`/api/contact-vcard?id=${contactId}`, "_self");
   }
 
   if (loading) return <p className="text-gray-500">Lade Kontakte…</p>;
@@ -142,7 +141,7 @@ export default function ContactsPage() {
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-semibold">Kontakte2</h1>
+        <h1 className="text-2xl font-semibold">Kontakte3</h1>
         <Button onClick={() => openModal()} className="bg-black text-white">
           <UserPlus className="h-4 w-4 mr-2" /> Kontakt erstellen
         </Button>
