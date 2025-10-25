@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,7 @@ import {
   Edit2,
   Download,
   UserPlus,
+  ClipboardCopy,
 } from "lucide-react";
 import {
   Dialog,
@@ -30,6 +31,8 @@ export default function ContactsPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editContact, setEditContact] = useState<any | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareVCard, setShareVCard] = useState("");
 
   const [form, setForm] = useState({
     firstName: "",
@@ -132,8 +135,35 @@ export default function ContactsPage() {
     }
   }
 
-  function downloadVCard(contactId: string) {
-    window.open(`/api/contact-vcard?id=${contactId}`, "_self");
+  // --- vCard-Text erzeugen (Option B) ---
+  function showVCard(contact: any) {
+    const vcard = [
+      "BEGIN:VCARD",
+      "VERSION:3.0",
+      `FN:${contact.firstName || ""} ${contact.lastName || ""}`,
+      contact.phone ? `TEL;TYPE=CELL:${contact.phone}` : "",
+      contact.email ? `EMAIL:${contact.email}` : "",
+      contact.company ? `ORG:${contact.company}` : "",
+      contact.position ? `TITLE:${contact.position}` : "",
+      contact.street || contact.city || contact.country
+        ? `ADR;TYPE=home:;;${contact.street || ""};${contact.city || ""};;${
+            contact.postalCode || ""
+          };${contact.country || ""}`
+        : "",
+      "END:VCARD",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    setShareVCard(vcard);
+    setShareOpen(true);
+  }
+
+  function copyToClipboard() {
+    navigator.clipboard
+      .writeText(shareVCard)
+      .then(() => alert("vCard kopiert!"))
+      .catch(() => alert("Kopieren fehlgeschlagen"));
   }
 
   if (loading) return <p className="text-gray-500">Lade Kontakte…</p>;
@@ -141,7 +171,7 @@ export default function ContactsPage() {
   return (
     <div className="p-4">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-semibold">Kontakte3</h1>
+        <h1 className="text-2xl font-semibold">Kontakte</h1>
         <Button onClick={() => openModal()} className="bg-black text-white">
           <UserPlus className="h-4 w-4 mr-2" /> Kontakt erstellen
         </Button>
@@ -153,10 +183,9 @@ export default function ContactsPage() {
             key={c._id}
             className="overflow-hidden relative pb-4 border rounded-xl shadow-sm"
           >
-            {/* Schwarzer Balken ganz oben */}
+            {/* Schwarzer Balken */}
             <div className="bg-black w-full h-20 rounded-t-xl" />
-
-            {/* Profilbild – halb überlappend */}
+            {/* Avatar halb überlappend */}
             <div className="absolute left-1/2 top-10 -translate-x-1/2">
               <img
                 src="/images/avatar-fallback.png"
@@ -165,7 +194,6 @@ export default function ContactsPage() {
               />
             </div>
 
-            {/* Inhalt */}
             <CardContent className="pt-12 text-center text-gray-700">
               <CardTitle className="text-lg mb-1 font-semibold">
                 {c.firstName} {c.lastName}
@@ -198,7 +226,6 @@ export default function ContactsPage() {
                 )}
               </div>
 
-              {/* Buttons */}
               <div className="flex justify-center gap-3 mt-4 flex-wrap">
                 <Button
                   variant="outline"
@@ -220,7 +247,7 @@ export default function ContactsPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => downloadVCard(c._id)}
+                  onClick={() => showVCard(c)}
                   className="text-blue-600 hover:text-blue-800"
                 >
                   <Download className="h-4 w-4 mr-1" /> In Kontakte speichern
@@ -231,7 +258,7 @@ export default function ContactsPage() {
         ))}
       </div>
 
-      {/* Modal */}
+      {/* Modal Kontakt erstellen/bearbeiten */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -335,6 +362,31 @@ export default function ContactsPage() {
               className="bg-black text-white w-full mt-4"
             >
               Speichern
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* vCard Share Modal */}
+      <Dialog open={shareOpen} onOpenChange={setShareOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>vCard teilen oder kopieren</DialogTitle>
+            <DialogDescription>
+              Kopiere die folgende vCard in deine Kontakte-App oder teile sie
+              direkt.
+            </DialogDescription>
+          </DialogHeader>
+          <pre className="bg-gray-100 text-gray-800 text-sm rounded-md p-3 whitespace-pre-wrap overflow-x-auto max-h-60">
+            {shareVCard}
+          </pre>
+          <DialogFooter>
+            <Button
+              onClick={copyToClipboard}
+              className="bg-black text-white w-full"
+            >
+              <ClipboardCopy className="h-4 w-4 mr-2" /> In Zwischenablage
+              kopieren
             </Button>
           </DialogFooter>
         </DialogContent>
