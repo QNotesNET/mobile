@@ -25,6 +25,7 @@ import {
   SelectItem,
 } from "@/components/ui/select";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 type SettingsState = {
   vision: { model: string; resolution: string; prompt: string };
@@ -444,7 +445,7 @@ function UsersSection() {
       setEditTarget(null);
       await loadUsers();
     } catch {
-      alert("Speichern fehlgeschlagen.");
+      toast.error("Speichern fehlgeschlagen.");
     } finally {
       setSaving(false);
     }
@@ -466,7 +467,7 @@ function UsersSection() {
       setDelTarget(null);
       await loadUsers();
     } catch {
-      alert("Löschen fehlgeschlagen.");
+      toast.error("Löschen fehlgeschlagen.");
     } finally {
       setDeleting(false);
     }
@@ -661,7 +662,7 @@ function UsersSection() {
                                         active && "bg-gray-50"
                                       )}
                                       onClick={() =>
-                                        alert("Reset-E-Mail gesendet (Demo).")
+                                        toast.success("Reset-E-Mail gesendet (Demo).")
                                       }
                                     >
                                       <EnvelopeOpenIcon className="h-4 w-4" />{" "}
@@ -781,7 +782,7 @@ function UsersSection() {
                                     active && "bg-gray-50"
                                   )}
                                   onClick={() =>
-                                    alert("Reset-E-Mail gesendet (Demo).")
+                                    toast.success("Reset-E-Mail gesendet (Demo).")
                                   }
                                 >
                                   <EnvelopeOpenIcon className="h-4 w-4" />{" "}
@@ -1058,7 +1059,7 @@ function BooksSection() {
       setRenameTarget(null);
       await loadBooks();
     } catch {
-      alert("Umbenennen fehlgeschlagen.");
+      toast.error("Umbenennen fehlgeschlagen.");
     } finally {
       setRenaming(false);
     }
@@ -1098,7 +1099,7 @@ function BooksSection() {
       setDelTarget(null);
       await loadBooks();
     } catch {
-      alert("Löschen fehlgeschlagen.");
+      toast.error("Löschen fehlgeschlagen.");
     } finally {
       setDeleting(false);
     }

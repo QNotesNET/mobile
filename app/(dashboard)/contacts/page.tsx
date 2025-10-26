@@ -26,6 +26,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { toast } from "sonner";
 
 export default function ContactsPage() {
   const [contacts, setContacts] = useState<any[]>([]);
@@ -156,7 +157,7 @@ export default function ContactsPage() {
       );
       setOpen(false);
     } else {
-      alert("Fehler beim Speichern");
+      toast.error("Fehler beim Speichern")
     }
   }
 
@@ -194,10 +195,10 @@ export default function ContactsPage() {
       body: JSON.stringify(profileForm),
     });
     if (res.ok) {
-      alert("Profil gespeichert!");
+      toast.success("Profil gespeichert!");
       setProfileOpen(false);
     } else {
-      alert("Fehler beim Speichern.");
+      toast.error("Fehler beim Speichern");
     }
   }
 
@@ -235,8 +236,8 @@ export default function ContactsPage() {
   function copyToClipboard() {
     navigator.clipboard
       .writeText(shareVCard)
-      .then(() => alert("vCard kopiert!"))
-      .catch(() => alert("Fehler beim Kopieren"));
+      .then(() => toast.success("vCard kopiert!"))
+      .catch(() => toast.error("Fehler beim kopieren"))
   }
 
   if (loading) return <p className="text-gray-500">Lade Kontakte…</p>;
@@ -272,8 +273,8 @@ export default function ContactsPage() {
               onClick={() => {
                 navigator.clipboard
                   .writeText(myContactUrl)
-                  .then(() => alert("Kontakt-URL kopiert"))
-                  .catch(() => alert("Fehler beim Kopieren"));
+                  .then(() => toast.success("Kontakt-URL kopiert"))
+                  .catch(() => toast.error("Fehler beim Kopieren"));
               }}
             >
               <ClipboardCopy className="h-4 w-4 text-gray-700" />
@@ -647,10 +648,10 @@ export default function ContactsPage() {
                   body: JSON.stringify(payload),
                 });
                 if (res.ok) {
-                  alert("Profil gespeichert!");
+                  toast.success("Profil gespeichert!");
                   setProfileOpen(false);
                 } else {
-                  alert("Fehler beim Speichern.");
+                  toast.error("Fehler beim Speichern.");
                 }
               }}
               className="bg-black text-white w-full mt-4"

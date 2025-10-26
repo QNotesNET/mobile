@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 
 export default function NotebookPagesActions({ notebookId }: { notebookId: string }) {
   const r = useRouter();
@@ -21,9 +22,9 @@ export default function NotebookPagesActions({ notebookId }: { notebookId: strin
       });
       if (!res.ok) throw new Error("Batch failed");
       r.refresh();
-      alert("Seiten erzeugt. Scannen über /s/<token> möglich.");
+      toast.success("Seiten erzeugt. Scannen über /s/<token> möglich.");
     } catch {
-      alert("Erzeugen fehlgeschlagen");
+      toast.error("Erzeugen fehlgeschlagen");
     } finally {
       setBusy(false);
     }

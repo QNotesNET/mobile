@@ -3,6 +3,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 export default function Page() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -120,7 +121,7 @@ export default function Page() {
   async function submit() {
     if (!photoBlob) return;
     if (!notebookId) {
-      alert("Fehlende notebookId. Bitte die Seite mit ?notebookId=... aufrufen.");
+      toast.error("Fehlende notebookId. Bitte die Seite mit ?notebookId=... aufrufen.");
       return;
     }
 
@@ -134,7 +135,7 @@ export default function Page() {
 
       r.push(`/s/${pageToken}`);
     } catch (e: any) {
-      alert(e?.message || "Fehler beim Absenden.");
+      toast.error(e?.message || "Fehler beim Absenden.");
     } finally {
       setIsSubmitting(false);
     }

@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { Calendar, CheckSquare, MessageSquare } from "lucide-react";
+import { toast } from "sonner";
 
 type ItemType = "CAL" | "WA" | "TODO";
 type ItemStatus = "pending" | "accepted" | "rejected" | "editing";
@@ -382,7 +383,7 @@ export default function UploadForm({
     const form = e.currentTarget;
     const input = form.elements.namedItem("file") as HTMLInputElement | null;
     let file = input?.files?.[0];
-    if (!file) return alert("Bitte eine Datei auswählen.");
+    if (!file) return toast.error("Bitte eine Datei auswählen.");
 
     // Mobile-Fotos sind riesig -> verkleinern
     if (
@@ -443,7 +444,7 @@ export default function UploadForm({
       r.refresh();
     } catch (e) {
       console.error(e);
-      alert((e as string) || "Upload fehlgeschlagen");
+      toast.error((e as string) || "Upload fehlgeschlagen");
     } finally {
       setBusy(false);
       (e.currentTarget as HTMLFormElement).reset();
@@ -544,7 +545,7 @@ export default function UploadForm({
       setSubmitted(true);
     } catch (e) {
       console.error("pages_context save failed", e);
-      alert((e as string) || "Speichern fehlgeschlagen");
+      toast.error((e as string) || "Speichern fehlgeschlagen");
       setSubmitting(false);
     }
   }

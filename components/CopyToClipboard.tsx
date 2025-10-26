@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 
 export default function CopyToClipboard({
   text,
@@ -21,8 +22,7 @@ export default function CopyToClipboard({
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // optional: fallback toast/alert
-      alert("Kopieren nicht möglich");
+      toast.error("Kopieren nicht möglich");
     }
   }
 
