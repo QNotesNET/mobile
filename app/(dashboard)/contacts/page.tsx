@@ -502,7 +502,7 @@ export default function ContactsPage() {
 
       {/* MODAL: Profil */}
       <Dialog open={profileOpen} onOpenChange={setProfileOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Mein Kontaktprofil</DialogTitle>
             <DialogDescription>
