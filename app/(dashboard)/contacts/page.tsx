@@ -93,7 +93,7 @@ export default function ContactsPage() {
 
   const myContactUrl = user?.id
     ? `${
-        "https://powerbook.at"
+        "https://my.powerbook.at"
       }/contact/${user.id}`
     : "—";
 
