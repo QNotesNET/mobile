@@ -8,8 +8,6 @@ export interface UserDoc {
   firstName?: string;
   lastName?: string;
   role?: string;
-
-  // NEU:
   avatarUrl?: string;
 
   nexoroUser?: string;
@@ -17,6 +15,9 @@ export interface UserDoc {
 
   resetToken?: string | null;
   resetTokenExpiresAt?: Date | null;
+
+  // 📱 NEU: Expo Push Token
+  expoPushToken?: string | null;
 
   createdAt?: Date;
   updatedAt?: Date;
@@ -29,8 +30,6 @@ const UserSchema = new Schema<UserDoc>(
     firstName: String,
     lastName: String,
     role: String,
-
-    // NEU:
     avatarUrl: { type: String, default: "" },
 
     nexoroUser: { type: String, default: "" },
@@ -38,6 +37,9 @@ const UserSchema = new Schema<UserDoc>(
 
     resetToken: { type: String, index: true, default: null },
     resetTokenExpiresAt: { type: Date, default: null },
+
+    // 📱 NEU:
+    expoPushToken: { type: String, default: null },
   },
   { timestamps: true }
 );
