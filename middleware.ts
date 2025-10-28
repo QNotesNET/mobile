@@ -37,7 +37,8 @@ const OTHER_PUBLIC = [
   "/api/pages/resolve", // token resolver API
   "/api/integrations",
   "/contact",
-  "/api/contact"
+  "/api/contact",
+  "/api/push"
 ];
 
 function startsWithAny(pathname: string, prefixes: string[]) {
