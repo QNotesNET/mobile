@@ -171,17 +171,28 @@ export default function NotebookDetailClient({
           >
             Textdarstellung
           </button>
+      <button
+        onClick={() => setView("digital")}
+        className={`px-3 py-1.5 rounded-xl border ${
+          view === "digital"
+            ? "bg-gray-900 text-white"
+            : "bg-white hover:bg-gray-50"
+        }`}
+      >
+        Bildansicht
+      </button>
         </div>
-
-        {view !== "text" && (
-          <Input
-            className="max-w-[8rem]"
-            placeholder="Seite suchen"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        )}
       </div>
+
+
+      {view !== "text" && view !== "digital" && (
+        <Input
+          className="w-full mb-3"
+          placeholder="Seite suchen"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      )}
 
       {view === "list" ? (
         <div className="overflow-hidden rounded-2xl border bg-white">
